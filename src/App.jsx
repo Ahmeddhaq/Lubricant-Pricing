@@ -239,146 +239,166 @@ export default function PricingApp() {
   };
 
   return (
-    <div className="min-h-screen bg-white">
-      {/* Navigation */}
-      <nav className="border-b border-gray-200 bg-white sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-blue-600 rounded flex items-center justify-center">
-              <span className="text-white font-bold text-sm">P</span>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100">
+      {/* Header */}
+      <div className="sticky top-0 z-50 bg-white/80 backdrop-blur-sm border-b border-slate-200">
+        <div className="max-w-6xl mx-auto px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+                <span className="text-white font-bold text-lg">P</span>
+              </div>
+              <div>
+                <h1 className="font-bold text-gray-900 text-lg">Pricing Pro</h1>
+                <p className="text-xs text-gray-500">Dashboard</p>
+              </div>
             </div>
-            <span className="text-gray-900 font-semibold">Pricing</span>
+            {uploadedFile && (
+              <div className="text-right">
+                <p className="text-sm font-medium text-gray-900">{uploadedFile.file_name}</p>
+                <p className="text-xs text-gray-500">{columns.length} columns</p>
+              </div>
+            )}
           </div>
-          <span className="text-gray-500 text-sm">Dashboard</span>
         </div>
-      </nav>
+      </div>
 
-      {/* Main Content */}
-      <div className="py-12 px-6">
-        <div className="max-w-4xl mx-auto">
-          {/* Header */}
-          <div className="mb-12">
-            <h1 className="text-4xl font-bold text-gray-900 mb-3">Pricing Dashboard</h1>
-            <p className="text-gray-600">Upload your spreadsheet and generate professional quotes instantly</p>
-          </div>
-
-          {/* Upload Section */}
-          {!uploadedFile && (
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-12 text-center bg-gray-50 hover:bg-gray-100 transition mb-12">
-              <input
-                type="file"
-                accept=".xlsx,.xls"
-                onChange={handleFileUpload}
-                id="file-upload"
-                disabled={loading}
-                className="sr-only"
-              />
-              <label htmlFor="file-upload" className="cursor-pointer block">
-                <div className="mb-4">
-                  <svg className="w-12 h-12 mx-auto text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3v-6" />
-                  </svg>
-                </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-1">Upload Excel File</h3>
-                <p className="text-gray-600 text-sm mb-4">Drag and drop or click to select .xlsx or .xls file</p>
-                <button
-                  type="button"
-                  disabled={loading}
-                  className="inline-block px-6 py-2 bg-blue-600 text-white rounded font-medium hover:bg-blue-700 transition disabled:opacity-50"
-                >
-                  {loading ? "Uploading..." : "Select File"}
-                </button>
-              </label>
-            </div>
-          )}
-
-          {/* Dashboard Section */}
-          {uploadedFile && (
+      <main className="py-16 px-6">
+        <div className="max-w-5xl mx-auto">
+          {!uploadedFile ? (
             <>
-              {/* File Info */}
-              <div className="bg-white border border-gray-200 rounded-lg p-6 mb-8">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <h2 className="text-xl font-semibold text-gray-900">{uploadedFile.file_name}</h2>
-                    <p className="text-gray-600 text-sm mt-1">{columns.length} columns detected</p>
+              {/* Hero */}
+              <div className="text-center mb-16">
+                <h2 className="text-5xl font-bold text-gray-900 mb-4">Upload & Calculate</h2>
+                <p className="text-xl text-gray-600">Drop your Excel file and generate professional quotes in seconds</p>
+              </div>
+
+              {/* Upload Box */}
+              <div className="max-w-2xl mx-auto">
+                <div className="bg-white rounded-2xl border-2 border-dashed border-blue-300 p-16 text-center shadow-sm hover:shadow-lg hover:border-blue-400 transition-all">
+                  <input
+                    type="file"
+                    accept=".xlsx,.xls"
+                    onChange={handleFileUpload}
+                    id="file-upload"
+                    disabled={loading}
+                    className="absolute opacity-0 w-0 h-0"
+                  />
+                  
+                  <div className="mb-6">
+                    <svg className="w-20 h-20 mx-auto text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3v-6" />
+                    </svg>
                   </div>
+
+                  <h3 className="text-2xl font-bold text-gray-900 mb-2">Select Your File</h3>
+                  <p className="text-gray-600 mb-8">Supports .xlsx and .xls formats</p>
+
                   <button
-                    onClick={() => {
-                      setUploadedFile(null);
-                      setColumns([]);
-                      setFileData([]);
-                      setInputValues({});
-                    }}
-                    className="px-4 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition text-sm font-medium"
+                    onClick={() => document.getElementById("file-upload").click()}
+                    disabled={loading}
+                    type="button"
+                    className="px-8 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-all shadow-md hover:shadow-lg disabled:opacity-50 cursor-pointer"
                   >
-                    Upload Different
+                    {loading ? (
+                      <span className="flex items-center gap-2">
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        Uploading...
+                      </span>
+                    ) : (
+                      "Choose File"
+                    )}
                   </button>
                 </div>
               </div>
+            </>
+          ) : (
+            <>
+              {/* Upload Info Bar */}
+              <div className="bg-white rounded-xl p-4 mb-8 flex justify-between items-center border border-slate-200 shadow-sm">
+                <div>
+                  <p className="text-sm text-gray-600">Loaded file</p>
+                  <p className="font-semibold text-gray-900">{uploadedFile.file_name}</p>
+                </div>
+                <button
+                  onClick={() => {
+                    setUploadedFile(null);
+                    setColumns([]);
+                    setFileData([]);
+                    setInputValues({});
+                  }}
+                  className="px-4 py-2 bg-slate-100 text-gray-700 rounded-lg hover:bg-slate-200 transition text-sm font-medium"
+                >
+                  Change
+                </button>
+              </div>
 
-              {/* Input Fields */}
-              <div className="mb-8">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Parameters</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {/* Inputs Grid */}
+              <div className="mb-12">
+                <h3 className="text-2xl font-bold text-gray-900 mb-6">Parameters</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                   {columns
                     .filter(col => col.type === "number")
                     .map(col => (
-                      <div key={col.name} className="bg-white border border-gray-200 rounded-lg p-4">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <div key={col.name} className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm hover:shadow-md transition-all">
+                        <label className="block text-sm font-semibold text-gray-900 mb-3">
                           {col.name}
                         </label>
                         <input
                           type="number"
                           value={inputValues[col.name] || ""}
                           onChange={(e) => handleInputChange(col.name, e.target.value)}
-                          className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          placeholder="0"
+                          className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 placeholder-gray-400"
+                          placeholder="Enter value"
                         />
                       </div>
                     ))}
                 </div>
               </div>
 
-              {/* Results */}
-              <div className="mb-8">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Results</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {/* Results Grid */}
+              <div className="mb-12">
+                <h3 className="text-2xl font-bold text-gray-900 mb-6">Results</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                   {Object.entries(calculations).map(([key, calc]) => (
-                    <div key={key} className="bg-white border border-gray-200 rounded-lg p-6">
-                      <p className="text-gray-600 text-sm font-medium mb-2">{key}</p>
-                      <p className="text-3xl font-bold text-gray-900">
+                    <div key={key} className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm hover:shadow-md transition-all">
+                      <p className="text-sm text-gray-600 mb-2">{key}</p>
+                      <p className="text-3xl font-bold text-blue-600 mb-2">
                         {typeof calc.value === "number" ? calc.value.toFixed(2) : calc.value}
                       </p>
                       {calc.type === "calculated" && (
-                        <p className="text-xs text-gray-500 mt-2">Calculated</p>
+                        <span className="inline-block text-xs bg-blue-100 text-blue-700 px-2.5 py-1 rounded font-medium">
+                          Calculated
+                        </span>
                       )}
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* Button */}
+              {/* CTA Button */}
               <button
                 onClick={generatePDF}
-                className="w-full px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition mb-8"
+                className="w-full py-4 bg-blue-600 text-white font-bold text-lg rounded-xl hover:bg-blue-700 transition-all shadow-lg hover:shadow-xl mb-12"
               >
-                Download PDF Quote
+                ↓ Download PDF Quote
               </button>
 
-              {/* History */}
+              {/* Quote History */}
               {savedQuotes.length > 0 && (
-                <div className="bg-white border border-gray-200 rounded-lg p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Quote History</h3>
-                  <div className="space-y-2">
-                    {savedQuotes.map(quote => (
+                <div className="bg-white rounded-xl border border-slate-200 p-8 shadow-sm">
+                  <h3 className="text-xl font-bold text-gray-900 mb-6">Recent Quotes</h3>
+                  <div className="space-y-3">
+                    {savedQuotes.slice(0, 5).map((quote, i) => (
                       <div
                         key={quote.id}
-                        className="flex justify-between items-center p-3 bg-gray-50 rounded border border-gray-200"
+                        className="flex items-center justify-between p-4 bg-slate-50 rounded-lg hover:bg-slate-100 transition"
                       >
-                        <span className="text-gray-700 text-sm">
-                          {new Date(quote.created_at).toLocaleString()}
-                        </span>
-                        <span className="text-gray-500 text-xs">{quote.quote_name}</span>
+                        <div>
+                          <p className="font-medium text-gray-900">Quote #{savedQuotes.length - i}</p>
+                          <p className="text-sm text-gray-500">{new Date(quote.created_at).toLocaleString()}</p>
+                        </div>
+                        <span className="text-xs font-mono text-gray-400">{quote.quote_name}</span>
                       </div>
                     ))}
                   </div>
@@ -387,7 +407,7 @@ export default function PricingApp() {
             </>
           )}
         </div>
-      </div>
+      </main>
     </div>
   );
 }
