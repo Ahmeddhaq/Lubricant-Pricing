@@ -96,53 +96,140 @@ export default function PricingApp() {
   const generatePDF = () => {
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
-    const margin = 10;
+    const margin = 15;
     let yPos = margin;
 
-    // Title
-    doc.setFontSize(18);
-    doc.text("QUOTATION REPORT", pageWidth / 2, yPos, { align: "center" });
-    yPos += 12;
-
-    // Date
-    doc.setFontSize(10);
-    doc.text(`Date: ${new Date().toLocaleDateString()}`, margin, yPos);
+    // Header
+    doc.setFontSize(20);
+    doc.setTextColor(0, 51, 102);
+    doc.text("LUBRICANT QUOTATION", pageWidth / 2, yPos, { align: "center" });
     yPos += 10;
 
-    // File Info
-    if (uploadedFile) {
-      doc.setFontSize(12);
-      doc.text("File Information", margin, yPos);
-      yPos += 7;
-      doc.setFontSize(10);
-      doc.text(`Source: ${uploadedFile.file_name}`, margin + 5, yPos);
-      yPos += 12;
-    }
-
-    // Input Values
-    doc.setFontSize(12);
-    doc.text("Input Parameters", margin, yPos);
-    yPos += 7;
-
     doc.setFontSize(10);
-    Object.entries(inputValues).forEach(([key, value]) => {
-      doc.text(`${key}: ${value}`, margin + 5, yPos);
-      yPos += 5;
-    });
+    doc.setTextColor(100, 100, 100);
+    doc.text(`Quote No: LUB-${Date.now()}`, margin, yPos);
+    yPos += 5;
+    doc.text(`Date: ${new Date().toLocaleDateString()}`, margin, yPos);
+    yPos += 8;
 
+    // Company Info
+    doc.setFontSize(11);
+    doc.setTextColor(0, 0, 0);
+    doc.text("COMPANY DETAILS", margin, yPos);
+    yPos += 5;
+    doc.setFontSize(10);
+    doc.text("GulfStar Lubricants LLC", margin + 2, yPos);
+    yPos += 4;
+    doc.text("Email: sales@gulfstar-lube.com", margin + 2, yPos);
+    yPos += 8;
+
+    // File Info Section
+    doc.setFontSize(11);
+    doc.setTextColor(0, 0, 0);
+    doc.text("PRODUCT DETAILS", margin, yPos);
+    yPos += 6;
+
+    doc.setFontSize(9);
+    doc.setTextColor(50, 50, 50);
+    doc.text("File: " + uploadedFile.file_name, margin + 2, yPos);
+    yPos += 4;
+    doc.text("Columns: " + columns.length, margin + 2, yPos);
+    yPos += 8;
+
+    // Input Values Table
+    doc.setFontSize(10);
+    doc.setTextColor(0, 0, 0);
+    doc.text("INPUT PARAMETERS", margin, yPos);
     yPos += 5;
 
-    // Calculations
-    doc.setFontSize(12);
-    doc.text("Calculated Results", margin, yPos);
-    yPos += 7;
-
-    doc.setFontSize(10);
-    Object.entries(calculations).forEach(([key, calc]) => {
-      const type = calc.type === "calculated" ? " (Calculated)" : "";
-      doc.text(`${key}: ${calc.value.toFixed(2)}${type}`, margin + 5, yPos);
-      yPos += 5;
+    doc.setFontSize(9);
+    let inputCount = 0;
+    Object.entries(inputValues).forEach(([key, value]) => {
+      if (inputCount % 2 === 0 && inputCount > 0) {
+        yPos += 4;
+      }
+      const xPos = inputCount % 2 === 0 ? margin + 2 : pageWidth / 2;
+      doc.text(`${key}: ${value}`, xPos, yPos);
+      inputCount++;
     });
+    yPos += 10;
+
+    // Results Section
+    doc.setFontSize(10);
+    doc.setTextColor(0, 0, 0);
+    doc.text("CALCULATIONS & RESULTS", margin, yPos);
+    yPos += 5;
+
+    doc.setFontSize(9);
+    const calcEntries = Object.entries(calculations);
+    const resultColumns = 3;
+    let resultIdx = 0;
+
+    calcEntries.forEach(([key, calc], idx) => {
+      const col = idx % resultColumns;
+      const xPos = margin + 2 + (col * 60);
+
+      if (col === 0 && idx > 0) {
+        yPos += 15;
+      }
+
+      // Box styling
+      doc.setDrawColor(200, 200, 200);
+      doc.rect(xPos - 1, yPos - 8, 55, 12);
+
+      doc.setFontSize(8);
+      doc.setTextColor(100, 100, 100);
+      doc.text(key, xPos, yPos - 5);
+
+      doc.setFontSize(10);
+      doc.setTextColor(0, 51, 102);
+      doc.setFont(undefined, "bold");
+      const displayValue = typeof calc.value === "number" ? calc.value.toFixed(2) : calc.value;
+      doc.text(displayValue, xPos, yPos + 2);
+
+      doc.setFont(undefined, "normal");
+      doc.setFontSize(7);
+      doc.setTextColor(150, 150, 150);
+      if (calc.type === "calculated") {
+        doc.text("(Calculated)", xPos, yPos + 6);
+      }
+    });
+
+    yPos += 20;
+
+    // Summary Section
+    doc.setFontSize(10);
+    doc.setTextColor(0, 0, 0);
+    doc.text("SUMMARY", margin, yPos);
+    yPos += 5;
+
+    doc.setDrawColor(0, 51, 102);
+    doc.setLineWidth(0.5);
+    doc.line(margin, yPos, pageWidth - margin, yPos);
+    yPos += 5;
+
+    doc.setFontSize(9);
+    doc.setTextColor(50, 50, 50);
+    doc.text("Total Inputs:", margin + 2, yPos);
+    doc.text(Object.keys(inputValues).length.toString(), pageWidth - margin - 10, yPos, { align: "right" });
+    yPos += 4;
+
+    doc.text("Total Calculations:", margin + 2, yPos);
+    doc.text(Object.keys(calculations).length.toString(), pageWidth - margin - 10, yPos, { align: "right" });
+    yPos += 8;
+
+    // Footer
+    doc.setDrawColor(150, 150, 150);
+    doc.line(margin, yPos, pageWidth - margin, yPos);
+    yPos += 5;
+
+    doc.setFontSize(8);
+    doc.setTextColor(150, 150, 150);
+    doc.text("This quotation is valid for 7 days from the date above.", margin, yPos);
+    yPos += 3;
+    doc.text("Payment Terms: 30% Advance, 70% Against BL", margin, yPos);
+    yPos += 3;
+    doc.text("For more details, please contact our sales team.", margin, yPos);
 
     doc.save(`quotation_${Date.now()}.pdf`);
   };
