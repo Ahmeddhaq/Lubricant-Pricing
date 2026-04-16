@@ -239,36 +239,82 @@ export default function PricingApp() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 py-16 px-4">
-      <div className="max-w-6xl mx-auto">
-        {/* Header */}
-        <div className="mb-12 text-center">
-          <h1 className="text-5xl font-bold text-white mb-2">Pricing Dashboard</h1>
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900">
+      {/* Navigation Bar */}
+      <div className="border-b border-slate-800 bg-slate-950/50 backdrop-blur-xl sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
+              <span className="text-white font-bold text-lg">P</span>
+            </div>
+            <span className="text-white font-bold text-xl">Pricing</span>
+          </div>
+          <div className="text-slate-400 text-sm">Production Ready</div>
         </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="py-20 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto">
+          {/* Header Section */}
+          <div className="mb-16 text-center">
+            <h1 className="text-6xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-blue-300 to-cyan-300 mb-4">
+              Pricing Dashboard
+            </h1>
+            <p className="text-xl text-slate-300 max-w-2xl mx-auto">
+              Upload your data, auto-generate insights, and create professional quotes
+            </p>
+          </div>
 
         {/* Upload Section */}
         {!uploadedFile && (
-          <div className="bg-white rounded-lg shadow-lg p-12 mb-8 border border-blue-200">
-            <div className="text-center">
-              <h2 className="text-3xl font-bold text-gray-900 mb-4">Upload Excel File</h2>
-              <p className="text-gray-600 mb-8 text-lg">Supports .xlsx and .xls files</p>
-              <input
-                type="file"
-                accept=".xlsx,.xls"
-                onChange={handleFileUpload}
-                className="hidden"
-                id="file-upload"
-                disabled={loading}
-              />
-              <label htmlFor="file-upload">
-                <button
-                  onClick={() => document.getElementById("file-upload").click()}
-                  disabled={loading}
-                  className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-10 py-4 rounded-lg hover:from-blue-700 hover:to-blue-800 transition cursor-pointer font-semibold text-lg shadow-lg"
-                >
-                  {loading ? "Uploading..." : "Select File"}
-                </button>
-              </label>
+          <div className="max-w-2xl mx-auto mb-12">
+            <div className="relative">
+              <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-2xl blur-xl opacity-30"></div>
+              <div className="relative bg-slate-900 rounded-2xl border border-slate-700 p-16 shadow-2xl">
+                <div className="text-center">
+                  <div className="inline-block p-4 bg-gradient-to-br from-blue-500/20 to-cyan-500/20 rounded-lg mb-6 border border-blue-500/30">
+                    <svg className="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3v-6" />
+                    </svg>
+                  </div>
+                  <h2 className="text-3xl font-bold text-white mb-2">Upload Excel File</h2>
+                  <p className="text-slate-400 mb-10">Drag and drop or select .xlsx and .xls files</p>
+                  
+                  <input
+                    type="file"
+                    accept=".xlsx,.xls"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                    id="file-upload"
+                    disabled={loading}
+                  />
+                  <label htmlFor="file-upload">
+                    <button
+                      onClick={() => document.getElementById("file-upload").click()}
+                      disabled={loading}
+                      className="relative inline-block px-8 py-4 font-semibold text-white rounded-xl transition-all duration-300 cursor-pointer group disabled:opacity-50"
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-xl blur-lg group-hover:blur-xl transition duration-300 opacity-100"></div>
+                      <div className="relative px-8 py-4 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-xl flex items-center gap-2">
+                        {loading ? (
+                          <>
+                            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                            Uploading...
+                          </>
+                        ) : (
+                          <>
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                            </svg>
+                            Select File
+                          </>
+                        )}
+                      </div>
+                    </button>
+                  </label>
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -276,96 +322,137 @@ export default function PricingApp() {
         {/* Dashboard Section */}
         {uploadedFile && (
           <>
-            {/* File Info */}
-            <div className="bg-white rounded-lg shadow-lg p-8 mb-8 border-l-4 border-blue-600">
-              <div className="flex justify-between items-center">
-                <div>
-                  <h2 className="text-2xl font-bold text-gray-900">{uploadedFile.file_name}</h2>
-                  <p className="text-gray-600 mt-2">{columns.length} columns detected</p>
+            {/* File Info Card */}
+            <div className="mb-8">
+              <div className="bg-slate-900 rounded-xl border border-slate-700 p-8 shadow-xl">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                      <p className="text-slate-400 text-sm">Active File</p>
+                    </div>
+                    <h2 className="text-2xl font-bold text-white mb-1">{uploadedFile.file_name}</h2>
+                    <p className="text-slate-400">{columns.length} columns detected</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setUploadedFile(null);
+                      setColumns([]);
+                      setFileData([]);
+                      setInputValues({});
+                    }}
+                    className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition text-sm font-medium border border-slate-600"
+                  >
+                    Change File
+                  </button>
                 </div>
-                <button
-                  onClick={() => {
-                    setUploadedFile(null);
-                    setColumns([]);
-                    setFileData([]);
-                    setInputValues({});
-                  }}
-                  className="bg-gray-200 text-gray-800 px-6 py-2 rounded-lg hover:bg-gray-300 transition font-semibold"
-                >
-                  Upload Different File
-                </button>
               </div>
             </div>
 
-            {/* Input Fields */}
-            <div className="bg-white rounded-lg shadow-lg p-8 mb-8">
-              <h3 className="text-2xl font-bold text-gray-900 mb-8">Input Parameters</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {/* Input Section */}
+            <div className="mb-12">
+              <div className="mb-6">
+                <h3 className="text-2xl font-bold text-white">Input Parameters</h3>
+                <p className="text-slate-400 text-sm mt-1">Modify values to recalculate results</p>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {columns
                   .filter(col => col.type === "number")
                   .map(col => (
-                    <div key={col.name}>
-                      <label className="block text-sm font-semibold text-gray-700 mb-3">
+                    <div
+                      key={col.name}
+                      className="group bg-slate-900 rounded-xl border border-slate-700 p-6 hover:border-blue-500/50 transition-all duration-300 shadow-lg"
+                    >
+                      <label className="block text-sm font-semibold text-slate-300 mb-3 group-hover:text-blue-400 transition">
                         {col.name}
                       </label>
-                      <input
-                        type="number"
-                        value={inputValues[col.name] || ""}
-                        onChange={(e) => handleInputChange(col.name, e.target.value)}
-                        className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50"
-                        placeholder="Enter value"
-                      />
+                      <div className="relative">
+                        <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 to-cyan-600/20 rounded-lg opacity-0 group-hover:opacity-100 transition duration-300 blur"></div>
+                        <input
+                          type="number"
+                          value={inputValues[col.name] || ""}
+                          onChange={(e) => handleInputChange(col.name, e.target.value)}
+                          className="relative w-full bg-slate-800 border border-slate-600 hover:border-blue-500/50 focus:border-blue-500 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
+                          placeholder="0.00"
+                        />
+                      </div>
                     </div>
                   ))}
               </div>
             </div>
 
-            {/* Results */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-              {Object.entries(calculations).map(([key, calc]) => (
-                <div
-                  key={key}
-                  className="bg-white rounded-lg shadow-lg p-8 border-t-4 border-blue-600"
-                >
-                  <p className="text-gray-600 text-sm font-medium mb-3">{key}</p>
-                  <h3 className="text-4xl font-bold text-blue-600">
-                    {typeof calc.value === "number"
-                      ? calc.value.toFixed(2)
-                      : calc.value}
-                  </h3>
-                  {calc.type === "calculated" && (
-                    <p className="text-xs text-gray-500 mt-3">Calculated Value</p>
-                  )}
-                </div>
-              ))}
+            {/* Results Section */}
+            <div className="mb-12">
+              <div className="mb-6">
+                <h3 className="text-2xl font-bold text-white">Results & Metrics</h3>
+                <p className="text-slate-400 text-sm mt-1">Auto-calculated from your inputs</p>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {Object.entries(calculations).map(([key, calc], idx) => (
+                  <div
+                    key={key}
+                    className="relative group"
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 to-cyan-600/20 rounded-xl blur-xl opacity-0 group-hover:opacity-100 transition duration-300"></div>
+                    <div className="relative bg-slate-900 rounded-xl border border-slate-700 p-8 shadow-xl hover:shadow-2xl transition-all duration-300 group-hover:border-blue-500/30">
+                      <div className="flex justify-between items-start mb-4">
+                        <p className="text-slate-400 text-sm font-medium">{key}</p>
+                        {calc.type === "calculated" && (
+                          <span className="px-2.5 py-1 bg-blue-500/20 border border-blue-500/30 rounded text-xs text-blue-300 font-medium">
+                            Auto
+                          </span>
+                        )}
+                      </div>
+                      <h4 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-400">
+                        {typeof calc.value === "number"
+                          ? calc.value.toFixed(2)
+                          : calc.value}
+                      </h4>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
 
-            {/* Actions */}
-            <div className="flex gap-4 mb-8">
+            {/* Action Button */}
+            <div className="mb-12">
               <button
                 onClick={generatePDF}
-                className="flex-1 bg-gradient-to-r from-green-600 to-green-700 text-white px-8 py-4 rounded-lg hover:from-green-700 hover:to-green-800 transition font-semibold text-lg shadow-lg"
+                className="w-full relative group"
               >
-                Download PDF Quote
+                <div className="absolute inset-0 bg-gradient-to-r from-green-600 to-emerald-600 rounded-xl blur-lg group-hover:blur-xl transition duration-300 opacity-100 group-hover:opacity-110"></div>
+                <div className="relative w-full px-8 py-4 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 rounded-xl font-semibold text-white text-lg transition-all duration-300 flex items-center justify-center gap-2 shadow-xl">
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                  Download PDF Quote
+                </div>
               </button>
             </div>
 
             {/* Saved Quotes */}
             {savedQuotes.length > 0 && (
-              <div className="bg-white rounded-lg shadow-lg p-8">
-                <h3 className="text-2xl font-bold text-gray-900 mb-6">
-                  Saved Quotes ({savedQuotes.length})
-                </h3>
+              <div className="bg-slate-900 rounded-xl border border-slate-700 p-8 shadow-xl">
+                <h3 className="text-2xl font-bold text-white mb-2">Quote History</h3>
+                <p className="text-slate-400 text-sm mb-6">Your generated quotes</p>
                 <div className="space-y-3">
-                  {savedQuotes.map(quote => (
+                  {savedQuotes.map((quote, idx) => (
                     <div
                       key={quote.id}
-                      className="flex justify-between items-center p-4 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition"
+                      className="flex justify-between items-center p-4 bg-slate-800/50 rounded-lg border border-slate-700 hover:bg-slate-800 hover:border-blue-500/30 transition-all group"
                     >
-                      <span className="text-gray-700 font-medium">
-                        {new Date(quote.created_at).toLocaleString()}
-                      </span>
-                      <span className="text-sm text-gray-500">{quote.quote_name}</span>
+                      <div className="flex items-center gap-3">
+                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                        <div>
+                          <p className="text-slate-200 font-medium text-sm">
+                            Quote {savedQuotes.length - idx}
+                          </p>
+                          <p className="text-slate-500 text-xs">
+                            {new Date(quote.created_at).toLocaleString()}
+                          </p>
+                        </div>
+                      </div>
+                      <span className="text-slate-400 text-xs font-mono">{quote.quote_name}</span>
                     </div>
                   ))}
                 </div>
