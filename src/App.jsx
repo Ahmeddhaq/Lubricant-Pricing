@@ -239,22 +239,19 @@ export default function PricingApp() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 py-16 px-4">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">Pricing Dashboard</h1>
-          <p className="text-gray-600">Upload Excel files, auto-generate dashboards, and create quotes</p>
-          <p className="text-sm text-gray-400 mt-4">Session: {sessionId.substr(0, 20)}...</p>
+        <div className="mb-12 text-center">
+          <h1 className="text-5xl font-bold text-white mb-2">Pricing Dashboard</h1>
         </div>
 
         {/* Upload Section */}
         {!uploadedFile && (
-          <div className="bg-white rounded-lg shadow p-8 mb-8 border-2 border-dashed border-blue-300">
+          <div className="bg-white rounded-lg shadow-lg p-12 mb-8 border border-blue-200">
             <div className="text-center">
-              <div className="text-5xl mb-4">📊</div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">Upload Excel File</h2>
-              <p className="text-gray-600 mb-6">Supports .xlsx and .xls files</p>
+              <h2 className="text-3xl font-bold text-gray-900 mb-4">Upload Excel File</h2>
+              <p className="text-gray-600 mb-8 text-lg">Supports .xlsx and .xls files</p>
               <input
                 type="file"
                 accept=".xlsx,.xls"
@@ -267,9 +264,9 @@ export default function PricingApp() {
                 <button
                   onClick={() => document.getElementById("file-upload").click()}
                   disabled={loading}
-                  className="bg-blue-600 text-white px-8 py-3 rounded-lg hover:bg-blue-700 transition cursor-pointer font-semibold"
+                  className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-10 py-4 rounded-lg hover:from-blue-700 hover:to-blue-800 transition cursor-pointer font-semibold text-lg shadow-lg"
                 >
-                  {loading ? "Uploading..." : "Choose File"}
+                  {loading ? "Uploading..." : "Select File"}
                 </button>
               </label>
             </div>
@@ -280,11 +277,11 @@ export default function PricingApp() {
         {uploadedFile && (
           <>
             {/* File Info */}
-            <div className="bg-white rounded-lg shadow p-6 mb-8">
+            <div className="bg-white rounded-lg shadow-lg p-8 mb-8 border-l-4 border-blue-600">
               <div className="flex justify-between items-center">
                 <div>
-                  <h2 className="text-xl font-bold text-gray-900">{uploadedFile.file_name}</h2>
-                  <p className="text-sm text-gray-600 mt-1">{columns.length} columns detected</p>
+                  <h2 className="text-2xl font-bold text-gray-900">{uploadedFile.file_name}</h2>
+                  <p className="text-gray-600 mt-2">{columns.length} columns detected</p>
                 </div>
                 <button
                   onClick={() => {
@@ -293,7 +290,7 @@ export default function PricingApp() {
                     setFileData([]);
                     setInputValues({});
                   }}
-                  className="bg-gray-300 text-gray-800 px-4 py-2 rounded hover:bg-gray-400 transition"
+                  className="bg-gray-200 text-gray-800 px-6 py-2 rounded-lg hover:bg-gray-300 transition font-semibold"
                 >
                   Upload Different File
                 </button>
@@ -301,21 +298,21 @@ export default function PricingApp() {
             </div>
 
             {/* Input Fields */}
-            <div className="bg-white rounded-lg shadow p-8 mb-8">
-              <h3 className="text-2xl font-bold text-gray-900 mb-6">Input Parameters</h3>
+            <div className="bg-white rounded-lg shadow-lg p-8 mb-8">
+              <h3 className="text-2xl font-bold text-gray-900 mb-8">Input Parameters</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {columns
                   .filter(col => col.type === "number")
                   .map(col => (
                     <div key={col.name}>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      <label className="block text-sm font-semibold text-gray-700 mb-3">
                         {col.name}
                       </label>
                       <input
                         type="number"
                         value={inputValues[col.name] || ""}
                         onChange={(e) => handleInputChange(col.name, e.target.value)}
-                        className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50"
                         placeholder="Enter value"
                       />
                     </div>
@@ -328,16 +325,16 @@ export default function PricingApp() {
               {Object.entries(calculations).map(([key, calc]) => (
                 <div
                   key={key}
-                  className="bg-white rounded-lg shadow p-6 border-l-4 border-blue-500"
+                  className="bg-white rounded-lg shadow-lg p-8 border-t-4 border-blue-600"
                 >
-                  <p className="text-gray-600 text-sm font-medium mb-2">{key}</p>
-                  <h3 className="text-3xl font-bold text-blue-600">
+                  <p className="text-gray-600 text-sm font-medium mb-3">{key}</p>
+                  <h3 className="text-4xl font-bold text-blue-600">
                     {typeof calc.value === "number"
                       ? calc.value.toFixed(2)
                       : calc.value}
                   </h3>
                   {calc.type === "calculated" && (
-                    <p className="text-xs text-gray-400 mt-2">Calculated</p>
+                    <p className="text-xs text-gray-500 mt-3">Calculated Value</p>
                   )}
                 </div>
               ))}
@@ -347,25 +344,25 @@ export default function PricingApp() {
             <div className="flex gap-4 mb-8">
               <button
                 onClick={generatePDF}
-                className="flex-1 bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition font-semibold text-lg"
+                className="flex-1 bg-gradient-to-r from-green-600 to-green-700 text-white px-8 py-4 rounded-lg hover:from-green-700 hover:to-green-800 transition font-semibold text-lg shadow-lg"
               >
-                📥 Download PDF Quote
+                Download PDF Quote
               </button>
             </div>
 
             {/* Saved Quotes */}
             {savedQuotes.length > 0 && (
-              <div className="bg-white rounded-lg shadow p-8">
-                <h3 className="text-xl font-bold text-gray-900 mb-4">
+              <div className="bg-white rounded-lg shadow-lg p-8">
+                <h3 className="text-2xl font-bold text-gray-900 mb-6">
                   Saved Quotes ({savedQuotes.length})
                 </h3>
-                <div className="space-y-2">
+                <div className="space-y-3">
                   {savedQuotes.map(quote => (
                     <div
                       key={quote.id}
-                      className="flex justify-between items-center p-3 bg-gray-50 rounded border border-gray-200"
+                      className="flex justify-between items-center p-4 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition"
                     >
-                      <span className="text-gray-700">
+                      <span className="text-gray-700 font-medium">
                         {new Date(quote.created_at).toLocaleString()}
                       </span>
                       <span className="text-sm text-gray-500">{quote.quote_name}</span>
