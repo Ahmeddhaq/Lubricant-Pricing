@@ -26,6 +26,7 @@ export default function PricingApp() {
 
   // History State
   const [history, setHistory] = useState([]);
+  const [selectedHistory, setSelectedHistory] = useState(null);
 
   // Original Calculator Results
   const calculateQuickMetrics = () => {
@@ -364,7 +365,7 @@ export default function PricingApp() {
                   e.currentTarget.style.borderColor = "#e0e0e0";
                 }}
               >
-                <div onClick={() => restoreFromHistory(entry)} style={{ marginBottom: "8px" }}>
+                <div onClick={() => setSelectedHistory(entry)} style={{ marginBottom: "8px" }}>
                   <p style={{ margin: "0 0 4px 0", fontSize: "11px", color: "#2563eb", fontWeight: "500" }}>
                     {entry.timestamp}
                   </p>
@@ -749,6 +750,171 @@ export default function PricingApp() {
         </>
       )}
       </div>
+
+      {/* Modal for History Entry Details */}
+      {selectedHistory && (
+        <div style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: "rgba(0, 0, 0, 0.5)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 1000
+        }}>
+          <div style={{
+            backgroundColor: "white",
+            borderRadius: "8px",
+            padding: "32px",
+            maxWidth: "600px",
+            width: "90%",
+            maxHeight: "80vh",
+            overflowY: "auto",
+            boxShadow: "0 10px 40px rgba(0, 0, 0, 0.2)"
+          }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" }}>
+              <h2 style={{ margin: "0", fontSize: "20px", fontWeight: "600", color: "#1a1a1a" }}>Quote Details</h2>
+              <button
+                onClick={() => setSelectedHistory(null)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  fontSize: "24px",
+                  cursor: "pointer",
+                  color: "#999",
+                  padding: "0",
+                  width: "32px",
+                  height: "32px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center"
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Timestamp */}
+            <div style={{ marginBottom: "20px", padding: "12px", backgroundColor: "#f5f5f5", borderRadius: "4px" }}>
+              <p style={{ margin: "0", fontSize: "12px", color: "#999", fontWeight: "500", marginBottom: "4px" }}>Created</p>
+              <p style={{ margin: "0", fontSize: "14px", color: "#1a1a1a", fontWeight: "500" }}>{selectedHistory.timestamp}</p>
+            </div>
+
+            {/* Attachment */}
+            {selectedHistory.uploadedFile && (
+              <div style={{ marginBottom: "20px", padding: "12px", backgroundColor: "#f5f5f5", borderRadius: "4px", border: "1px solid #e0e0e0" }}>
+                <p style={{ margin: "0 0 8px 0", fontSize: "12px", color: "#999", fontWeight: "500" }}>Attachment</p>
+                <p style={{ margin: "0", fontSize: "13px", color: "#2563eb", fontWeight: "500" }}>📎 {selectedHistory.uploadedFile.file_name}</p>
+              </div>
+            )}
+
+            {/* Configuration */}
+            <div style={{ marginBottom: "20px" }}>
+              <h3 style={{ margin: "0 0 12px 0", fontSize: "13px", fontWeight: "600", color: "#1a1a1a" }}>Configuration</h3>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                <div style={{ padding: "10px", backgroundColor: "#fafafa", borderRadius: "4px" }}>
+                  <p style={{ margin: "0 0 4px 0", fontSize: "11px", color: "#999", fontWeight: "500" }}>Company Name</p>
+                  <p style={{ margin: "0", fontSize: "13px", color: "#1a1a1a" }}>{selectedHistory.companyName || "—"}</p>
+                </div>
+                <div style={{ padding: "10px", backgroundColor: "#fafafa", borderRadius: "4px" }}>
+                  <p style={{ margin: "0 0 4px 0", fontSize: "11px", color: "#999", fontWeight: "500" }}>Company Email</p>
+                  <p style={{ margin: "0", fontSize: "13px", color: "#1a1a1a" }}>{selectedHistory.companyEmail || "—"}</p>
+                </div>
+                <div style={{ padding: "10px", backgroundColor: "#fafafa", borderRadius: "4px" }}>
+                  <p style={{ margin: "0 0 4px 0", fontSize: "11px", color: "#999", fontWeight: "500" }}>Customer Name</p>
+                  <p style={{ margin: "0", fontSize: "13px", color: "#1a1a1a" }}>{selectedHistory.customerName || "—"}</p>
+                </div>
+                <div style={{ padding: "10px", backgroundColor: "#fafafa", borderRadius: "4px" }}>
+                  <p style={{ margin: "0 0 4px 0", fontSize: "11px", color: "#999", fontWeight: "500" }}>Customer Country</p>
+                  <p style={{ margin: "0", fontSize: "13px", color: "#1a1a1a" }}>{selectedHistory.customerCountry || "—"}</p>
+                </div>
+                <div style={{ padding: "10px", backgroundColor: "#fafafa", borderRadius: "4px" }}>
+                  <p style={{ margin: "0 0 4px 0", fontSize: "11px", color: "#999", fontWeight: "500" }}>Payment Terms</p>
+                  <p style={{ margin: "0", fontSize: "13px", color: "#1a1a1a" }}>{selectedHistory.paymentTerms || "—"}</p>
+                </div>
+                <div style={{ padding: "10px", backgroundColor: "#fafafa", borderRadius: "4px" }}>
+                  <p style={{ margin: "0 0 4px 0", fontSize: "11px", color: "#999", fontWeight: "500" }}>Delivery Days</p>
+                  <p style={{ margin: "0", fontSize: "13px", color: "#1a1a1a" }}>{selectedHistory.deliveryDays || "—"}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Calculator Values */}
+            <div style={{ marginBottom: "24px" }}>
+              <h3 style={{ margin: "0 0 12px 0", fontSize: "13px", fontWeight: "600", color: "#1a1a1a" }}>Quick Calculator</h3>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                <div style={{ padding: "10px", backgroundColor: "#fafafa", borderRadius: "4px" }}>
+                  <p style={{ margin: "0 0 4px 0", fontSize: "11px", color: "#999", fontWeight: "500" }}>Cost / L (USD)</p>
+                  <p style={{ margin: "0", fontSize: "13px", color: "#1a1a1a" }}>${parseFloat(selectedHistory.costPerLiter || 0).toFixed(2)}</p>
+                </div>
+                <div style={{ padding: "10px", backgroundColor: "#fafafa", borderRadius: "4px" }}>
+                  <p style={{ margin: "0 0 4px 0", fontSize: "11px", color: "#999", fontWeight: "500" }}>Margin (%)</p>
+                  <p style={{ margin: "0", fontSize: "13px", color: "#1a1a1a" }}>{parseFloat(selectedHistory.marginPercent || 0).toFixed(1)}%</p>
+                </div>
+                <div style={{ padding: "10px", backgroundColor: "#fafafa", borderRadius: "4px" }}>
+                  <p style={{ margin: "0 0 4px 0", fontSize: "11px", color: "#999", fontWeight: "500" }}>Volume (L)</p>
+                  <p style={{ margin: "0", fontSize: "13px", color: "#1a1a1a" }}>{parseFloat(selectedHistory.volume || 0).toFixed(2)}</p>
+                </div>
+                <div style={{ padding: "10px", backgroundColor: "#fafafa", borderRadius: "4px" }}>
+                  <p style={{ margin: "0 0 4px 0", fontSize: "11px", color: "#999", fontWeight: "500" }}>Quantity</p>
+                  <p style={{ margin: "0", fontSize: "13px", color: "#1a1a1a" }}>{parseFloat(selectedHistory.quantity || 0).toFixed(0)}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div style={{ display: "flex", gap: "12px" }}>
+              <button
+                onClick={() => {
+                  restoreFromHistory(selectedHistory);
+                  setSelectedHistory(null);
+                }}
+                style={{
+                  flex: 1,
+                  padding: "12px",
+                  backgroundColor: "#2563eb",
+                  color: "white",
+                  border: "none",
+                  cursor: "pointer",
+                  fontSize: "14px",
+                  fontWeight: "600",
+                  borderRadius: "4px",
+                  transition: "background-color 0.2s"
+                }}
+                onMouseEnter={(e) => e.target.style.backgroundColor = "#1e40af"}
+                onMouseLeave={(e) => e.target.style.backgroundColor = "#2563eb"}
+              >
+                Restore
+              </button>
+              <button
+                onClick={() => {
+                  deleteHistoryEntry(selectedHistory.id);
+                  setSelectedHistory(null);
+                }}
+                style={{
+                  flex: 1,
+                  padding: "12px",
+                  backgroundColor: "#fee2e2",
+                  color: "#991b1b",
+                  border: "1px solid #fecaca",
+                  cursor: "pointer",
+                  fontSize: "14px",
+                  fontWeight: "600",
+                  borderRadius: "4px",
+                  transition: "background-color 0.2s"
+                }}
+                onMouseEnter={(e) => e.target.style.backgroundColor = "#fca5a5"}
+                onMouseLeave={(e) => e.target.style.backgroundColor = "#fee2e2"}
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
