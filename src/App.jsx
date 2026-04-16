@@ -45,6 +45,8 @@ export default function PricingApp() {
             placeholder="Volume"
             className="border rounded px-3 py-2"
           />
+        </div>
+      </div>
 
       <div className="grid grid-cols-3 gap-4">
         <div className="border rounded-lg p-4">
