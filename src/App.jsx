@@ -462,6 +462,7 @@ export default function PricingApp() {
         )}
       </div>
     </div>
+    </div>
   );
 }
 
