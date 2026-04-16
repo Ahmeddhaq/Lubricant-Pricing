@@ -263,16 +263,19 @@ export default function PricingApp() {
   };
 
   return (
-    <div style={{ fontFamily: "Arial, sans-serif", padding: "20px", maxWidth: "1000px", margin: "0 auto", backgroundColor: "white", minHeight: "100vh" }}>
-      <h1>Pricing Dashboard</h1>
+    <div style={{ fontFamily: "'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif", padding: "40px 20px", maxWidth: "1000px", margin: "0 auto", backgroundColor: "white", minHeight: "100vh" }}>
+      <div style={{ marginBottom: "40px" }}>
+        <h1 style={{ margin: "0 0 10px 0", fontSize: "32px", color: "#1a1a1a", fontWeight: "600" }}>Pricing Dashboard</h1>
+        <p style={{ margin: "0", color: "#666", fontSize: "14px" }}>Create professional quotations from your Excel data</p>
+      </div>
 
       {/* Company & Customer Details Form */}
-      <div style={{ border: "1px solid #ddd", padding: "20px", marginBottom: "20px", backgroundColor: "#f9f9f9" }}>
-        <h2>Quote Information</h2>
+      <div style={{ border: "1px solid #e0e0e0", padding: "24px", marginBottom: "24px", backgroundColor: "#fafafa", borderRadius: "6px" }}>
+        <h2 style={{ margin: "0 0 20px 0", fontSize: "16px", fontWeight: "600", color: "#1a1a1a" }}>Quote Information</h2>
         
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "15px", marginBottom: "15px" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginBottom: "0" }}>
           <div>
-            <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>Your Company Name *</label>
+            <label style={{ display: "block", marginBottom: "6px", fontWeight: "500", fontSize: "13px", color: "#333" }}>Your Company Name *</label>
             <input
               type="text"
               value={companyName}
@@ -280,15 +283,18 @@ export default function PricingApp() {
               placeholder="e.g., GulfStar Lubricants LLC"
               style={{
                 width: "100%",
-                padding: "8px",
-                border: "1px solid #ccc",
+                padding: "10px 12px",
+                border: "1px solid #d0d0d0",
                 fontSize: "14px",
-                boxSizing: "border-box"
+                boxSizing: "border-box",
+                borderRadius: "4px",
+                fontFamily: "inherit",
+                transition: "border-color 0.2s"
               }}
             />
           </div>
           <div>
-            <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>Your Email</label>
+            <label style={{ display: "block", marginBottom: "6px", fontWeight: "500", fontSize: "13px", color: "#333" }}>Your Email</label>
             <input
               type="email"
               value={companyEmail}
@@ -296,15 +302,17 @@ export default function PricingApp() {
               placeholder="sales@company.com"
               style={{
                 width: "100%",
-                padding: "8px",
-                border: "1px solid #ccc",
+                padding: "10px 12px",
+                border: "1px solid #d0d0d0",
                 fontSize: "14px",
-                boxSizing: "border-box"
+                boxSizing: "border-box",
+                borderRadius: "4px",
+                fontFamily: "inherit"
               }}
             />
           </div>
           <div>
-            <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>Customer Name *</label>
+            <label style={{ display: "block", marginBottom: "6px", fontWeight: "500", fontSize: "13px", color: "#333" }}>Customer Name *</label>
             <input
               type="text"
               value={customerName}
@@ -312,15 +320,17 @@ export default function PricingApp() {
               placeholder="e.g., Al Noor Trading Co."
               style={{
                 width: "100%",
-                padding: "8px",
-                border: "1px solid #ccc",
+                padding: "10px 12px",
+                border: "1px solid #d0d0d0",
                 fontSize: "14px",
-                boxSizing: "border-box"
+                boxSizing: "border-box",
+                borderRadius: "4px",
+                fontFamily: "inherit"
               }}
             />
           </div>
           <div>
-            <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>Customer Country</label>
+            <label style={{ display: "block", marginBottom: "6px", fontWeight: "500", fontSize: "13px", color: "#333" }}>Customer Country</label>
             <input
               type="text"
               value={customerCountry}
@@ -328,15 +338,17 @@ export default function PricingApp() {
               placeholder="e.g., Kenya"
               style={{
                 width: "100%",
-                padding: "8px",
-                border: "1px solid #ccc",
+                padding: "10px 12px",
+                border: "1px solid #d0d0d0",
                 fontSize: "14px",
-                boxSizing: "border-box"
+                boxSizing: "border-box",
+                borderRadius: "4px",
+                fontFamily: "inherit"
               }}
             />
           </div>
           <div>
-            <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>Payment Terms</label>
+            <label style={{ display: "block", marginBottom: "6px", fontWeight: "500", fontSize: "13px", color: "#333" }}>Payment Terms</label>
             <input
               type="text"
               value={paymentTerms}
@@ -344,15 +356,17 @@ export default function PricingApp() {
               placeholder="30% Advance, 70% Against BL"
               style={{
                 width: "100%",
-                padding: "8px",
-                border: "1px solid #ccc",
+                padding: "10px 12px",
+                border: "1px solid #d0d0d0",
                 fontSize: "14px",
-                boxSizing: "border-box"
+                boxSizing: "border-box",
+                borderRadius: "4px",
+                fontFamily: "inherit"
               }}
             />
           </div>
           <div>
-            <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>Delivery Days</label>
+            <label style={{ display: "block", marginBottom: "6px", fontWeight: "500", fontSize: "13px", color: "#333" }}>Delivery Days</label>
             <input
               type="number"
               value={deliveryDays}
@@ -360,10 +374,12 @@ export default function PricingApp() {
               placeholder="15"
               style={{
                 width: "100%",
-                padding: "8px",
-                border: "1px solid #ccc",
+                padding: "10px 12px",
+                border: "1px solid #d0d0d0",
                 fontSize: "14px",
-                boxSizing: "border-box"
+                boxSizing: "border-box",
+                borderRadius: "4px",
+                fontFamily: "inherit"
               }}
             />
           </div>
@@ -371,8 +387,8 @@ export default function PricingApp() {
       </div>
 
       {!uploadedFile ? (
-        <div style={{ border: "1px solid #ddd", padding: "20px", marginBottom: "20px" }}>
-          <h2>Upload Excel File</h2>
+        <div style={{ border: "1px solid #e0e0e0", padding: "24px", marginBottom: "20px", backgroundColor: "#fafafa", borderRadius: "6px" }}>
+          <h2 style={{ margin: "0 0 16px 0", fontSize: "16px", fontWeight: "600", color: "#1a1a1a" }}>Upload Excel File</h2>
           <input
             type="file"
             accept=".xlsx,.xls"
@@ -386,12 +402,15 @@ export default function PricingApp() {
             onClick={() => document.getElementById("file-upload").click()}
             disabled={loading}
             style={{
-              padding: "10px 20px",
-              backgroundColor: "#007bff",
+              padding: "10px 16px",
+              backgroundColor: "#2563eb",
               color: "white",
               border: "none",
               cursor: "pointer",
-              fontSize: "14px"
+              fontSize: "14px",
+              fontWeight: "500",
+              borderRadius: "4px",
+              transition: "background-color 0.2s"
             }}
           >
             {loading ? "Uploading..." : "Choose File"}
@@ -399,9 +418,9 @@ export default function PricingApp() {
         </div>
       ) : (
         <>
-          <div style={{ border: "1px solid #ddd", padding: "15px", marginBottom: "20px" }}>
-            <p>
-              <strong>File:</strong> {uploadedFile.file_name} ({columns.length} columns)
+          <div style={{ border: "1px solid #e0e0e0", padding: "16px", marginBottom: "24px", backgroundColor: "#fafafa", borderRadius: "6px" }}>
+            <p style={{ margin: "0 0 12px 0", fontSize: "14px", color: "#666" }}>
+              <strong style={{ color: "#1a1a1a" }}>File:</strong> {uploadedFile.file_name} ({columns.length} columns)
             </p>
             <button
               onClick={() => {
@@ -411,25 +430,29 @@ export default function PricingApp() {
                 setInputValues({});
               }}
               style={{
-                padding: "8px 16px",
-                backgroundColor: "#f0f0f0",
-                border: "1px solid #ccc",
+                padding: "8px 12px",
+                backgroundColor: "#e5e7eb",
+                border: "1px solid #d1d5db",
+                color: "#374151",
                 cursor: "pointer",
-                fontSize: "14px"
+                fontSize: "13px",
+                borderRadius: "4px",
+                fontWeight: "500",
+                transition: "background-color 0.2s"
               }}
             >
               Upload Different
             </button>
           </div>
 
-          <div style={{ marginBottom: "20px" }}>
-            <h2>Parameters</h2>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: "15px" }}>
+          <div style={{ marginBottom: "24px" }}>
+            <h2 style={{ margin: "0 0 16px 0", fontSize: "16px", fontWeight: "600", color: "#1a1a1a" }}>Parameters</h2>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: "12px" }}>
               {columns
                 .filter(col => col.type === "number")
                 .map(col => (
-                  <div key={col.name} style={{ border: "1px solid #ddd", padding: "10px" }}>
-                    <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>
+                  <div key={col.name} style={{ border: "1px solid #e0e0e0", padding: "12px", borderRadius: "4px", backgroundColor: "#fafafa" }}>
+                    <label style={{ display: "block", marginBottom: "6px", fontWeight: "500", fontSize: "13px", color: "#333" }}>
                       {col.name}
                     </label>
                     <input
@@ -438,10 +461,12 @@ export default function PricingApp() {
                       onChange={(e) => handleInputChange(col.name, e.target.value)}
                       style={{
                         width: "100%",
-                        padding: "8px",
-                        border: "1px solid #ccc",
+                        padding: "8px 10px",
+                        border: "1px solid #d0d0d0",
                         fontSize: "14px",
-                        boxSizing: "border-box"
+                        boxSizing: "border-box",
+                        borderRadius: "4px",
+                        fontFamily: "inherit"
                       }}
                       placeholder="Enter value"
                     />
@@ -450,17 +475,17 @@ export default function PricingApp() {
             </div>
           </div>
 
-          <div style={{ marginBottom: "20px" }}>
-            <h2>Results</h2>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: "15px" }}>
+          <div style={{ marginBottom: "24px" }}>
+            <h2 style={{ margin: "0 0 16px 0", fontSize: "16px", fontWeight: "600", color: "#1a1a1a" }}>Results</h2>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: "12px" }}>
               {Object.entries(calculations).map(([key, calc]) => (
-                <div key={key} style={{ border: "1px solid #ddd", padding: "10px" }}>
-                  <p style={{ margin: "0 0 5px 0", fontSize: "12px", color: "#666" }}>{key}</p>
-                  <p style={{ margin: "0", fontSize: "24px", fontWeight: "bold", color: "#333" }}>
+                <div key={key} style={{ border: "1px solid #e0e0e0", padding: "12px", borderRadius: "4px", backgroundColor: "#fafafa" }}>
+                  <p style={{ margin: "0 0 6px 0", fontSize: "12px", color: "#999", fontWeight: "500" }}>{key}</p>
+                  <p style={{ margin: "0", fontSize: "22px", fontWeight: "600", color: "#2563eb" }}>
                     {typeof calc.value === "number" ? calc.value.toFixed(2) : calc.value}
                   </p>
                   {calc.type === "calculated" && (
-                    <p style={{ margin: "5px 0 0 0", fontSize: "11px", color: "#999" }}>Calculated</p>
+                    <p style={{ margin: "4px 0 0 0", fontSize: "11px", color: "#999" }}>Calculated</p>
                   )}
                 </div>
               ))}
@@ -472,12 +497,14 @@ export default function PricingApp() {
             style={{
               width: "100%",
               padding: "12px",
-              backgroundColor: "#007bff",
+              backgroundColor: "#2563eb",
               color: "white",
               border: "none",
               cursor: "pointer",
-              fontSize: "16px",
-              fontWeight: "bold"
+              fontSize: "15px",
+              fontWeight: "600",
+              borderRadius: "4px",
+              transition: "background-color 0.2s"
             }}
           >
             Download PDF Quote
