@@ -148,7 +148,7 @@ export default function PricingApp() {
   };
 
   return (
-    <div style={{ fontFamily: "Arial, sans-serif", padding: "20px", maxWidth: "1000px", margin: "0 auto" }}>
+    <div style={{ fontFamily: "Arial, sans-serif", padding: "20px", maxWidth: "1000px", margin: "0 auto", backgroundColor: "white", minHeight: "100vh" }}>
       <h1>Pricing Dashboard</h1>
 
       {!uploadedFile ? (
