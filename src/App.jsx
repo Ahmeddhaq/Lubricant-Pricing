@@ -1,63 +1,14 @@
 import React, { useState, useEffect } from "react";
-import { createClient } from "@supabase/supabase-js";
 import { jsPDF } from "jspdf";
 import * as XLSX from "xlsx";
 
-// Supabase setup
-const SUPABASE_URL = "https://jsevfgasppuywoaxhejg.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpzZXZmZ2FzcHB1eXdvYXhoZWpnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzkxNzQzNjcsImV4cCI6MjA1NDc1MDM2N30.dKj3D6z9iiMDtpUqa66gJA_s_hbv2zJ";
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-// Generate session ID
-const getSessionId = () => {
-  let sessionId = localStorage.getItem("pricing_session_id");
-  if (!sessionId) {
-    sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    localStorage.setItem("pricing_session_id", sessionId);
-  }
-  return sessionId;
-};
-
 export default function PricingApp() {
-  const [sessionId] = useState(getSessionId());
   const [uploadedFile, setUploadedFile] = useState(null);
   const [columns, setColumns] = useState([]);
   const [fileData, setFileData] = useState([]);
   const [inputValues, setInputValues] = useState({});
   const [calculations, setCalculations] = useState({});
-  const [savedQuotes, setSavedQuotes] = useState([]);
   const [loading, setLoading] = useState(false);
-
-  // Load session data on mount
-  useEffect(() => {
-    loadSessionData();
-  }, []);
-
-  const loadSessionData = async () => {
-    const { data, error } = await supabase
-      .from("uploaded_files")
-      .select("*")
-      .eq("session_id", sessionId)
-      .order("created_at", { ascending: false })
-      .limit(1);
-
-    if (data && data.length > 0) {
-      const file = data[0];
-      setUploadedFile(file);
-      setColumns(file.columns);
-      setFileData(file.data);
-      initializeInputValues(file.data, file.columns);
-    }
-
-    // Load saved quotes
-    const { data: quotesData } = await supabase
-      .from("quotes")
-      .select("*")
-      .eq("session_id", sessionId)
-      .order("created_at", { ascending: false });
-
-    setSavedQuotes(quotesData || []);
-  };
 
   const handleFileUpload = async (e) => {
     const file = e.target.files[0];
@@ -83,23 +34,7 @@ export default function PricingApp() {
         formula: null
       }));
 
-      // Save to Supabase
-      const { data: insertedFile, error } = await supabase
-        .from("uploaded_files")
-        .insert([
-          {
-            session_id: sessionId,
-            file_name: file.name,
-            columns: detectedColumns,
-            data: data
-          }
-        ])
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      setUploadedFile(insertedFile);
+      setUploadedFile({ file_name: file.name });
       setColumns(detectedColumns);
       setFileData(data);
       initializeInputValues(data, detectedColumns);
@@ -129,7 +64,7 @@ export default function PricingApp() {
     calculateValues(values);
   };
 
-  const calculateValues = async (values) => {
+  const calculateValues = (values) => {
     const numericColumns = columns.filter(c => c.type === "number");
     const results = {};
 
@@ -150,18 +85,6 @@ export default function PricingApp() {
     }
 
     setCalculations(results);
-
-    // Save calculation to Supabase
-    if (uploadedFile) {
-      await supabase.from("calculations").insert([
-        {
-          session_id: sessionId,
-          file_id: uploadedFile.id,
-          input_values: values,
-          results
-        }
-      ]);
-    }
   };
 
   const handleInputChange = (column, value) => {
@@ -170,7 +93,7 @@ export default function PricingApp() {
     calculateValues(newValues);
   };
 
-  const generatePDF = async () => {
+  const generatePDF = () => {
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
     const margin = 10;
@@ -181,11 +104,9 @@ export default function PricingApp() {
     doc.text("QUOTATION REPORT", pageWidth / 2, yPos, { align: "center" });
     yPos += 12;
 
-    // Date & Session
+    // Date
     doc.setFontSize(10);
     doc.text(`Date: ${new Date().toLocaleDateString()}`, margin, yPos);
-    yPos += 5;
-    doc.text(`Reference: ${sessionId.substr(0, 15)}...`, margin, yPos);
     yPos += 10;
 
     // File Info
@@ -223,191 +144,127 @@ export default function PricingApp() {
       yPos += 5;
     });
 
-    // Save quote to Supabase
-    if (uploadedFile) {
-      await supabase.from("quotes").insert([
-        {
-          session_id: sessionId,
-          file_id: uploadedFile.id,
-          quote_name: `Quote_${Date.now()}`
-        }
-      ]);
-    }
-
     doc.save(`quotation_${Date.now()}.pdf`);
-    loadSessionData();
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100">
-      {/* Header */}
-      <div className="sticky top-0 z-50 bg-white/80 backdrop-blur-sm border-b border-slate-200">
-        <div className="max-w-6xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-lg">P</span>
-              </div>
-              <div>
-                <h1 className="font-bold text-gray-900 text-lg">Pricing Pro</h1>
-                <p className="text-xs text-gray-500">Dashboard</p>
-              </div>
-            </div>
-            {uploadedFile && (
-              <div className="text-right">
-                <p className="text-sm font-medium text-gray-900">{uploadedFile.file_name}</p>
-                <p className="text-xs text-gray-500">{columns.length} columns</p>
-              </div>
-            )}
+    <div style={{ fontFamily: "Arial, sans-serif", padding: "20px", maxWidth: "1000px", margin: "0 auto" }}>
+      <h1>Pricing Dashboard</h1>
+
+      {!uploadedFile ? (
+        <div style={{ border: "1px solid #ddd", padding: "20px", marginBottom: "20px" }}>
+          <h2>Upload Excel File</h2>
+          <input
+            type="file"
+            accept=".xlsx,.xls"
+            onChange={handleFileUpload}
+            id="file-upload"
+            disabled={loading}
+          />
+          <br />
+          <br />
+          <button
+            onClick={() => document.getElementById("file-upload").click()}
+            disabled={loading}
+            style={{
+              padding: "10px 20px",
+              backgroundColor: "#007bff",
+              color: "white",
+              border: "none",
+              cursor: "pointer",
+              fontSize: "14px"
+            }}
+          >
+            {loading ? "Uploading..." : "Choose File"}
+          </button>
+        </div>
+      ) : (
+        <>
+          <div style={{ border: "1px solid #ddd", padding: "15px", marginBottom: "20px" }}>
+            <p>
+              <strong>File:</strong> {uploadedFile.file_name} ({columns.length} columns)
+            </p>
+            <button
+              onClick={() => {
+                setUploadedFile(null);
+                setColumns([]);
+                setFileData([]);
+                setInputValues({});
+              }}
+              style={{
+                padding: "8px 16px",
+                backgroundColor: "#f0f0f0",
+                border: "1px solid #ccc",
+                cursor: "pointer",
+                fontSize: "14px"
+              }}
+            >
+              Upload Different
+            </button>
           </div>
-        </div>
-      </div>
 
-      <main className="py-16 px-6">
-        <div className="max-w-5xl mx-auto">
-          {!uploadedFile ? (
-            <>
-              {/* Hero */}
-              <div className="text-center mb-16">
-                <h2 className="text-5xl font-bold text-gray-900 mb-4">Upload & Calculate</h2>
-                <p className="text-xl text-gray-600">Drop your Excel file and generate professional quotes in seconds</p>
-              </div>
-
-              {/* Upload Box */}
-              <div className="max-w-2xl mx-auto">
-                <div className="bg-white rounded-2xl border-2 border-dashed border-blue-300 p-16 text-center shadow-sm hover:shadow-lg hover:border-blue-400 transition-all">
-                  <input
-                    type="file"
-                    accept=".xlsx,.xls"
-                    onChange={handleFileUpload}
-                    id="file-upload"
-                    disabled={loading}
-                    className="absolute opacity-0 w-0 h-0"
-                  />
-                  
-                  <div className="mb-6">
-                    <svg className="w-20 h-20 mx-auto text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3v-6" />
-                    </svg>
+          <div style={{ marginBottom: "20px" }}>
+            <h2>Parameters</h2>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: "15px" }}>
+              {columns
+                .filter(col => col.type === "number")
+                .map(col => (
+                  <div key={col.name} style={{ border: "1px solid #ddd", padding: "10px" }}>
+                    <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>
+                      {col.name}
+                    </label>
+                    <input
+                      type="number"
+                      value={inputValues[col.name] || ""}
+                      onChange={(e) => handleInputChange(col.name, e.target.value)}
+                      style={{
+                        width: "100%",
+                        padding: "8px",
+                        border: "1px solid #ccc",
+                        fontSize: "14px",
+                        boxSizing: "border-box"
+                      }}
+                      placeholder="Enter value"
+                    />
                   </div>
+                ))}
+            </div>
+          </div>
 
-                  <h3 className="text-2xl font-bold text-gray-900 mb-2">Select Your File</h3>
-                  <p className="text-gray-600 mb-8">Supports .xlsx and .xls formats</p>
-
-                  <button
-                    onClick={() => document.getElementById("file-upload").click()}
-                    disabled={loading}
-                    type="button"
-                    className="px-8 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-all shadow-md hover:shadow-lg disabled:opacity-50 cursor-pointer"
-                  >
-                    {loading ? (
-                      <span className="flex items-center gap-2">
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                        Uploading...
-                      </span>
-                    ) : (
-                      "Choose File"
-                    )}
-                  </button>
+          <div style={{ marginBottom: "20px" }}>
+            <h2>Results</h2>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: "15px" }}>
+              {Object.entries(calculations).map(([key, calc]) => (
+                <div key={key} style={{ border: "1px solid #ddd", padding: "10px" }}>
+                  <p style={{ margin: "0 0 5px 0", fontSize: "12px", color: "#666" }}>{key}</p>
+                  <p style={{ margin: "0", fontSize: "24px", fontWeight: "bold", color: "#333" }}>
+                    {typeof calc.value === "number" ? calc.value.toFixed(2) : calc.value}
+                  </p>
+                  {calc.type === "calculated" && (
+                    <p style={{ margin: "5px 0 0 0", fontSize: "11px", color: "#999" }}>Calculated</p>
+                  )}
                 </div>
-              </div>
-            </>
-          ) : (
-            <>
-              {/* Upload Info Bar */}
-              <div className="bg-white rounded-xl p-4 mb-8 flex justify-between items-center border border-slate-200 shadow-sm">
-                <div>
-                  <p className="text-sm text-gray-600">Loaded file</p>
-                  <p className="font-semibold text-gray-900">{uploadedFile.file_name}</p>
-                </div>
-                <button
-                  onClick={() => {
-                    setUploadedFile(null);
-                    setColumns([]);
-                    setFileData([]);
-                    setInputValues({});
-                  }}
-                  className="px-4 py-2 bg-slate-100 text-gray-700 rounded-lg hover:bg-slate-200 transition text-sm font-medium"
-                >
-                  Change
-                </button>
-              </div>
+              ))}
+            </div>
+          </div>
 
-              {/* Inputs Grid */}
-              <div className="mb-12">
-                <h3 className="text-2xl font-bold text-gray-900 mb-6">Parameters</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                  {columns
-                    .filter(col => col.type === "number")
-                    .map(col => (
-                      <div key={col.name} className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm hover:shadow-md transition-all">
-                        <label className="block text-sm font-semibold text-gray-900 mb-3">
-                          {col.name}
-                        </label>
-                        <input
-                          type="number"
-                          value={inputValues[col.name] || ""}
-                          onChange={(e) => handleInputChange(col.name, e.target.value)}
-                          className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 placeholder-gray-400"
-                          placeholder="Enter value"
-                        />
-                      </div>
-                    ))}
-                </div>
-              </div>
-
-              {/* Results Grid */}
-              <div className="mb-12">
-                <h3 className="text-2xl font-bold text-gray-900 mb-6">Results</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                  {Object.entries(calculations).map(([key, calc]) => (
-                    <div key={key} className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm hover:shadow-md transition-all">
-                      <p className="text-sm text-gray-600 mb-2">{key}</p>
-                      <p className="text-3xl font-bold text-blue-600 mb-2">
-                        {typeof calc.value === "number" ? calc.value.toFixed(2) : calc.value}
-                      </p>
-                      {calc.type === "calculated" && (
-                        <span className="inline-block text-xs bg-blue-100 text-blue-700 px-2.5 py-1 rounded font-medium">
-                          Calculated
-                        </span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* CTA Button */}
-              <button
-                onClick={generatePDF}
-                className="w-full py-4 bg-blue-600 text-white font-bold text-lg rounded-xl hover:bg-blue-700 transition-all shadow-lg hover:shadow-xl mb-12"
-              >
-                ↓ Download PDF Quote
-              </button>
-
-              {/* Quote History */}
-              {savedQuotes.length > 0 && (
-                <div className="bg-white rounded-xl border border-slate-200 p-8 shadow-sm">
-                  <h3 className="text-xl font-bold text-gray-900 mb-6">Recent Quotes</h3>
-                  <div className="space-y-3">
-                    {savedQuotes.slice(0, 5).map((quote, i) => (
-                      <div
-                        key={quote.id}
-                        className="flex items-center justify-between p-4 bg-slate-50 rounded-lg hover:bg-slate-100 transition"
-                      >
-                        <div>
-                          <p className="font-medium text-gray-900">Quote #{savedQuotes.length - i}</p>
-                          <p className="text-sm text-gray-500">{new Date(quote.created_at).toLocaleString()}</p>
-                        </div>
-                        <span className="text-xs font-mono text-gray-400">{quote.quote_name}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </>
-          )}
-        </div>
-      </main>
+          <button
+            onClick={generatePDF}
+            style={{
+              width: "100%",
+              padding: "12px",
+              backgroundColor: "#007bff",
+              color: "white",
+              border: "none",
+              cursor: "pointer",
+              fontSize: "16px",
+              fontWeight: "bold"
+            }}
+          >
+            Download PDF Quote
+          </button>
+        </>
+      )}
     </div>
   );
 }
