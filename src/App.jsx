@@ -24,6 +24,9 @@ export default function PricingApp() {
   const [volume, setVolume] = useState("");
   const [quantity, setQuantity] = useState("");
 
+  // History State
+  const [history, setHistory] = useState([]);
+
   // Original Calculator Results
   const calculateQuickMetrics = () => {
     const cost = parseFloat(costPerLiter) || 0;
@@ -281,11 +284,121 @@ export default function PricingApp() {
     yPos += 3;
     doc.text("For more details, please contact our sales team.", margin, yPos);
 
-    doc.save(`quotation_${Date.now()}.pdf`);
+    const pdfFileName = `quotation_${Date.now()}.pdf`;
+    doc.save(pdfFileName);
+
+    // Save to history
+    const timestamp = new Date().toLocaleString();
+    const historyEntry = {
+      id: Date.now(),
+      timestamp,
+      companyName,
+      companyEmail,
+      customerName,
+      customerCountry,
+      paymentTerms,
+      deliveryDays,
+      costPerLiter,
+      marginPercent,
+      volume,
+      quantity,
+      uploadedFile,
+      columns,
+      fileData,
+      inputValues,
+      calculations,
+      pdfFileName
+    };
+    setHistory([historyEntry, ...history]);
+  };
+
+  const restoreFromHistory = (entry) => {
+    setCompanyName(entry.companyName);
+    setCompanyEmail(entry.companyEmail);
+    setCustomerName(entry.customerName);
+    setCustomerCountry(entry.customerCountry);
+    setPaymentTerms(entry.paymentTerms);
+    setDeliveryDays(entry.deliveryDays);
+    setCostPerLiter(entry.costPerLiter);
+    setMarginPercent(entry.marginPercent);
+    setVolume(entry.volume);
+    setQuantity(entry.quantity);
+    setUploadedFile(entry.uploadedFile);
+    setColumns(entry.columns);
+    setFileData(entry.fileData);
+    setInputValues(entry.inputValues);
+    setCalculations(entry.calculations);
+  };
+
+  const deleteHistoryEntry = (id) => {
+    setHistory(history.filter(entry => entry.id !== id));
   };
 
   return (
-    <div style={{ fontFamily: "'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif", padding: "40px 20px", maxWidth: "1000px", margin: "0 auto", backgroundColor: "white", minHeight: "100vh" }}>
+    <div style={{ display: "flex", minHeight: "100vh", backgroundColor: "white", fontFamily: "'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" }}>
+      {/* Sidebar */}
+      <div style={{ width: "280px", backgroundColor: "#f5f5f5", borderRight: "1px solid #e0e0e0", padding: "20px", overflowY: "auto", maxHeight: "100vh" }}>
+        <h3 style={{ margin: "0 0 16px 0", fontSize: "14px", fontWeight: "600", color: "#1a1a1a" }}>History</h3>
+        {history.length === 0 ? (
+          <p style={{ margin: "0", fontSize: "12px", color: "#999" }}>No history yet</p>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+            {history.map(entry => (
+              <div
+                key={entry.id}
+                style={{
+                  backgroundColor: "white",
+                  border: "1px solid #e0e0e0",
+                  borderRadius: "4px",
+                  padding: "10px",
+                  fontSize: "12px",
+                  cursor: "pointer",
+                  transition: "all 0.2s"
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = "#f9f9f9";
+                  e.currentTarget.style.borderColor = "#2563eb";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = "white";
+                  e.currentTarget.style.borderColor = "#e0e0e0";
+                }}
+              >
+                <div onClick={() => restoreFromHistory(entry)} style={{ marginBottom: "8px" }}>
+                  <p style={{ margin: "0 0 4px 0", fontSize: "11px", color: "#2563eb", fontWeight: "500" }}>
+                    {entry.timestamp}
+                  </p>
+                  <p style={{ margin: "0", fontSize: "11px", color: "#666" }}>
+                    {entry.customerName || "—"}
+                  </p>
+                </div>
+                <button
+                  onClick={() => deleteHistoryEntry(entry.id)}
+                  style={{
+                    width: "100%",
+                    padding: "4px 8px",
+                    backgroundColor: "#fee2e2",
+                    color: "#991b1b",
+                    border: "1px solid #fecaca",
+                    borderRadius: "3px",
+                    fontSize: "11px",
+                    cursor: "pointer",
+                    fontWeight: "500",
+                    transition: "background-color 0.2s"
+                  }}
+                  onMouseEnter={(e) => e.target.style.backgroundColor = "#fca5a5"}
+                  onMouseLeave={(e) => e.target.style.backgroundColor = "#fee2e2"}
+                >
+                  Delete
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Main Content */}
+      <div style={{ flex: 1, padding: "40px 20px", maxWidth: "1200px", margin: "0 auto", width: "100%" }}>
       <div style={{ marginBottom: "40px" }}>
         <h1 style={{ margin: "0 0 10px 0", fontSize: "32px", color: "#1a1a1a", fontWeight: "600" }}>Pricing Dashboard</h1>
       </div>
@@ -635,6 +748,7 @@ export default function PricingApp() {
           </button>
         </>
       )}
+      </div>
     </div>
   );
 }
