@@ -17,48 +17,34 @@ export default function PricingApp() {
 
       <div className="border rounded-lg p-4">
         <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-semibold mb-1">Cost per Liter</label>
-            <input
-              type="number"
-              value={cost}
-              onChange={(e) => setCost(parseFloat(e.target.value))}
-              placeholder="e.g., 5"
-              className="border rounded px-3 py-2 w-full"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-semibold mb-1">Margin (0-1)</label>
-            <input
-              type="number"
-              value={margin}
-              onChange={(e) => setMargin(parseFloat(e.target.value))}
-              placeholder="e.g., 0.25"
-              className="border rounded px-3 py-2 w-full"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-semibold mb-1">Freight Cost</label>
-            <input
-              type="number"
-              value={freight}
-              onChange={(e) => setFreight(parseFloat(e.target.value))}
-              placeholder="e.g., 2500"
-              className="border rounded px-3 py-2 w-full"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-semibold mb-1">Volume (Liters)</label>
-            <input
-              type="number"
-              value={volume}
-              onChange={(e) => setVolume(parseFloat(e.target.value))}
-              placeholder="e.g., 24000"
-              className="border rounded px-3 py-2 w-full"
-            />
-          </div>
-        </div>
-      </div>
+          <input
+            type="number"
+            value={cost}
+            onChange={(e) => setCost(parseFloat(e.target.value))}
+            placeholder="Cost per Liter"
+            className="border rounded px-3 py-2"
+          />
+          <input
+            type="number"
+            value={margin}
+            onChange={(e) => setMargin(parseFloat(e.target.value))}
+            placeholder="Margin"
+            className="border rounded px-3 py-2"
+          />
+          <input
+            type="number"
+            value={freight}
+            onChange={(e) => setFreight(parseFloat(e.target.value))}
+            placeholder="Freight"
+            className="border rounded px-3 py-2"
+          />
+          <input
+            type="number"
+            value={volume}
+            onChange={(e) => setVolume(parseFloat(e.target.value))}
+            placeholder="Volume"
+            className="border rounded px-3 py-2"
+          />
 
       <div className="grid grid-cols-3 gap-4">
         <div className="border rounded-lg p-4">
