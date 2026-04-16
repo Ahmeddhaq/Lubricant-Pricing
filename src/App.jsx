@@ -10,6 +10,14 @@ export default function PricingApp() {
   const [calculations, setCalculations] = useState({});
   const [loading, setLoading] = useState(false);
 
+  // Company & Quote Details
+  const [companyName, setCompanyName] = useState("");
+  const [companyEmail, setCompanyEmail] = useState("");
+  const [customerName, setCustomerName] = useState("");
+  const [customerCountry, setCustomerCountry] = useState("");
+  const [paymentTerms, setPaymentTerms] = useState("30% Advance, 70% Against BL");
+  const [deliveryDays, setDeliveryDays] = useState("15");
+
   const handleFileUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -94,6 +102,11 @@ export default function PricingApp() {
   };
 
   const generatePDF = () => {
+    if (!companyName || !customerName) {
+      alert("Please fill in Company Name and Customer Name before generating quote");
+      return;
+    }
+
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
     const margin = 15;
@@ -107,7 +120,7 @@ export default function PricingApp() {
 
     doc.setFontSize(10);
     doc.setTextColor(100, 100, 100);
-    doc.text(`Quote No: LUB-${Date.now()}`, margin, yPos);
+    doc.text(`Quote No: QT-${Date.now()}`, margin, yPos);
     yPos += 5;
     doc.text(`Date: ${new Date().toLocaleDateString()}`, margin, yPos);
     yPos += 8;
@@ -115,13 +128,30 @@ export default function PricingApp() {
     // Company Info
     doc.setFontSize(11);
     doc.setTextColor(0, 0, 0);
-    doc.text("COMPANY DETAILS", margin, yPos);
+    doc.text("FROM", margin, yPos);
     yPos += 5;
     doc.setFontSize(10);
-    doc.text("GulfStar Lubricants LLC", margin + 2, yPos);
+    doc.text(companyName, margin + 2, yPos);
     yPos += 4;
-    doc.text("Email: sales@gulfstar-lube.com", margin + 2, yPos);
-    yPos += 8;
+    if (companyEmail) {
+      doc.text("Email: " + companyEmail, margin + 2, yPos);
+      yPos += 4;
+    }
+    yPos += 4;
+
+    // Customer Info
+    doc.setFontSize(11);
+    doc.setTextColor(0, 0, 0);
+    doc.text("TO", margin, yPos);
+    yPos += 5;
+    doc.setFontSize(10);
+    doc.text(customerName, margin + 2, yPos);
+    yPos += 4;
+    if (customerCountry) {
+      doc.text("Country: " + customerCountry, margin + 2, yPos);
+      yPos += 4;
+    }
+    yPos += 4;
 
     // File Info Section
     doc.setFontSize(11);
@@ -200,7 +230,7 @@ export default function PricingApp() {
     // Summary Section
     doc.setFontSize(10);
     doc.setTextColor(0, 0, 0);
-    doc.text("SUMMARY", margin, yPos);
+    doc.text("COMMERCIAL TERMS", margin, yPos);
     yPos += 5;
 
     doc.setDrawColor(0, 51, 102);
@@ -210,12 +240,12 @@ export default function PricingApp() {
 
     doc.setFontSize(9);
     doc.setTextColor(50, 50, 50);
-    doc.text("Total Inputs:", margin + 2, yPos);
-    doc.text(Object.keys(inputValues).length.toString(), pageWidth - margin - 10, yPos, { align: "right" });
+    doc.text("Payment Terms:", margin + 2, yPos);
+    doc.text(paymentTerms, pageWidth - margin - 30, yPos);
     yPos += 4;
 
-    doc.text("Total Calculations:", margin + 2, yPos);
-    doc.text(Object.keys(calculations).length.toString(), pageWidth - margin - 10, yPos, { align: "right" });
+    doc.text("Delivery:", margin + 2, yPos);
+    doc.text(deliveryDays + " Days", pageWidth - margin - 30, yPos);
     yPos += 8;
 
     // Footer
@@ -227,8 +257,6 @@ export default function PricingApp() {
     doc.setTextColor(150, 150, 150);
     doc.text("This quotation is valid for 7 days from the date above.", margin, yPos);
     yPos += 3;
-    doc.text("Payment Terms: 30% Advance, 70% Against BL", margin, yPos);
-    yPos += 3;
     doc.text("For more details, please contact our sales team.", margin, yPos);
 
     doc.save(`quotation_${Date.now()}.pdf`);
@@ -237,6 +265,110 @@ export default function PricingApp() {
   return (
     <div style={{ fontFamily: "Arial, sans-serif", padding: "20px", maxWidth: "1000px", margin: "0 auto", backgroundColor: "white", minHeight: "100vh" }}>
       <h1>Pricing Dashboard</h1>
+
+      {/* Company & Customer Details Form */}
+      <div style={{ border: "1px solid #ddd", padding: "20px", marginBottom: "20px", backgroundColor: "#f9f9f9" }}>
+        <h2>Quote Information</h2>
+        
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "15px", marginBottom: "15px" }}>
+          <div>
+            <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>Your Company Name *</label>
+            <input
+              type="text"
+              value={companyName}
+              onChange={(e) => setCompanyName(e.target.value)}
+              placeholder="e.g., GulfStar Lubricants LLC"
+              style={{
+                width: "100%",
+                padding: "8px",
+                border: "1px solid #ccc",
+                fontSize: "14px",
+                boxSizing: "border-box"
+              }}
+            />
+          </div>
+          <div>
+            <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>Your Email</label>
+            <input
+              type="email"
+              value={companyEmail}
+              onChange={(e) => setCompanyEmail(e.target.value)}
+              placeholder="sales@company.com"
+              style={{
+                width: "100%",
+                padding: "8px",
+                border: "1px solid #ccc",
+                fontSize: "14px",
+                boxSizing: "border-box"
+              }}
+            />
+          </div>
+          <div>
+            <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>Customer Name *</label>
+            <input
+              type="text"
+              value={customerName}
+              onChange={(e) => setCustomerName(e.target.value)}
+              placeholder="e.g., Al Noor Trading Co."
+              style={{
+                width: "100%",
+                padding: "8px",
+                border: "1px solid #ccc",
+                fontSize: "14px",
+                boxSizing: "border-box"
+              }}
+            />
+          </div>
+          <div>
+            <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>Customer Country</label>
+            <input
+              type="text"
+              value={customerCountry}
+              onChange={(e) => setCustomerCountry(e.target.value)}
+              placeholder="e.g., Kenya"
+              style={{
+                width: "100%",
+                padding: "8px",
+                border: "1px solid #ccc",
+                fontSize: "14px",
+                boxSizing: "border-box"
+              }}
+            />
+          </div>
+          <div>
+            <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>Payment Terms</label>
+            <input
+              type="text"
+              value={paymentTerms}
+              onChange={(e) => setPaymentTerms(e.target.value)}
+              placeholder="30% Advance, 70% Against BL"
+              style={{
+                width: "100%",
+                padding: "8px",
+                border: "1px solid #ccc",
+                fontSize: "14px",
+                boxSizing: "border-box"
+              }}
+            />
+          </div>
+          <div>
+            <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>Delivery Days</label>
+            <input
+              type="number"
+              value={deliveryDays}
+              onChange={(e) => setDeliveryDays(e.target.value)}
+              placeholder="15"
+              style={{
+                width: "100%",
+                padding: "8px",
+                border: "1px solid #ccc",
+                fontSize: "14px",
+                boxSizing: "border-box"
+              }}
+            />
+          </div>
+        </div>
+      </div>
 
       {!uploadedFile ? (
         <div style={{ border: "1px solid #ddd", padding: "20px", marginBottom: "20px" }}>
