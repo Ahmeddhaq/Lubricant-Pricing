@@ -18,6 +18,28 @@ export default function PricingApp() {
   const [paymentTerms, setPaymentTerms] = useState("30% Advance, 70% Against BL");
   const [deliveryDays, setDeliveryDays] = useState("15");
 
+  // Original Calculator Fields
+  const [costPerLiter, setCostPerLiter] = useState("");
+  const [marginPercent, setMarginPercent] = useState("");
+  const [volume, setVolume] = useState("");
+  const [quantity, setQuantity] = useState("");
+
+  // Original Calculator Results
+  const calculateQuickMetrics = () => {
+    const cost = parseFloat(costPerLiter) || 0;
+    const margin = parseFloat(marginPercent) || 0;
+    const vol = parseFloat(volume) || 0;
+    const qty = parseFloat(quantity) || 0;
+
+    const pricePerLiter = margin > 0 ? cost * (1 + margin / 100) : 0;
+    const revenue = pricePerLiter * vol * qty;
+    const profit = (pricePerLiter - cost) * vol * qty;
+
+    return { pricePerLiter, revenue, profit };
+  };
+
+  const metrics = calculateQuickMetrics();
+
   const handleFileUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -266,7 +288,6 @@ export default function PricingApp() {
     <div style={{ fontFamily: "'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif", padding: "40px 20px", maxWidth: "1000px", margin: "0 auto", backgroundColor: "white", minHeight: "100vh" }}>
       <div style={{ marginBottom: "40px" }}>
         <h1 style={{ margin: "0 0 10px 0", fontSize: "32px", color: "#1a1a1a", fontWeight: "600" }}>Pricing Dashboard</h1>
-        <p style={{ margin: "0", color: "#666", fontSize: "14px" }}>Create professional quotations from your Excel data</p>
       </div>
 
       {/* Company & Customer Details Form */}
@@ -386,9 +407,112 @@ export default function PricingApp() {
         </div>
       </div>
 
+      {/* Original Quick Calculator */}
+      <div style={{ border: "1px solid #e0e0e0", padding: "24px", marginBottom: "24px", backgroundColor: "#fafafa", borderRadius: "6px" }}>
+        <h2 style={{ margin: "0 0 20px 0", fontSize: "16px", fontWeight: "600", color: "#1a1a1a" }}>Quick Calculator</h2>
+        
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "16px", marginBottom: "20px" }}>
+          <div>
+            <label style={{ display: "block", marginBottom: "6px", fontWeight: "500", fontSize: "13px", color: "#333" }}>Cost per Liter (USD)</label>
+            <input
+              type="number"
+              value={costPerLiter}
+              onChange={(e) => setCostPerLiter(e.target.value)}
+              placeholder="0.00"
+              step="0.01"
+              style={{
+                width: "100%",
+                padding: "10px 12px",
+                border: "1px solid #d0d0d0",
+                fontSize: "14px",
+                boxSizing: "border-box",
+                borderRadius: "4px",
+                fontFamily: "inherit"
+              }}
+            />
+          </div>
+          <div>
+            <label style={{ display: "block", marginBottom: "6px", fontWeight: "500", fontSize: "13px", color: "#333" }}>Margin (%)</label>
+            <input
+              type="number"
+              value={marginPercent}
+              onChange={(e) => setMarginPercent(e.target.value)}
+              placeholder="0"
+              step="0.1"
+              style={{
+                width: "100%",
+                padding: "10px 12px",
+                border: "1px solid #d0d0d0",
+                fontSize: "14px",
+                boxSizing: "border-box",
+                borderRadius: "4px",
+                fontFamily: "inherit"
+              }}
+            />
+          </div>
+          <div>
+            <label style={{ display: "block", marginBottom: "6px", fontWeight: "500", fontSize: "13px", color: "#333" }}>Volume (Liters)</label>
+            <input
+              type="number"
+              value={volume}
+              onChange={(e) => setVolume(e.target.value)}
+              placeholder="0"
+              style={{
+                width: "100%",
+                padding: "10px 12px",
+                border: "1px solid #d0d0d0",
+                fontSize: "14px",
+                boxSizing: "border-box",
+                borderRadius: "4px",
+                fontFamily: "inherit"
+              }}
+            />
+          </div>
+          <div>
+            <label style={{ display: "block", marginBottom: "6px", fontWeight: "500", fontSize: "13px", color: "#333" }}>Quantity</label>
+            <input
+              type="number"
+              value={quantity}
+              onChange={(e) => setQuantity(e.target.value)}
+              placeholder="0"
+              style={{
+                width: "100%",
+                padding: "10px 12px",
+                border: "1px solid #d0d0d0",
+                fontSize: "14px",
+                boxSizing: "border-box",
+                borderRadius: "4px",
+                fontFamily: "inherit"
+              }}
+            />
+          </div>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "16px" }}>
+          <div style={{ backgroundColor: "white", padding: "12px", borderRadius: "4px", border: "1px solid #e0e0e0" }}>
+            <p style={{ margin: "0 0 4px 0", fontSize: "12px", color: "#999", fontWeight: "500" }}>Price / L</p>
+            <p style={{ margin: "0", fontSize: "20px", fontWeight: "600", color: "#2563eb" }}>
+              ${metrics.pricePerLiter.toFixed(2)}
+            </p>
+          </div>
+          <div style={{ backgroundColor: "white", padding: "12px", borderRadius: "4px", border: "1px solid #e0e0e0" }}>
+            <p style={{ margin: "0 0 4px 0", fontSize: "12px", color: "#999", fontWeight: "500" }}>Revenue</p>
+            <p style={{ margin: "0", fontSize: "20px", fontWeight: "600", color: "#2563eb" }}>
+              ${metrics.revenue.toFixed(2)}
+            </p>
+          </div>
+          <div style={{ backgroundColor: "white", padding: "12px", borderRadius: "4px", border: "1px solid #e0e0e0" }}>
+            <p style={{ margin: "0 0 4px 0", fontSize: "12px", color: "#999", fontWeight: "500" }}>Profit</p>
+            <p style={{ margin: "0", fontSize: "20px", fontWeight: "600", color: "#2563eb" }}>
+              ${metrics.profit.toFixed(2)}
+            </p>
+          </div>
+        </div>
+      </div>
+
       {!uploadedFile ? (
         <div style={{ border: "1px solid #e0e0e0", padding: "24px", marginBottom: "20px", backgroundColor: "#fafafa", borderRadius: "6px" }}>
-          <h2 style={{ margin: "0 0 16px 0", fontSize: "16px", fontWeight: "600", color: "#1a1a1a" }}>Upload Excel File</h2>
+          <h2 style={{ margin: "0 0 16px 0", fontSize: "16px", fontWeight: "600", color: "#1a1a1a" }}>Advanced: Upload Excel File</h2>
           <input
             type="file"
             accept=".xlsx,.xls"
