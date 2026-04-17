@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { skusService, recipesService, costingEngine } from "../../services/supabaseService";
+import { skusService, recipesService, costingEngine } from "../services/supabaseService";
 
 export default function SKUManagement() {
   const [skus, setSkus] = useState([]);

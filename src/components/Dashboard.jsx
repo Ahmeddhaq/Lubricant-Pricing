@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { quotesService, skusService, costSnapshotsService, costingEngine } from "../../services/supabaseService";
+import { quotesService, skusService, costSnapshotsService, costingEngine } from "../services/supabaseService";
 
 export default function Dashboard() {
   const [quotes, setQuotes] = useState([]);

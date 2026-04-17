@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { baseOilsService, additivesService, recipesService, recipeIngredientsService, costingEngine } from "../../services/supabaseService";
+import { baseOilsService, additivesService, recipesService, recipeIngredientsService, costingEngine } from "../services/supabaseService";
 
 export default function FormulationEngine() {
   const [recipes, setRecipes] = useState([]);

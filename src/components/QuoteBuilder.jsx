@@ -6,7 +6,7 @@ import {
   customersService,
   costingEngine,
   costSnapshotsService,
-} from "../../services/supabaseService";
+} from "../services/supabaseService";
 
 export default function QuoteBuilder() {
   const [quotes, setQuotes] = useState([]);

@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { jsPDF } from "jspdf";
 import html2canvas from "html2canvas";
-import { quotesService } from "../../services/supabaseService";
+import { quotesService } from "../services/supabaseService";
 
 export default function PdfQuoteGenerator({ quoteId, quote, isOpen, onClose }) {
   const [generating, setGenerating] = useState(false);
