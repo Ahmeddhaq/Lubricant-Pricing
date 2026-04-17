@@ -207,91 +207,91 @@ export default function Dashboard() {
   if (loading) return <div className="p-6 text-center">Loading...</div>;
 
   return (
-    <div className="space-y-8 pb-8">
+    <div className="page-stack">
       {/* ====== SECTION 1: KPI SUMMARY ====== */}
-      <section>
-        <h1 className="text-2xl font-semibold text-gray-900 mb-6">KPI Summary</h1>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <section className="page-section">
+        <h2 className="section-title">KPI Summary</h2>
+        <div className="metric-grid">
           {/* Total Revenue */}
-          <div className="table-container">
-            <div className="px-6 py-6">
-              <p className="text-sm text-gray-600 mb-2">Total Revenue</p>
-              <p className="text-3xl font-semibold text-gray-900">${stats.totalRevenue.toLocaleString()}</p>
+          <div className="metric-card">
+            <div className="content-row-stack">
+              <p className="metric-label">Total Revenue</p>
+              <p className="metric-value">${stats.totalRevenue.toLocaleString()}</p>
             </div>
           </div>
 
           {/* Total Cost */}
-          <div className="table-container">
-            <div className="px-6 py-6">
-              <p className="text-sm text-gray-600 mb-2">Total Cost</p>
-              <p className="text-3xl font-semibold text-gray-900">${stats.totalCost.toLocaleString()}</p>
+          <div className="metric-card">
+            <div className="content-row-stack">
+              <p className="metric-label">Total Cost</p>
+              <p className="metric-value">${stats.totalCost.toLocaleString()}</p>
             </div>
           </div>
 
           {/* Gross Profit */}
-          <div className="table-container">
-            <div className="px-6 py-6">
-              <p className="text-sm text-gray-600 mb-2">Gross Profit</p>
-              <p className="text-3xl font-semibold text-gray-900">${stats.grossProfit.toLocaleString()}</p>
+          <div className="metric-card">
+            <div className="content-row-stack">
+              <p className="metric-label">Gross Profit</p>
+              <p className="metric-value">${stats.grossProfit.toLocaleString()}</p>
             </div>
           </div>
 
           {/* Profit Margin */}
-          <div className="table-container">
-            <div className="px-6 py-6">
-              <p className="text-sm text-gray-600 mb-2">Profit Margin %</p>
-              <p className="text-3xl font-semibold text-gray-900">{stats.profitMargin.toFixed(1)}%</p>
+          <div className="metric-card">
+            <div className="content-row-stack">
+              <p className="metric-label">Profit Margin %</p>
+              <p className="metric-value">{stats.profitMargin.toFixed(1)}%</p>
             </div>
           </div>
 
           {/* Active Deals */}
-          <div className="table-container">
-            <div className="px-6 py-6">
-              <p className="text-sm text-gray-600 mb-2">Active Deals</p>
-              <p className="text-3xl font-semibold text-gray-900">{stats.activeDeals}</p>
+          <div className="metric-card">
+            <div className="content-row-stack">
+              <p className="metric-label">Active Deals</p>
+              <p className="metric-value">{stats.activeDeals}</p>
             </div>
           </div>
 
           {/* Containers - 20FT */}
-          <div className="table-container">
-            <div className="px-6 py-6">
-              <p className="text-sm text-gray-600 mb-2">Containers Shipped (20FT)</p>
-              <p className="text-3xl font-semibold text-gray-900">{stats.containersShipped.teu20}</p>
+          <div className="metric-card">
+            <div className="content-row-stack">
+              <p className="metric-label">Containers Shipped (20FT)</p>
+              <p className="metric-value">{stats.containersShipped.teu20}</p>
             </div>
           </div>
 
           {/* Containers - 40FT */}
-          <div className="table-container">
-            <div className="px-6 py-6">
-              <p className="text-sm text-gray-600 mb-2">Containers Shipped (40FT)</p>
-              <p className="text-3xl font-semibold text-gray-900">{stats.containersShipped.teu40}</p>
+          <div className="metric-card">
+            <div className="content-row-stack">
+              <p className="metric-label">Containers Shipped (40FT)</p>
+              <p className="metric-value">{stats.containersShipped.teu40}</p>
             </div>
           </div>
 
           {/* Avg Profit per Container */}
-          <div className="table-container">
-            <div className="px-6 py-6">
-              <p className="text-sm text-gray-600 mb-2">Avg Profit/Container</p>
-              <p className="text-3xl font-semibold text-gray-900">${stats.avgProfitPerContainer.toLocaleString()}</p>
+          <div className="metric-card">
+            <div className="content-row-stack">
+              <p className="metric-label">Avg Profit/Container</p>
+              <p className="metric-value">${stats.avgProfitPerContainer.toLocaleString()}</p>
             </div>
           </div>
         </div>
       </section>
 
       {/* ====== SECTION 2: PROFITABILITY OVERVIEW ====== */}
-      <section>
-        <h2 className="text-2xl font-semibold text-gray-900 mb-6">Profitability Overview</h2>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <section className="page-section">
+        <h2 className="section-title">Profitability Overview</h2>
+        <div className="section-grid" style={{ gridTemplateColumns: "repeat(3, minmax(0, 1fr))" }}>
           {/* Top 5 SKUs */}
-          <div className="table-container">
-            <div className="px-6 py-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Top 5 SKUs by Profit</h3>
+          <div className="content-card">
+            <div className="content-row-stack">
+              <h3 className="text-lg font-semibold text-gray-900">Top 5 SKUs by Profit</h3>
               {stats.topSkus.length === 0 ? (
                 <p className="text-gray-500">No data available</p>
               ) : (
                 <div className="space-y-3">
                   {stats.topSkus.map((sku, idx) => (
-                    <div key={idx} className="p-3 border border-gray-200 rounded">
+                    <div key={idx} className="compact-item">
                       <div className="flex justify-between items-start mb-2">
                         <p className="font-semibold text-gray-900">{sku.name}</p>
                         <span className="text-xs bg-gray-100 text-gray-800 px-2 py-1 rounded">#{idx + 1}</span>
@@ -314,15 +314,15 @@ export default function Dashboard() {
           </div>
 
           {/* Bottom 5 SKUs */}
-          <div className="table-container">
-            <div className="px-6 py-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Bottom 5 SKUs by Profit</h3>
+          <div className="content-card">
+            <div className="content-row-stack">
+              <h3 className="text-lg font-semibold text-gray-900">Bottom 5 SKUs by Profit</h3>
               {stats.bottomSkus.length === 0 ? (
                 <p className="text-gray-500">No data available</p>
               ) : (
                 <div className="space-y-3">
                   {stats.bottomSkus.map((sku, idx) => (
-                    <div key={idx} className="p-3 border border-gray-200 rounded">
+                    <div key={idx} className="compact-item">
                       <div className="flex justify-between items-start mb-2">
                         <p className="font-semibold text-gray-900">{sku.name}</p>
                         <span className="text-xs bg-gray-100 text-gray-800 px-2 py-1 rounded">#{idx + 1}</span>
@@ -345,15 +345,15 @@ export default function Dashboard() {
           </div>
 
           {/* Profit by Market */}
-          <div className="table-container">
-            <div className="px-6 py-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Profit by Market</h3>
+          <div className="content-card">
+            <div className="content-row-stack">
+              <h3 className="text-lg font-semibold text-gray-900">Profit by Market</h3>
               {Object.keys(stats.profitByMarket).length === 0 ? (
                 <p className="text-gray-500">No data available</p>
               ) : (
                 <div className="space-y-3">
                   {Object.entries(stats.profitByMarket).map(([market, data], idx) => (
-                    <div key={idx} className="p-3 border border-gray-200 rounded">
+                    <div key={idx} className="compact-item">
                       <p className="font-semibold text-gray-900 mb-2">{market}</p>
                       <div className="space-y-1 text-sm">
                         <div className="flex justify-between">
@@ -375,57 +375,57 @@ export default function Dashboard() {
       </section>
 
       {/* ====== SECTION 3: COST DRIVERS ====== */}
-      <section>
-        <h2 className="text-2xl font-semibold text-gray-900 mb-6">Cost Drivers</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div className="table-container">
-            <div className="px-6 py-6">
-              <p className="text-sm text-gray-600 mb-2">Base Oil Cost Trend</p>
-              <p className="text-2xl font-semibold text-gray-900">—</p>
-              <p className="text-xs text-gray-500 mt-2">Data pending</p>
+      <section className="page-section">
+        <h2 className="section-title">Cost Drivers</h2>
+        <div className="metric-grid">
+          <div className="metric-card">
+            <div className="content-row-stack">
+              <p className="metric-label">Base Oil Cost Trend</p>
+              <p className="metric-value content-value-lg">—</p>
+              <p className="metric-caption">Data pending</p>
             </div>
           </div>
 
-          <div className="table-container">
-            <div className="px-6 py-6">
-              <p className="text-sm text-gray-600 mb-2">Additive Cost %</p>
-              <p className="text-2xl font-semibold text-gray-900">—</p>
-              <p className="text-xs text-gray-500 mt-2">Data pending</p>
+          <div className="metric-card">
+            <div className="content-row-stack">
+              <p className="metric-label">Additive Cost %</p>
+              <p className="metric-value content-value-lg">—</p>
+              <p className="metric-caption">Data pending</p>
             </div>
           </div>
 
-          <div className="table-container">
-            <div className="px-6 py-6">
-              <p className="text-sm text-gray-600 mb-2">Packaging Cost</p>
-              <p className="text-2xl font-semibold text-gray-900">—</p>
-              <p className="text-xs text-gray-500 mt-2">Data pending</p>
+          <div className="metric-card">
+            <div className="content-row-stack">
+              <p className="metric-label">Packaging Cost</p>
+              <p className="metric-value content-value-lg">—</p>
+              <p className="metric-caption">Data pending</p>
             </div>
           </div>
 
-          <div className="table-container">
-            <div className="px-6 py-6">
-              <p className="text-sm text-gray-600 mb-2">Logistics Cost</p>
-              <p className="text-2xl font-semibold text-gray-900">—</p>
-              <p className="text-xs text-gray-500 mt-2">Data pending</p>
+          <div className="metric-card">
+            <div className="content-row-stack">
+              <p className="metric-label">Logistics Cost</p>
+              <p className="metric-value content-value-lg">—</p>
+              <p className="metric-caption">Data pending</p>
             </div>
           </div>
         </div>
       </section>
 
       {/* ====== SECTION 4: ALERTS & WARNINGS ====== */}
-      <section>
-        <h2 className="text-2xl font-semibold text-gray-900 mb-6">Alerts & Warnings</h2>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <section className="page-section">
+        <h2 className="section-title">Alerts & Warnings</h2>
+        <div className="section-grid" style={{ gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}>
           {/* Low Margin SKUs */}
-          <div className="table-container">
-            <div className="px-6 py-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Low Margin SKUs (&lt; 15%)</h3>
+          <div className="content-card">
+            <div className="content-row-stack">
+              <h3 className="text-lg font-semibold text-gray-900">Low Margin SKUs (&lt; 15%)</h3>
               {stats.lowMarginSkus.length === 0 ? (
                 <p className="text-gray-500">No low margin SKUs</p>
               ) : (
                 <div className="space-y-3">
                   {stats.lowMarginSkus.map((sku, idx) => (
-                    <div key={idx} className="p-3 border border-gray-200 rounded">
+                    <div key={idx} className="compact-item">
                       <div className="flex justify-between items-center mb-2">
                         <p className="font-semibold text-gray-900">{sku.name}</p>
                         <span className="text-xs bg-gray-100 text-gray-800 px-2 py-1 rounded">{sku.margin.toFixed(1)}%</span>
@@ -439,15 +439,15 @@ export default function Dashboard() {
           </div>
 
           {/* Loss-Making Quotes */}
-          <div className="table-container">
-            <div className="px-6 py-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Loss-Making Quotes</h3>
+          <div className="content-card">
+            <div className="content-row-stack">
+              <h3 className="text-lg font-semibold text-gray-900">Loss-Making Quotes</h3>
               {stats.losingQuotes.length === 0 ? (
                 <p className="text-gray-500">No loss-making quotes</p>
               ) : (
                 <div className="space-y-3">
                   {stats.losingQuotes.map((quote, idx) => (
-                    <div key={idx} className="p-3 border border-gray-200 rounded">
+                    <div key={idx} className="compact-item">
                       <div className="flex justify-between items-center mb-2">
                         <p className="font-semibold text-gray-900">{quote.quote_number}</p>
                         <span className="text-xs bg-gray-100 text-gray-800 px-2 py-1 rounded">${quote.qProfit.toFixed(2)}</span>
@@ -463,52 +463,52 @@ export default function Dashboard() {
       </section>
 
       {/* ====== SECTION 5: DEAL PIPELINE SNAPSHOT ====== */}
-      <section>
-        <h2 className="text-2xl font-semibold text-gray-900 mb-6">Deal Pipeline Snapshot</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
-          <div className="table-container">
-            <div className="px-6 py-6">
-              <p className="text-sm text-gray-600 mb-2">Open Deals</p>
-              <p className="text-3xl font-semibold text-gray-900">{stats.openDeals}</p>
+      <section className="page-section">
+        <h2 className="section-title">Deal Pipeline Snapshot</h2>
+        <div className="metric-grid metric-grid-5">
+          <div className="metric-card">
+            <div className="content-row-stack">
+              <p className="metric-label">Open Deals</p>
+              <p className="metric-value">{stats.openDeals}</p>
             </div>
           </div>
 
-          <div className="table-container">
-            <div className="px-6 py-6">
-              <p className="text-sm text-gray-600 mb-2">In Negotiation</p>
-              <p className="text-3xl font-semibold text-gray-900">{stats.negotiationDeals}</p>
+          <div className="metric-card">
+            <div className="content-row-stack">
+              <p className="metric-label">In Negotiation</p>
+              <p className="metric-value">{stats.negotiationDeals}</p>
             </div>
           </div>
 
-          <div className="table-container">
-            <div className="px-6 py-6">
-              <p className="text-sm text-gray-600 mb-2">Won Deals</p>
-              <p className="text-3xl font-semibold text-gray-900">{stats.wonDeals}</p>
+          <div className="metric-card">
+            <div className="content-row-stack">
+              <p className="metric-label">Won Deals</p>
+              <p className="metric-value">{stats.wonDeals}</p>
             </div>
           </div>
 
-          <div className="table-container">
-            <div className="px-6 py-6">
-              <p className="text-sm text-gray-600 mb-2">Lost Deals</p>
-              <p className="text-3xl font-semibold text-gray-900">{stats.lostDeals}</p>
+          <div className="metric-card">
+            <div className="content-row-stack">
+              <p className="metric-label">Lost Deals</p>
+              <p className="metric-value">{stats.lostDeals}</p>
             </div>
           </div>
 
-          <div className="table-container">
-            <div className="px-6 py-6">
-              <p className="text-sm text-gray-600 mb-2">Pipeline Value</p>
-              <p className="text-3xl font-semibold text-gray-900">${stats.pipelineValue.toLocaleString()}</p>
+          <div className="metric-card">
+            <div className="content-row-stack">
+              <p className="metric-label">Pipeline Value</p>
+              <p className="metric-value">${stats.pipelineValue.toLocaleString()}</p>
             </div>
           </div>
         </div>
       </section>
 
       {/* ====== SECTION 6: RECENT ACTIVITY ====== */}
-      <section>
-        <h2 className="text-2xl font-semibold text-gray-900 mb-6">Recent Activity</h2>
-        <div className="table-container">
-          <div className="px-6 py-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Recently Created Quotes</h3>
+      <section className="page-section">
+        <h2 className="section-title">Recent Activity</h2>
+        <div className="content-card">
+          <div className="content-row-stack">
+            <h3 className="text-lg font-semibold text-gray-900">Recently Created Quotes</h3>
             {stats.recentQuotes.length === 0 ? (
               <p className="text-gray-500">No recent quotes</p>
             ) : (

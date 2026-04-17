@@ -286,11 +286,11 @@ export default function QuoteBuilder() {
   if (loading) return <div className="p-6 text-center">Loading...</div>;
 
   return (
-    <div className="space-y-8 pb-8">
+    <div className="page-stack">
       {/* ====== QUOTE LIST SECTION ====== */}
-      <section>
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-semibold text-gray-900">Quotations</h2>
+      <section className="page-section">
+        <div className="section-toolbar">
+          <h2 className="section-title">Quotations</h2>
           <button
             onClick={() => setActiveTab("create")}
             className="btn btn-primary"
@@ -302,7 +302,7 @@ export default function QuoteBuilder() {
         {activeTab === "list" && (
           <div>
             {quotes.length === 0 ? (
-              <div className="table-container">
+              <div className="content-card">
                 <div className="px-6 py-12 text-center">
                   <p className="text-gray-500">No quotes found. Create one to get started.</p>
                 </div>
@@ -362,7 +362,7 @@ export default function QuoteBuilder() {
 
       {/* ====== DETAIL VIEW SECTIONS ====== */}
       {activeTab === "detail" && selectedQuote && (
-        <section>
+        <section className="page-section">
           <button
             onClick={() => setActiveTab("list")}
             className="btn btn-secondary mb-6"
@@ -371,31 +371,31 @@ export default function QuoteBuilder() {
           </button>
 
           {/* ====== SECTION 1: QUOTE HEADER ====== */}
-          <div className="table-container mb-6">
-            <div className="px-6 py-6">
-              <h2 className="text-2xl font-semibold text-gray-900 mb-4">Quote Header</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <div>
+          <div className="content-card">
+            <div className="content-row-stack">
+              <h2 className="section-title">Quote Header</h2>
+              <div className="metric-grid metric-grid-3">
+                <div className="content-card-compact">
                   <p className="text-sm text-gray-600 mb-1">Quote Number</p>
                   <p className="text-lg font-semibold text-gray-900">{selectedQuote.quote_number}</p>
                 </div>
-                <div>
+                <div className="content-card-compact">
                   <p className="text-sm text-gray-600 mb-1">Date</p>
                   <p className="text-lg font-semibold text-gray-900">{new Date(selectedQuote.created_at).toLocaleDateString()}</p>
                 </div>
-                <div>
+                <div className="content-card-compact">
                   <p className="text-sm text-gray-600 mb-1">Customer Name</p>
                   <p className="text-lg font-semibold text-gray-900">{selectedQuote.customers?.name}</p>
                 </div>
-                <div>
+                <div className="content-card-compact">
                   <p className="text-sm text-gray-600 mb-1">Country / Market</p>
                   <p className="text-lg font-semibold text-gray-900">{selectedQuote.customers?.country || "—"}</p>
                 </div>
-                <div>
+                <div className="content-card-compact">
                   <p className="text-sm text-gray-600 mb-1">Salesperson</p>
                   <p className="text-lg font-semibold text-gray-900">{selectedQuote.salesperson || "—"}</p>
                 </div>
-                <div>
+                <div className="content-card-compact">
                   <p className="text-sm text-gray-600 mb-1">Currency</p>
                   <p className="text-lg font-semibold text-gray-900">USD</p>
                 </div>
@@ -404,9 +404,9 @@ export default function QuoteBuilder() {
           </div>
 
           {/* ====== SECTION 2: PRODUCT SELECTION (MULTI-SKU) ====== */}
-          <div className="table-container mb-6">
-            <div className="px-6 py-6">
-              <h2 className="text-2xl font-semibold text-gray-900 mb-4">Product Selection</h2>
+          <div className="content-card">
+            <div className="content-row-stack">
+              <h2 className="section-title">Product Selection</h2>
               {selectedQuote.quote_items?.length > 0 ? (
                 <div className="overflow-x-auto">
                   <table>
@@ -441,23 +441,23 @@ export default function QuoteBuilder() {
           </div>
 
           {/* ====== SECTION 4: SHIPMENT DETAILS ====== */}
-          <div className="table-container mb-6">
-            <div className="px-6 py-6">
-              <h2 className="text-2xl font-semibold text-gray-900 mb-4">Shipment Details</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <div className="p-4 border border-gray-200 rounded">
+          <div className="content-card">
+            <div className="content-row-stack">
+              <h2 className="section-title">Shipment Details</h2>
+              <div className="metric-grid metric-grid-4">
+                <div className="content-card-compact">
                   <p className="text-sm text-gray-600 mb-2">Total Volume (Liters)</p>
                   <p className="text-2xl font-semibold text-gray-900">—</p>
                 </div>
-                <div className="p-4 border border-gray-200 rounded">
+                <div className="content-card-compact">
                   <p className="text-sm text-gray-600 mb-2">Container Type</p>
                   <p className="text-lg font-semibold text-gray-900">{selectedQuote.container_type || "20FT"}</p>
                 </div>
-                <div className="p-4 border border-gray-200 rounded">
+                <div className="content-card-compact">
                   <p className="text-sm text-gray-600 mb-2">Freight Cost</p>
                   <p className="text-2xl font-semibold text-gray-900">${(selectedQuote.freight_cost || 0).toFixed(2)}</p>
                 </div>
-                <div className="p-4 border border-gray-200 rounded">
+                <div className="content-card-compact">
                   <p className="text-sm text-gray-600 mb-2">Incoterm</p>
                   <p className="text-lg font-semibold text-gray-900">{selectedQuote.incoterm || "FOB"}</p>
                 </div>
@@ -466,23 +466,23 @@ export default function QuoteBuilder() {
           </div>
 
           {/* ====== SECTION 5: FINANCIAL SUMMARY ====== */}
-          <div className="table-container mb-6">
-            <div className="px-6 py-6">
-              <h2 className="text-2xl font-semibold text-gray-900 mb-4">Financial Summary</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <div className="p-4 border border-gray-200 rounded">
+          <div className="content-card">
+            <div className="content-row-stack">
+              <h2 className="section-title">Financial Summary</h2>
+              <div className="metric-grid metric-grid-4">
+                <div className="content-card-compact">
                   <p className="text-sm text-gray-600 mb-2">Total Product Value</p>
                   <p className="text-2xl font-semibold text-gray-900">${selectedQuote.total_amount?.toFixed(2)}</p>
                 </div>
-                <div className="p-4 border border-gray-200 rounded">
+                <div className="content-card-compact">
                   <p className="text-sm text-gray-600 mb-2">Freight</p>
                   <p className="text-2xl font-semibold text-gray-900">${(selectedQuote.freight_cost || 0).toFixed(2)}</p>
                 </div>
-                <div className="p-4 border border-gray-200 rounded">
+                <div className="content-card-compact">
                   <p className="text-sm text-gray-600 mb-2">Total Invoice Value</p>
                   <p className="text-2xl font-semibold text-gray-900">${(selectedQuote.total_amount + (selectedQuote.freight_cost || 0)).toFixed(2)}</p>
                 </div>
-                <div className="p-4 border border-gray-200 rounded">
+                <div className="content-card-compact">
                   <p className="text-sm text-gray-600 mb-2">Estimated Profit</p>
                   <p className="text-2xl font-semibold text-gray-900">—</p>
                 </div>
@@ -491,19 +491,19 @@ export default function QuoteBuilder() {
           </div>
 
           {/* ====== SECTION 6: CREDIT TERMS ====== */}
-          <div className="table-container mb-6">
-            <div className="px-6 py-6">
-              <h2 className="text-2xl font-semibold text-gray-900 mb-4">Credit Terms</h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="p-4 border border-gray-200 rounded">
+          <div className="content-card">
+            <div className="content-row-stack">
+              <h2 className="section-title">Credit Terms</h2>
+              <div className="metric-grid metric-grid-3">
+                <div className="content-card-compact">
                   <p className="text-sm text-gray-600 mb-2">Payment Terms</p>
                   <p className="text-lg font-semibold text-gray-900">{selectedQuote.payment_terms || "Cash"}</p>
                 </div>
-                <div className="p-4 border border-gray-200 rounded">
+                <div className="content-card-compact">
                   <p className="text-sm text-gray-600 mb-2">Credit Cost Impact</p>
                   <p className="text-lg font-semibold text-gray-900">—</p>
                 </div>
-                <div className="p-4 border border-gray-200 rounded">
+                <div className="content-card-compact">
                   <p className="text-sm text-gray-600 mb-2">Effect on Profit</p>
                   <p className="text-lg font-semibold text-gray-900">—</p>
                 </div>
@@ -512,9 +512,9 @@ export default function QuoteBuilder() {
           </div>
 
           {/* ====== SECTION 7: STATUS MANAGEMENT ====== */}
-          <div className="table-container mb-6">
-            <div className="px-6 py-6">
-              <h2 className="text-2xl font-semibold text-gray-900 mb-4">Status Management</h2>
+          <div className="content-card">
+            <div className="content-row-stack">
+              <h2 className="section-title">Status Management</h2>
               <div className="flex gap-2 flex-wrap">
                 {["Draft", "Sent", "Negotiation", "Approved", "Won", "Lost"].map((status) => (
                   <button
@@ -533,10 +533,10 @@ export default function QuoteBuilder() {
           </div>
 
           {/* ====== SECTION 8: ACTIONS ====== */}
-          <div className="table-container mb-6">
-            <div className="px-6 py-6">
-              <h2 className="text-2xl font-semibold text-gray-900 mb-4">Quote Actions</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
+          <div className="content-card">
+            <div className="content-row-stack">
+              <h2 className="section-title">Quote Actions</h2>
+              <div className="section-toolbar-actions">
                 <button className="btn btn-primary">Generate PDF</button>
                 <button className="btn btn-secondary">Duplicate Quote</button>
                 <button className="btn btn-secondary">Edit / Revise</button>
@@ -547,15 +547,15 @@ export default function QuoteBuilder() {
           </div>
 
           {/* ====== SECTION 9: AUDIT & HISTORY ====== */}
-          <div className="table-container">
-            <div className="px-6 py-6">
-              <h2 className="text-2xl font-semibold text-gray-900 mb-4">Audit & History</h2>
+          <div className="content-card">
+            <div className="content-row-stack">
+              <h2 className="section-title">Audit & History</h2>
               <div className="space-y-3">
-                <div className="p-3 border border-gray-200 rounded">
+                <div className="compact-item">
                   <p className="text-sm font-semibold text-gray-900">Version History & Price Changes</p>
                   <p className="text-sm text-gray-600 mt-2">Original quote created on {new Date(selectedQuote.created_at).toLocaleDateString()}</p>
                 </div>
-                <div className="p-3 border border-gray-200 rounded">
+                <div className="compact-item">
                   <p className="text-sm font-semibold text-gray-900">Who & When</p>
                   <p className="text-sm text-gray-600 mt-2">Created by system on {new Date(selectedQuote.created_at).toLocaleString()}</p>
                 </div>
@@ -567,13 +567,13 @@ export default function QuoteBuilder() {
 
       {/* ====== CREATE QUOTE SECTIONS ====== */}
       {activeTab === "create" && (
-        <form onSubmit={handleCreateQuote} className="space-y-8">
+        <form onSubmit={handleCreateQuote} className="page-stack">
           {/* ====== SECTION 1: QUOTE HEADER CREATION ====== */}
-          <section>
-            <h2 className="text-2xl font-semibold text-gray-900 mb-6">Quote Header</h2>
+          <section className="page-section">
+            <h2 className="section-title">Quote Header</h2>
             <div className="table-container">
-              <div className="px-6 py-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="content-card">
+                <div className="form-grid form-grid-3">
                   <div className="form-group">
                     <label className="text-sm font-semibold text-gray-900">Customer *</label>
                     <select
@@ -651,7 +651,7 @@ export default function QuoteBuilder() {
                 {showNewCustomer && (
                   <div className="mt-6 pt-6 border-t border-gray-200">
                     <h3 className="font-semibold text-gray-900 mb-4">Add New Customer</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div className="form-grid form-grid-2 mb-4">
                       <input
                         type="text"
                         placeholder="Company Name *"
@@ -695,12 +695,12 @@ export default function QuoteBuilder() {
           </section>
 
           {/* ====== SECTION 2: PRODUCT SELECTION ====== */}
-          <section>
-            <h2 className="text-2xl font-semibold text-gray-900 mb-6">Product Selection</h2>
-            <div className="table-container mb-6">
-              <div className="px-6 py-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Add Line Items</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
+          <section className="page-section">
+            <h2 className="section-title">Product Selection</h2>
+            <div className="content-card">
+              <div className="content-row-stack">
+                <h3 className="text-lg font-semibold text-gray-900">Add Line Items</h3>
+                <div className="form-grid form-grid-5 mb-4">
                   <div className="form-group mb-0">
                     <label className="text-sm font-semibold text-gray-900">SKU *</label>
                     <select
@@ -811,11 +811,11 @@ export default function QuoteBuilder() {
           </section>
 
           {/* ====== SECTION 4: SHIPMENT DETAILS ====== */}
-          <section>
-            <h2 className="text-2xl font-semibold text-gray-900 mb-6">Shipment Details</h2>
+          <section className="page-section">
+            <h2 className="section-title">Shipment Details</h2>
             <div className="table-container">
-              <div className="px-6 py-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="content-card">
+                  <div className="form-grid form-grid-4">
                   <div className="form-group">
                     <label className="text-sm font-semibold text-gray-900">Total Volume (Liters)</label>
                     <input
@@ -868,11 +868,11 @@ export default function QuoteBuilder() {
           </section>
 
           {/* ====== SECTION 5: FINANCIAL SUMMARY ====== */}
-          <section>
-            <h2 className="text-2xl font-semibold text-gray-900 mb-6">Financial Summary</h2>
+          <section className="page-section">
+            <h2 className="section-title">Financial Summary</h2>
             <div className="table-container">
-              <div className="px-6 py-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="content-card">
+                <div className="metric-grid">
                   <div className="p-4 border border-gray-200 rounded">
                     <p className="text-sm text-gray-600 mb-2">Total Product Value</p>
                     <p className="text-2xl font-semibold text-gray-900">${calculateTotalProductValue().toFixed(2)}</p>
@@ -907,11 +907,11 @@ export default function QuoteBuilder() {
           </section>
 
           {/* ====== SECTION 6: CREDIT TERMS ====== */}
-          <section>
-            <h2 className="text-2xl font-semibold text-gray-900 mb-6">Credit Terms</h2>
+          <section className="page-section">
+            <h2 className="section-title">Credit Terms</h2>
             <div className="table-container">
-              <div className="px-6 py-6">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="content-card">
+                <div className="metric-grid metric-grid-3">
                   <div className="form-group">
                     <label className="text-sm font-semibold text-gray-900">Payment Terms</label>
                     <select
@@ -957,8 +957,8 @@ export default function QuoteBuilder() {
           </section>
 
           {/* ====== SECTION 7: STATUS MANAGEMENT ====== */}
-          <section>
-            <h2 className="text-2xl font-semibold text-gray-900 mb-6">Quote Status</h2>
+          <section className="page-section">
+            <h2 className="section-title">Quote Status</h2>
             <div className="table-container">
               <div className="px-6 py-6">
                 <select

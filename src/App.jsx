@@ -10,7 +10,7 @@ export default function PricingApp() {
   const [activeTab, setActiveTab] = useState("dashboard");
 
   return (
-    <div className="flex min-h-screen bg-white">
+    <div className="app-container flex min-h-screen bg-white">
       <Navigation activeTab={activeTab} setActiveTab={setActiveTab} />
       
       <main className="main-content">
@@ -20,7 +20,7 @@ export default function PricingApp() {
           {activeTab === "skus" && <h1>SKU Management</h1>}
           {activeTab === "quotes" && <h1>Quote Builder</h1>}
         </div>
-        <div className="max-w-7xl">
+        <div className="page-frame">
           {activeTab === "dashboard" && <Dashboard />}
           {activeTab === "formulation" && <FormulationEngine />}
           {activeTab === "skus" && <SKUManagement />}

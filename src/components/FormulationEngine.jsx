@@ -185,13 +185,13 @@ export default function FormulationEngine() {
   const costBreakdown = getCostBreakdownByType();
 
   return (
-    <div className="space-y-8 pb-8">
+    <div className="page-stack">
       {/* ====== SECTION 1: SKU SELECTOR / CREATOR ====== */}
-      <section>
-        <h2 className="text-2xl font-semibold text-gray-900 mb-6">Product Definition</h2>
+      <section className="page-section">
+        <h2 className="section-title">Product Definition</h2>
         <div className="table-container">
-          <div className="px-6 py-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="content-card">
+            <div className="form-grid form-grid-4">
               <div className="form-group">
                 <label className="text-sm font-semibold text-gray-900">SKU Name *</label>
                 <input
@@ -246,14 +246,14 @@ export default function FormulationEngine() {
       </section>
 
       {/* ====== SECTION 2: COMPONENT TABLE ====== */}
-      <section>
-        <h2 className="text-2xl font-semibold text-gray-900 mb-6">Component Composition</h2>
+      <section className="page-section">
+        <h2 className="section-title">Component Composition</h2>
         
         {/* Add Component Form */}
-        <div className="table-container mb-6">
-          <div className="px-6 py-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Add Component</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
+        <div className="content-card">
+          <div className="content-row-stack">
+            <h3 className="text-lg font-semibold text-gray-900">Add Component</h3>
+            <div className="form-grid form-grid-5">
               <div className="form-group mb-0">
                 <label className="text-sm font-semibold text-gray-900">Component *</label>
                 <select
@@ -351,32 +351,32 @@ export default function FormulationEngine() {
       </section>
 
       {/* ====== SECTION 3: VALIDATION LOGIC ====== */}
-      <section>
-        <h2 className="text-2xl font-semibold text-gray-900 mb-6">Validation Status</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="table-container">
-            <div className="px-6 py-6">
-              <p className="text-sm text-gray-600 mb-2">Total Composition</p>
-              <p className={`text-3xl font-semibold ${validation.isValid ? "text-gray-900" : "text-red-600"}`}>
+      <section className="page-section">
+        <h2 className="section-title">Validation Status</h2>
+        <div className="metric-grid metric-grid-3">
+          <div className="metric-card">
+            <div className="content-row-stack">
+              <p className="metric-label">Total Composition</p>
+              <p className={`metric-value ${validation.isValid ? "text-gray-900" : "text-red-600"}`}>
                 {validation.total.toFixed(2)}%
               </p>
-              <p className="text-xs text-gray-500 mt-2">Must equal 100%</p>
+              <p className="metric-caption">Must equal 100%</p>
             </div>
           </div>
 
-          <div className="table-container">
-            <div className="px-6 py-6">
-              <p className="text-sm text-gray-600 mb-2">Components</p>
-              <p className="text-3xl font-semibold text-gray-900">{components.length}</p>
-              <p className="text-xs text-gray-500 mt-2">Total components added</p>
+          <div className="metric-card">
+            <div className="content-row-stack">
+              <p className="metric-label">Components</p>
+              <p className="metric-value">{components.length}</p>
+              <p className="metric-caption">Total components added</p>
             </div>
           </div>
 
-          <div className="table-container">
-            <div className="px-6 py-6">
-              <p className="text-sm text-gray-600 mb-2">Status</p>
+          <div className="metric-card">
+            <div className="content-row-stack">
+              <p className="metric-label">Status</p>
               {validation.warnings.length === 0 ? (
-                <p className="text-lg font-semibold text-gray-900">✓ Valid</p>
+                <p className="content-value">✓ Valid</p>
               ) : (
                 <div className="space-y-2">
                   {validation.warnings.map((warning, idx) => (
@@ -390,22 +390,22 @@ export default function FormulationEngine() {
       </section>
 
       {/* ====== SECTION 4: COST SUMMARY ====== */}
-      <section>
-        <h2 className="text-2xl font-semibold text-gray-900 mb-6">Cost Summary</h2>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <section className="page-section">
+        <h2 className="section-title">Cost Summary</h2>
+        <div className="section-grid" style={{ gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}>
           {/* Total Blend Cost */}
-          <div className="table-container">
-            <div className="px-6 py-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Blend Cost Metrics</h3>
+          <div className="content-card">
+            <div className="content-row-stack">
+              <h3 className="text-lg font-semibold text-gray-900">Blend Cost Metrics</h3>
               <div className="space-y-4">
-                <div className="p-3 border border-gray-200 rounded">
+                <div className="compact-item">
                   <div className="flex justify-between items-center">
                     <span className="text-gray-600">Total Blend Cost/Liter</span>
                     <span className="text-2xl font-semibold text-gray-900">${calculateTotalBlendCost().toFixed(2)}</span>
                   </div>
                 </div>
 
-                <div className="p-3 border border-gray-200 rounded">
+                <div className="compact-item">
                   <div className="flex justify-between items-center mb-2">
                     <span className="text-gray-600">Batch Size (Liters)</span>
                     <input
@@ -420,7 +420,7 @@ export default function FormulationEngine() {
                 </div>
 
                 {batchSize && (
-                  <div className="p-3 border border-gray-200 rounded">
+                  <div className="compact-item">
                     <div className="flex justify-between items-center">
                       <span className="text-gray-600">Cost per Batch</span>
                       <span className="text-2xl font-semibold text-gray-900">${calculateCostPerBatch().toFixed(2)}</span>
@@ -432,13 +432,13 @@ export default function FormulationEngine() {
           </div>
 
           {/* Cost Breakdown by Type */}
-          <div className="table-container">
-            <div className="px-6 py-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Cost Breakdown by Type</h3>
+          <div className="content-card">
+            <div className="content-row-stack">
+              <h3 className="text-lg font-semibold text-gray-900">Cost Breakdown by Type</h3>
               <div className="space-y-3">
                 {Object.entries(costBreakdown).map(([type, cost], idx) => (
                   cost > 0 && (
-                    <div key={idx} className="p-3 border border-gray-200 rounded">
+                    <div key={idx} className="compact-item">
                       <div className="flex justify-between items-center mb-2">
                         <span className="font-semibold text-gray-900">{type}</span>
                         <span className="text-lg font-semibold text-gray-900">${cost.toFixed(2)}</span>
@@ -464,13 +464,13 @@ export default function FormulationEngine() {
       </section>
 
       {/* ====== SECTION 5: VERSION CONTROL ====== */}
-      <section>
-        <h2 className="text-2xl font-semibold text-gray-900 mb-6">Version Control & Change History</h2>
-        <div className="table-container">
-          <div className="px-6 py-6">
+      <section className="page-section">
+        <h2 className="section-title">Version Control & Change History</h2>
+        <div className="content-card">
+          <div className="content-row-stack">
             <div className="mb-6">
               <p className="text-sm text-gray-600 mb-2">Current Version</p>
-              <p className="text-2xl font-semibold text-gray-900">{skuForm.version}</p>
+              <p className="metric-value">{skuForm.version}</p>
             </div>
 
             {changeHistory.length === 0 ? (
@@ -478,7 +478,7 @@ export default function FormulationEngine() {
             ) : (
               <div className="space-y-3">
                 {changeHistory.slice().reverse().map((entry, idx) => (
-                  <div key={idx} className="p-3 border border-gray-200 rounded">
+                  <div key={idx} className="compact-item">
                     <div className="flex justify-between items-start mb-2">
                       <p className="font-semibold text-gray-900">{entry.change}</p>
                       <span className="text-xs bg-gray-100 text-gray-800 px-2 py-1 rounded">{entry.user}</span>
@@ -493,17 +493,17 @@ export default function FormulationEngine() {
       </section>
 
       {/* ====== SECTION 6: RAW MATERIAL REFERENCE ====== */}
-      <section>
-        <h2 className="text-2xl font-semibold text-gray-900 mb-6">Raw Material Reference & Pricing</h2>
-        <div className="table-container">
-          <div className="px-6 py-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Material Database</h3>
+      <section className="page-section">
+        <h2 className="section-title">Raw Material Reference & Pricing</h2>
+        <div className="content-card">
+          <div className="content-row-stack">
+            <h3 className="text-lg font-semibold text-gray-900">Material Database</h3>
             {components.length === 0 ? (
               <p className="text-gray-500">No materials added yet</p>
             ) : (
               <div className="space-y-4">
                 {components.map((comp, idx) => (
-                  <div key={idx} className="p-4 border border-gray-200 rounded">
+                  <div key={idx} className="content-card-compact">
                     <div className="flex justify-between items-start mb-3">
                       <div>
                         <p className="font-semibold text-gray-900">{comp.name}</p>

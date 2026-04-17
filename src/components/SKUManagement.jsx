@@ -125,7 +125,7 @@ export default function SKUManagement() {
   if (loading) return <div className="p-6 text-center">Loading...</div>;
 
   return (
-    <div className="space-y-8 pb-8">
+    <div className="page-stack">
       {/* ====== SECTION 1: SKU LIST ====== */}
       <section>
         <div className="flex justify-between items-center mb-6">
@@ -191,46 +191,46 @@ export default function SKUManagement() {
       </section>
 
       {/* ====== SECTION 2: PACK CONFIGURATION ====== */}
-      <section>
-        <h2 className="text-2xl font-semibold text-gray-900 mb-6">Pack Configuration</h2>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <section className="page-section">
+        <h2 className="section-title">Pack Configuration</h2>
+        <div className="section-grid" style={{ gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}>
           {Object.entries(packConfigs).map(([packName, config], idx) => {
             const totalCost = calculateTotalCostPerPack(packName);
             const margin = calculateMargin(totalCost, config.sellingPrice || 0);
             return (
-              <div key={idx} className="table-container">
-                <div className="px-6 py-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">{packName} Configuration</h3>
+              <div key={idx} className="content-card">
+                <div className="content-row-stack">
+                  <h3 className="text-lg font-semibold text-gray-900">{packName} Configuration</h3>
                   <div className="space-y-4">
-                    <div className="p-3 border border-gray-200 rounded">
+                    <div className="compact-item">
                       <div className="flex justify-between items-center">
                         <span className="text-gray-600">Pack Size</span>
                         <span className="font-semibold text-gray-900">{config.size}L</span>
                       </div>
                     </div>
 
-                    <div className="p-3 border border-gray-200 rounded">
+                    <div className="compact-item">
                       <div className="flex justify-between items-center">
                         <span className="text-gray-600">Units per Carton</span>
                         <span className="font-semibold text-gray-900">{config.unitsPerCarton}</span>
                       </div>
                     </div>
 
-                    <div className="p-3 border border-gray-200 rounded">
+                    <div className="compact-item">
                       <div className="flex justify-between items-center">
                         <span className="text-gray-600">Packaging Cost</span>
                         <span className="font-semibold text-gray-900">${config.packagingCost.toFixed(2)}</span>
                       </div>
                     </div>
 
-                    <div className="p-3 border border-gray-200 rounded">
+                    <div className="compact-item">
                       <div className="flex justify-between items-center mb-2">
                         <span className="text-gray-600">Final Cost per Pack</span>
                         <span className="text-lg font-semibold text-gray-900">${totalCost.toFixed(2)}</span>
                       </div>
                     </div>
 
-                    <div className="p-3 border border-gray-200 rounded">
+                    <div className="compact-item">
                       <div className="flex justify-between items-center">
                         <span className="text-gray-600">Selling Price per Pack</span>
                         <input
@@ -246,7 +246,7 @@ export default function SKUManagement() {
                       </div>
                     </div>
 
-                    <div className={`p-3 border-2 rounded ${margin >= marginThreshold ? "border-gray-300" : "border-red-300 bg-red-50"}`}>
+                    <div className={`compact-item ${margin >= marginThreshold ? "" : "border-red-300 bg-red-50"}`}>
                       <div className="flex justify-between items-center">
                         <span className="font-semibold text-gray-900">Pack Margin</span>
                         <span className={`text-lg font-semibold ${margin >= marginThreshold ? "text-gray-900" : "text-red-600"}`}>
@@ -263,16 +263,16 @@ export default function SKUManagement() {
       </section>
 
       {/* ====== SECTION 3: PRICING MATRIX ====== */}
-      <section>
-        <h2 className="text-2xl font-semibold text-gray-900 mb-6">Pricing Matrix</h2>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <section className="page-section">
+        <h2 className="section-title">Pricing Matrix</h2>
+        <div className="section-grid" style={{ gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}>
           {/* Price by Market */}
-          <div className="table-container">
-            <div className="px-6 py-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Price per Market</h3>
+          <div className="content-card">
+            <div className="content-row-stack">
+              <h3 className="text-lg font-semibold text-gray-900">Price per Market</h3>
               <div className="space-y-3">
                 {Object.entries(pricingMatrix.byMarket).map(([market, price], idx) => (
-                  <div key={idx} className="p-3 border border-gray-200 rounded">
+                  <div key={idx} className="compact-item">
                     <div className="flex justify-between items-center">
                       <span className="text-gray-600 font-semibold">{market}</span>
                       <input
@@ -293,12 +293,12 @@ export default function SKUManagement() {
           </div>
 
           {/* Price by Customer Type */}
-          <div className="table-container">
-            <div className="px-6 py-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Price per Customer Type</h3>
+          <div className="content-card">
+            <div className="content-row-stack">
+              <h3 className="text-lg font-semibold text-gray-900">Price per Customer Type</h3>
               <div className="space-y-3">
                 {Object.entries(pricingMatrix.byCustomer).map(([type, price], idx) => (
-                  <div key={idx} className="p-3 border border-gray-200 rounded">
+                  <div key={idx} className="compact-item">
                     <div className="flex justify-between items-center">
                       <span className="text-gray-600 font-semibold">{type}</span>
                       <input
@@ -321,12 +321,12 @@ export default function SKUManagement() {
       </section>
 
       {/* ====== SECTION 4: COST BUILD-UP VIEW ====== */}
-      <section>
-        <h2 className="text-2xl font-semibold text-gray-900 mb-6">Cost Build-Up View</h2>
-        <div className="table-container">
-          <div className="px-6 py-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
-              <div className="p-4 border border-gray-200 rounded">
+      <section className="page-section">
+        <h2 className="section-title">Cost Build-Up View</h2>
+        <div className="content-card">
+          <div className="content-row-stack">
+            <div className="metric-grid metric-grid-5 mb-8">
+              <div className="content-card-compact">
                 <div className="flex justify-between items-center">
                   <span className="text-gray-600">Blend Cost</span>
                   <input
@@ -339,7 +339,7 @@ export default function SKUManagement() {
                 </div>
               </div>
 
-              <div className="p-4 border border-gray-200 rounded">
+              <div className="content-card-compact">
                 <div className="flex justify-between items-center">
                   <span className="text-gray-600">Packaging Cost</span>
                   <input
@@ -352,7 +352,7 @@ export default function SKUManagement() {
                 </div>
               </div>
 
-              <div className="p-4 border border-gray-200 rounded">
+              <div className="content-card-compact">
                 <div className="flex justify-between items-center">
                   <span className="text-gray-600">Logistics Cost</span>
                   <input
@@ -365,7 +365,7 @@ export default function SKUManagement() {
                 </div>
               </div>
 
-              <div className="p-4 border border-gray-200 rounded">
+              <div className="content-card-compact">
                 <div className="flex justify-between items-center">
                   <span className="text-gray-600">Overhead %</span>
                   <input
@@ -378,7 +378,7 @@ export default function SKUManagement() {
                 </div>
               </div>
 
-              <div className="p-4 border-2 border-gray-300 rounded bg-gray-50">
+              <div className="content-card-compact">
                 <div className="flex justify-between items-center">
                   <span className="font-semibold text-gray-900">Total Cost/L</span>
                   <span className="text-lg font-semibold text-gray-900">
@@ -399,7 +399,7 @@ export default function SKUManagement() {
                 const total = costBreakup.blendCost + costBreakup.packagingCost + costBreakup.logisticsCost + costBreakup.overheadAllocation;
                 const percentage = total > 0 ? (item.value / total) * 100 : 0;
                 return (
-                  <div key={idx} className="p-3 border border-gray-200 rounded">
+                  <div key={idx} className="compact-item">
                     <div className="flex justify-between items-center mb-2">
                       <span className="text-sm font-semibold text-gray-900">{item.label}</span>
                       <span className="text-sm text-gray-600">${item.value.toFixed(2)} ({percentage.toFixed(1)}%)</span>
@@ -416,18 +416,18 @@ export default function SKUManagement() {
       </section>
 
       {/* ====== SECTION 5: MARGIN ANALYSIS ====== */}
-      <section>
-        <h2 className="text-2xl font-semibold text-gray-900 mb-6">Margin Analysis</h2>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <section className="page-section">
+        <h2 className="section-title">Margin Analysis</h2>
+        <div className="metric-grid metric-grid-3">
           {/* Margin per Pack */}
-          <div className="table-container">
-            <div className="px-6 py-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Margin per Pack</h3>
+          <div className="content-card">
+            <div className="content-row-stack">
+              <h3 className="text-lg font-semibold text-gray-900">Margin per Pack</h3>
               <div className="space-y-3">
                 {Object.keys(packConfigs).map((packName, idx) => {
                   const margin = calculatePackMargin(packName);
                   return (
-                    <div key={idx} className={`p-3 border rounded ${margin >= marginThreshold ? "border-gray-200" : "border-red-300 bg-red-50"}`}>
+                    <div key={idx} className={`compact-item ${margin >= marginThreshold ? "" : "border-red-300 bg-red-50"}`}>
                       <div className="flex justify-between items-center">
                         <span className="font-semibold text-gray-900">{packName}</span>
                         <span className={`text-lg font-semibold ${margin >= marginThreshold ? "text-gray-900" : "text-red-600"}`}>
@@ -442,15 +442,15 @@ export default function SKUManagement() {
           </div>
 
           {/* Margin per Market */}
-          <div className="table-container">
-            <div className="px-6 py-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Margin per Market</h3>
+          <div className="content-card">
+            <div className="content-row-stack">
+              <h3 className="text-lg font-semibold text-gray-900">Margin per Market</h3>
               <div className="space-y-3">
                 {Object.entries(pricingMatrix.byMarket).map(([market, price], idx) => {
                   const totalCost = costBreakup.blendCost + costBreakup.packagingCost + costBreakup.logisticsCost + costBreakup.overheadAllocation;
                   const margin = calculateMargin(totalCost, price);
                   return (
-                    <div key={idx} className={`p-3 border rounded ${margin >= marginThreshold ? "border-gray-200" : "border-red-300 bg-red-50"}`}>
+                    <div key={idx} className={`compact-item ${margin >= marginThreshold ? "" : "border-red-300 bg-red-50"}`}>
                       <div className="flex justify-between items-center">
                         <span className="font-semibold text-gray-900">{market}</span>
                         <span className={`text-lg font-semibold ${margin >= marginThreshold ? "text-gray-900" : "text-red-600"}`}>
@@ -465,15 +465,15 @@ export default function SKUManagement() {
           </div>
 
           {/* Margin per Customer Type */}
-          <div className="table-container">
-            <div className="px-6 py-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Margin per Customer</h3>
+          <div className="content-card">
+            <div className="content-row-stack">
+              <h3 className="text-lg font-semibold text-gray-900">Margin per Customer</h3>
               <div className="space-y-3">
                 {Object.entries(pricingMatrix.byCustomer).map(([type, price], idx) => {
                   const totalCost = costBreakup.blendCost + costBreakup.packagingCost + costBreakup.logisticsCost + costBreakup.overheadAllocation;
                   const margin = calculateMargin(totalCost, price);
                   return (
-                    <div key={idx} className={`p-3 border rounded ${margin >= marginThreshold ? "border-gray-200" : "border-red-300 bg-red-50"}`}>
+                    <div key={idx} className={`compact-item ${margin >= marginThreshold ? "" : "border-red-300 bg-red-50"}`}>
                       <div className="flex justify-between items-center">
                         <span className="font-semibold text-gray-900">{type}</span>
                         <span className={`text-lg font-semibold ${margin >= marginThreshold ? "text-gray-900" : "text-red-600"}`}>
@@ -490,13 +490,13 @@ export default function SKUManagement() {
       </section>
 
       {/* ====== SECTION 6: STATUS & CONTROLS ====== */}
-      <section>
-        <h2 className="text-2xl font-semibold text-gray-900 mb-6">Status & Controls</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <section className="page-section">
+        <h2 className="section-title">Status & Controls</h2>
+        <div className="metric-grid metric-grid-3">
           {/* SKU Status */}
-          <div className="table-container">
-            <div className="px-6 py-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">SKU Status</h3>
+          <div className="content-card">
+            <div className="content-row-stack">
+              <h3 className="text-lg font-semibold text-gray-900">SKU Status</h3>
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <span className="text-gray-600 font-semibold">Active / Inactive</span>
@@ -512,9 +512,9 @@ export default function SKUManagement() {
           </div>
 
           {/* Minimum Margin Threshold */}
-          <div className="table-container">
-            <div className="px-6 py-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Margin Threshold</h3>
+          <div className="content-card">
+            <div className="content-row-stack">
+              <h3 className="text-lg font-semibold text-gray-900">Margin Threshold</h3>
               <div className="space-y-4">
                 <div>
                   <label className="text-sm text-gray-600 font-semibold block mb-2">Minimum Margin %</label>
@@ -531,9 +531,9 @@ export default function SKUManagement() {
           </div>
 
           {/* Price Override */}
-          <div className="table-container">
-            <div className="px-6 py-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Price Control</h3>
+          <div className="content-card">
+            <div className="content-row-stack">
+              <h3 className="text-lg font-semibold text-gray-900">Price Control</h3>
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <span className="text-gray-600 font-semibold">Allow Price Override</span>
@@ -552,11 +552,11 @@ export default function SKUManagement() {
 
       {/* ====== CREATE SKU FORM ====== */}
       {activeTab === "create" && (
-        <section>
-          <h2 className="text-2xl font-semibold text-gray-900 mb-6">Create New SKU</h2>
+        <section className="page-section">
+          <h2 className="section-title">Create New SKU</h2>
           <form onSubmit={handleCreateSku} className="table-container max-w-2xl">
-            <div className="px-6 py-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div className="content-card">
+              <div className="form-grid form-grid-2 mb-6">
                 <div className="form-group">
                   <label className="text-sm font-semibold text-gray-900">SKU Name *</label>
                   <input

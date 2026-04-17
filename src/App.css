@@ -157,6 +157,222 @@ body {
   margin: 0 auto;
 }
 
+.page-frame {
+  max-width: 84rem;
+  margin: 0 auto;
+}
+
+.page-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  padding-bottom: 0.5rem;
+}
+
+.page-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.section-title {
+  margin: 0;
+  color: var(--text);
+  font-size: 1.35rem;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.03em;
+}
+
+.section-title + .section-subtitle,
+.section-title + p {
+  margin-top: -0.25rem;
+}
+
+.section-subtitle {
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+.section-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.metric-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.metric-grid-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.metric-grid-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.metric-grid-5 {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.card-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.card-panel,
+.metric-card,
+.content-card {
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.metric-card {
+  padding: 1.25rem 1.25rem 1.1rem;
+}
+
+.metric-label {
+  display: block;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+}
+
+.metric-value {
+  color: var(--text);
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.metric-caption {
+  margin-top: 0.45rem;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.content-card {
+  padding: 1.25rem;
+}
+
+.content-card-compact {
+  padding: 1rem 1.1rem;
+}
+
+.content-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.content-row-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.content-label {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.content-value {
+  color: var(--text);
+  font-size: 1rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.content-value-lg {
+  font-size: 1.5rem;
+}
+
+.inline-group {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+}
+
+.inline-group-2 > * {
+  grid-column: span 6;
+}
+
+.inline-group-3 > * {
+  grid-column: span 4;
+}
+
+.inline-group-4 > * {
+  grid-column: span 3;
+}
+
+.form-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+}
+
+.form-grid > .form-group,
+.form-grid > div {
+  grid-column: span 12;
+}
+
+.form-grid-2 > .form-group,
+.form-grid-2 > div {
+  grid-column: span 6;
+}
+
+.form-grid-3 > .form-group,
+.form-grid-3 > div {
+  grid-column: span 4;
+}
+
+.form-grid-4 > .form-group,
+.form-grid-4 > div {
+  grid-column: span 3;
+}
+
+.form-grid-5 > .form-group,
+.form-grid-5 > div {
+  grid-column: span 2;
+}
+
+.compact-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.compact-item {
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 0.85rem;
+  background: #ffffff;
+}
+
+.section-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.section-toolbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
 .page-header {
   position: sticky;
   top: 0;
@@ -437,6 +653,38 @@ tbody tr:last-child td {
   .table-container > .px-6,
   .table-container > .p-6 {
     padding: 1rem;
+  }
+
+  .page-stack {
+    gap: 1.5rem;
+  }
+
+  .metric-grid,
+  .metric-grid-2,
+  .metric-grid-3,
+  .metric-grid-4,
+  .metric-grid-5,
+  .form-grid,
+  .form-grid-2,
+  .form-grid-3,
+  .form-grid-4,
+  .form-grid-5,
+  .inline-group,
+  .inline-group-2,
+  .inline-group-3,
+  .inline-group-4 {
+    grid-template-columns: 1fr;
+  }
+
+  .metric-card,
+  .content-card {
+    padding: 1rem;
+  }
+
+  .content-row,
+  .section-toolbar {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   th,
