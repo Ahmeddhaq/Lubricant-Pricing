@@ -12,7 +12,6 @@ export default function Navigation({ activeTab, setActiveTab }) {
     <nav className="sidebar-container">
       <div className="sidebar-brand">
         <h1>Lubricant Pricing</h1>
-        <p>Trading Platform</p>
       </div>
       <div className="sidebar-menu">
         {tabs.map((tab) => (
