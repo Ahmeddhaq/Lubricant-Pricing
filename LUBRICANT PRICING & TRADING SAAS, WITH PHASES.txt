@@ -1,0 +1,187 @@
+LUBRICANT PRICING & TRADING SAAS – SUMMARY
+
+CORE INTENT:
+Build a complete system to manage lubricant blending, pricing, export trading, and sales operations with a strong focus on profitability and real-time decision-making.
+
+KEY BUSINESS PRIORITIES:
+
+* Accurate cost build-up from formulation (base oil + additives)
+* Margin-based pricing (not markup)
+* Multi-market pricing (GCC, Africa, Asia)
+* Multi-pack product handling (1L, 4L, 20L, drums)
+* Container-level profitability (20FT / 40FT)
+* Freight, logistics, and credit cost integration
+* Fast and accurate quotation generation
+* Mobile access for sales teams
+* Real-time data and system-driven decisions
+
+CORE SYSTEM MODULES:
+
+1. FORMULATION ENGINE
+
+* Recipe-based costing per SKU
+* Base oil and additive composition tracking
+* Cost per liter and per batch calculation
+
+2. COSTING ENGINE
+
+* Full cost build-up (materials, blending, packaging, logistics, overhead)
+* Historical cost tracking
+
+3. PRICING ENGINE
+
+* Margin-based pricing
+* Market-based pricing strategies
+* Tiered pricing (distributor, retail, bulk)
+* Currency conversion
+
+4. SENSITIVITY ENGINE
+
+* Base oil price impact simulation
+* Freight and cost fluctuation analysis
+* Margin compression visibility
+
+5. TRADING & EXPORT MODULE
+
+* Container optimization (SKU mix, volume planning)
+* FOB / CIF pricing calculations
+* Country-specific pricing logic
+* Credit terms impact (30/60/90 days)
+
+6. SALES SYSTEM
+
+* Customer management (CRM-lite)
+* Quote builder (multi-SKU, multi-pack)
+* PDF quotation generation
+* Deal tracking (open, negotiation, won, lost)
+* Mobile app for field sales
+
+7. ANALYTICS & DASHBOARD
+
+* Profit per SKU, container, and market
+* Best-performing products and regions
+* Margin and loss alerts
+* Decision support dashboard
+
+8. ENTERPRISE FEATURES
+
+* User roles and access control
+* Approval workflows (pricing, discounts)
+* Multi-region and multi-currency support
+* Cloud-based scalable infrastructure
+
+9. INTEGRATIONS
+
+* ERP systems
+* Accounting tools
+* Logistics systems
+* Communication tools (email, messaging)
+
+STRATEGIC POSITIONING:
+A specialized “Lubricant Trading & Pricing Intelligence Platform” designed for blending and export businesses, focusing on profitability, operational efficiency, and real-time decision support.
+
+END GOAL:
+Transform from manual Excel-based pricing into a fully integrated, scalable SaaS platform used daily by finance, sales, and management teams.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+PHASE 2: Sales & Quotation (Weeks 5-7)
+Quote Builder Enhancement
+
+Multi-SKU quotes
+Customer + payment terms management
+Discount handling (with approval logic)
+Quote versioning and status tracking
+PDF Quotation Generation (You already have html2canvas + jspdf)
+
+Professional templates
+Auto-calculate totals, margins, payment schedule
+Basic CRM-lite
+
+Customer database
+Quote history per customer
+Deal tracking (open, negotiation, won, lost)
+Deliverable: Complete quotation workflow from customer to signed PDF
+
+PHASE 3: Trading & Container Logic (Weeks 8-10)
+Container Optimizer
+
+20FT / 40FT footprint calculations
+SKU mix optimization for containers
+Freight cost allocation per unit
+Export Pricing
+
+FOB vs. CIF pricing
+Country-specific pricing rules
+Credit term impact (30/60/90 days)
+Multi-market Support
+
+GCC, Africa, Asia pricing variations
+Currency conversion
+Market-specific margins
+Deliverable: Generate competitive export quotes with container-level profitability
+
+PHASE 4: Analytics & Decision Support (Weeks 11-13)
+Analytics Dashboard
+
+Profit per SKU, market, container
+Best-performing products/regions
+Margin and loss alerts
+Sensitivity Engine
+
+Base oil price impact simulation
+Freight cost fluctuation analysis
+What-if pricing scenarios
+Reporting
+
+Profitability reports
+Sales performance trends
+Deliverable: Management can make data-driven decisions on pricing and products
+
+PHASE 5: Enterprise & Mobile (Weeks 14-16)
+User Roles & Access Control
+
+Admin, Sales, Finance, Management roles
+Approval workflows (pricing, discounts)
+Mobile Sales App
+
+Simplified quote builder for field sales
+Offline mode support
+Real-time sync
+Integrations
+
+ERP API hooks
+Accounting tool sync
+Email/SMS notifications
+Deliverable: Scalable, role-based system ready for team adoption
+
