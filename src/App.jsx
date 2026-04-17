@@ -10,7 +10,7 @@ export default function PricingApp() {
   const [activeTab, setActiveTab] = useState("dashboard");
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-white">
       <Navigation activeTab={activeTab} setActiveTab={setActiveTab} />
       
       <main className="max-w-7xl mx-auto py-8 px-4">
