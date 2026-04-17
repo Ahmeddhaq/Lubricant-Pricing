@@ -119,15 +119,11 @@ export default function FormulationEngine() {
   if (loading) return <div className="p-6 text-center">Loading...</div>;
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-6">
-      <h1 className="text-3xl font-bold mb-6">Formulation Engine</h1>
-
-      <div className="flex gap-4 mb-6">
+    <div>
+      <div className="flex gap-2 mb-6">
         <button
           onClick={() => setActiveTab("list")}
-          className={`px-4 py-2 rounded ${
-            activeTab === "list" ? "bg-blue-600 text-white" : "bg-gray-200"
-          }`}
+          className={`btn ${activeTab === "list" ? "btn-primary" : "btn-secondary"}`}
         >
           Recipes List
         </button>
@@ -137,9 +133,7 @@ export default function FormulationEngine() {
             setFormData({ name: "", description: "", base_oil_id: "", blending_cost_per_liter: 0 });
             setIngredients([]);
           }}
-          className={`px-4 py-2 rounded ${
-            activeTab === "create" ? "bg-blue-600 text-white" : "bg-gray-200"
-          }`}
+          className={`btn ${activeTab === "create" ? "btn-primary" : "btn-secondary"}`}
         >
           Create Recipe
         </button>
@@ -148,28 +142,31 @@ export default function FormulationEngine() {
       {/* LIST TAB */}
       {activeTab === "list" && (
         <div>
-          <h2 className="text-xl font-semibold mb-4">Available Recipes</h2>
           {recipes.length === 0 ? (
-            <p className="text-gray-500">No recipes found. Create one to get started.</p>
+            <div className="table-container">
+              <div className="px-6 py-12 text-center">
+                <p className="text-gray-500">No recipes found. Create one to get started.</p>
+              </div>
+            </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {recipes.map((recipe) => (
                 <div
                   key={recipe.id}
-                  className="border p-4 rounded-lg hover:shadow-lg cursor-pointer"
+                  className="table-container p-4 cursor-pointer hover:shadow-md transition-shadow"
                   onClick={() => handleSelectRecipe(recipe)}
                 >
-                  <h3 className="font-bold text-lg">{recipe.name}</h3>
-                  <p className="text-sm text-gray-600">{recipe.description}</p>
-                  <div className="mt-3 text-sm">
-                    <p>
-                      <strong>Base Oil:</strong> {recipe.base_oils?.name}
+                  <h3 className="font-semibold text-lg text-gray-900 mb-1">{recipe.name}</h3>
+                  <p className="text-sm text-gray-600 mb-3">{recipe.description}</p>
+                  <div className="space-y-1 text-sm">
+                    <p className="text-gray-700">
+                      <span className="text-gray-600">Base Oil:</span> {recipe.base_oils?.name}
                     </p>
-                    <p>
-                      <strong>Cost/Liter:</strong> ${calculateRecipeCost(recipe).toFixed(2)}
+                    <p className="text-gray-700">
+                      <span className="text-gray-600">Cost/Liter:</span> ${calculateRecipeCost(recipe).toFixed(2)}
                     </p>
-                    <p>
-                      <strong>Ingredients:</strong> {recipe.recipe_ingredients?.length || 0}
+                    <p className="text-gray-700">
+                      <span className="text-gray-600">Ingredients:</span> {recipe.recipe_ingredients?.length || 0}
                     </p>
                   </div>
                 </div>
@@ -184,178 +181,193 @@ export default function FormulationEngine() {
         <div>
           <button
             onClick={() => setActiveTab("list")}
-            className="mb-4 px-4 py-2 bg-gray-200 rounded"
+            className="btn btn-secondary mb-6"
           >
             ← Back to List
           </button>
-          <div className="bg-gray-50 p-6 rounded-lg">
-            <h2 className="text-2xl font-bold mb-4">{selectedRecipe.name}</h2>
-            <div className="grid grid-cols-2 gap-4 mb-6">
-              <div>
-                <p className="text-sm text-gray-600">Base Oil</p>
-                <p className="font-semibold">{selectedRecipe.base_oils?.name}</p>
+          <div className="table-container">
+            <div className="px-6 py-6">
+              <h2 className="text-2xl font-semibold mb-6 text-gray-900">{selectedRecipe.name}</h2>
+              <div className="grid grid-cols-2 gap-6 mb-8">
+                <div className="border-b border-gray-200 pb-4">
+                  <p className="text-sm text-gray-600 mb-1">Base Oil</p>
+                  <p className="text-lg font-semibold text-gray-900">{selectedRecipe.base_oils?.name}</p>
+                </div>
+                <div className="border-b border-gray-200 pb-4">
+                  <p className="text-sm text-gray-600 mb-1">Cost per Liter</p>
+                  <p className="text-lg font-semibold text-gray-900">${selectedRecipe.base_oils?.cost_per_liter.toFixed(2)}</p>
+                </div>
+                <div className="border-b border-gray-200 pb-4">
+                  <p className="text-sm text-gray-600 mb-1">Blending Cost per Liter</p>
+                  <p className="text-lg font-semibold text-gray-900">${selectedRecipe.blending_cost_per_liter?.toFixed(2)}</p>
+                </div>
+                <div className="border-b border-gray-200 pb-4">
+                  <p className="text-sm text-gray-600 mb-1">Total Material Cost/Liter</p>
+                  <p className="text-lg font-semibold text-green-700">${calculateRecipeCost(selectedRecipe).toFixed(2)}</p>
+                </div>
               </div>
-              <div>
-                <p className="text-sm text-gray-600">Cost per Liter</p>
-                <p className="font-semibold">${selectedRecipe.base_oils?.cost_per_liter.toFixed(2)}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">Blending Cost per Liter</p>
-                <p className="font-semibold">${selectedRecipe.blending_cost_per_liter?.toFixed(2)}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">Total Material Cost/Liter</p>
-                <p className="font-semibold text-green-600">${calculateRecipeCost(selectedRecipe).toFixed(2)}</p>
-              </div>
-            </div>
 
-            <h3 className="text-lg font-bold mb-4">Additives</h3>
-            {selectedRecipe.recipe_ingredients?.length > 0 ? (
-              <div className="bg-white rounded p-4">
-                {selectedRecipe.recipe_ingredients.map((ingredient, idx) => (
-                  <div key={idx} className="flex justify-between py-2 border-b last:border-b-0">
-                    <span>{ingredient.additives.name}</span>
-                    <span className="font-semibold">
-                      {ingredient.quantity_per_liter} {ingredient.additives.unit} ({ingredient.additives.cost_per_unit} per {ingredient.additives.unit})
-                    </span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-gray-500">No additives added</p>
-            )}
+              <h3 className="font-semibold text-gray-900 mb-4">Additives</h3>
+              {selectedRecipe.recipe_ingredients?.length > 0 ? (
+                <table className="w-full">
+                  <thead>
+                    <tr>
+                      <th>Additive</th>
+                      <th>Quantity & Unit</th>
+                      <th>Cost</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selectedRecipe.recipe_ingredients.map((ingredient, idx) => (
+                      <tr key={idx}>
+                        <td>{ingredient.additives.name}</td>
+                        <td>{ingredient.quantity_per_liter} {ingredient.additives.unit}</td>
+                        <td>${ingredient.additives.cost_per_unit} per {ingredient.additives.unit}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <p className="text-gray-500 py-4">No additives added</p>
+              )}
+            </div>
           </div>
         </div>
       )}
 
       {/* CREATE TAB */}
       {activeTab === "create" && (
-        <form onSubmit={handleCreateRecipe} className="bg-gray-50 p-6 rounded-lg">
-          <h2 className="text-xl font-bold mb-6">Create New Recipe</h2>
+        <form onSubmit={handleCreateRecipe} className="table-container">
+          <div className="px-6 py-6">
+            <h2 className="text-xl font-semibold mb-6 text-gray-900">Create New Recipe</h2>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-            <div>
-              <label className="block text-sm font-semibold mb-2">Recipe Name *</label>
-              <input
-                type="text"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="e.g., Premium SAE 40"
-                className="w-full border rounded px-3 py-2"
-                required
-              />
-            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+              <div className="form-group">
+                <label>Recipe Name *</label>
+                <input
+                  type="text"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  placeholder="e.g., Premium SAE 40"
+                  required
+                />
+              </div>
 
-            <div>
-              <label className="block text-sm font-semibold mb-2">Base Oil *</label>
-              <select
-                value={formData.base_oil_id}
-                onChange={(e) => setFormData({ ...formData, base_oil_id: e.target.value })}
-                className="w-full border rounded px-3 py-2"
-                required
-              >
-                <option value="">Select Base Oil</option>
-                {baseOils.map((oil) => (
-                  <option key={oil.id} value={oil.id}>
-                    {oil.name} (${oil.cost_per_liter}/L)
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-semibold mb-2">Blending Cost per Liter</label>
-              <input
-                type="number"
-                step="0.01"
-                value={formData.blending_cost_per_liter}
-                onChange={(e) =>
-                  setFormData({ ...formData, blending_cost_per_liter: e.target.value })
-                }
-                placeholder="0.00"
-                className="w-full border rounded px-3 py-2"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-semibold mb-2">Description</label>
-              <input
-                type="text"
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                placeholder="Brief description"
-                className="w-full border rounded px-3 py-2"
-              />
-            </div>
-          </div>
-
-          <div className="bg-white p-4 rounded-lg mb-6">
-            <h3 className="font-bold mb-4">Add Additives</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-              <div>
-                <label className="block text-sm font-semibold mb-2">Additive</label>
+              <div className="form-group">
+                <label>Base Oil *</label>
                 <select
-                  value={selectedAdditive}
-                  onChange={(e) => setSelectedAdditive(e.target.value)}
-                  className="w-full border rounded px-3 py-2"
+                  value={formData.base_oil_id}
+                  onChange={(e) => setFormData({ ...formData, base_oil_id: e.target.value })}
+                  required
                 >
-                  <option value="">Select Additive</option>
-                  {additives.map((additive) => (
-                    <option key={additive.id} value={additive.id}>
-                      {additive.name} (${additive.cost_per_unit}/{additive.unit})
+                  <option value="">Select Base Oil</option>
+                  {baseOils.map((oil) => (
+                    <option key={oil.id} value={oil.id}>
+                      {oil.name} (${oil.cost_per_liter}/L)
                     </option>
                   ))}
                 </select>
               </div>
-              <div>
-                <label className="block text-sm font-semibold mb-2">Qty per Liter</label>
+
+              <div className="form-group">
+                <label>Blending Cost per Liter</label>
                 <input
                   type="number"
-                  step="0.0001"
-                  value={quantityPerLiter}
-                  onChange={(e) => setQuantityPerLiter(e.target.value)}
-                  placeholder="0.0000"
-                  className="w-full border rounded px-3 py-2"
+                  step="0.01"
+                  value={formData.blending_cost_per_liter}
+                  onChange={(e) =>
+                    setFormData({ ...formData, blending_cost_per_liter: e.target.value })
+                  }
+                  placeholder="0.00"
                 />
               </div>
-              <div className="flex items-end">
-                <button
-                  type="button"
-                  onClick={handleAddIngredient}
-                  className="w-full bg-green-600 text-white rounded px-4 py-2"
-                >
-                  Add
-                </button>
+
+              <div className="form-group">
+                <label>Description</label>
+                <input
+                  type="text"
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  placeholder="Brief description"
+                />
               </div>
             </div>
 
-            {ingredients.length > 0 && (
-              <div className="bg-gray-50 p-4 rounded">
-                {ingredients.map((ing, idx) => (
-                  <div key={idx} className="flex justify-between items-center py-2 border-b last:border-b-0">
-                    <span>{ing.additive_name}</span>
-                    <div className="flex items-center gap-3">
-                      <span className="text-sm font-semibold">{ing.quantity_per_liter}</span>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveIngredient(idx)}
-                        className="text-red-600 text-sm font-semibold"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  </div>
-                ))}
+            <div className="border-t border-gray-200 pt-6 mb-6">
+              <h3 className="font-semibold text-gray-900 mb-4">Add Additives</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                <div className="form-group mb-0">
+                  <label>Additive</label>
+                  <select
+                    value={selectedAdditive}
+                    onChange={(e) => setSelectedAdditive(e.target.value)}
+                  >
+                    <option value="">Select Additive</option>
+                    {additives.map((additive) => (
+                      <option key={additive.id} value={additive.id}>
+                        {additive.name} (${additive.cost_per_unit}/{additive.unit})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-group mb-0">
+                  <label>Qty per Liter</label>
+                  <input
+                    type="number"
+                    step="0.0001"
+                    value={quantityPerLiter}
+                    onChange={(e) => setQuantityPerLiter(e.target.value)}
+                    placeholder="0.0000"
+                  />
+                </div>
+                <div className="flex items-end">
+                  <button
+                    type="button"
+                    onClick={handleAddIngredient}
+                    className="btn btn-primary w-full"
+                  >
+                    Add
+                  </button>
+                </div>
               </div>
-            )}
-          </div>
 
-          <button
-            type="submit"
-            className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold"
-          >
-            Create Recipe
-          </button>
+              {ingredients.length > 0 && (
+                <table className="w-full">
+                  <thead>
+                    <tr>
+                      <th>Additive</th>
+                      <th>Qty/L</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {ingredients.map((ing, idx) => (
+                      <tr key={idx}>
+                        <td>{ing.additive_name}</td>
+                        <td>{ing.quantity_per_liter}</td>
+                        <td>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveIngredient(idx)}
+                            className="text-red-600 text-sm font-semibold hover:text-red-800"
+                          >
+                            Remove
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+
+            <button
+              type="submit"
+              className="btn btn-primary w-full py-2"
+            >
+              Create Recipe
+            </button>
+          </div>
         </form>
       )}
     </div>

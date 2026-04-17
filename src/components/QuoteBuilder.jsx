@@ -188,13 +188,11 @@ export default function QuoteBuilder() {
   if (loading) return <div className="p-6 text-center">Loading...</div>;
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-6">
-      <h1 className="text-3xl font-bold mb-6">Quote Builder</h1>
-
-      <div className="flex gap-4 mb-6">
+    <div>
+      <div className="flex gap-2 mb-6">
         <button
           onClick={() => setActiveTab("list")}
-          className={`px-4 py-2 rounded ${activeTab === "list" ? "bg-blue-600 text-white" : "bg-gray-200"}`}
+          className={`btn ${activeTab === "list" ? "btn-primary" : "btn-secondary"}`}
         >
           Quotes List
         </button>
@@ -204,7 +202,7 @@ export default function QuoteBuilder() {
             setQuoteForm({ customer_id: "", payment_terms: "30% Advance, 70% Against BL", delivery_days: 15, notes: "" });
             setQuoteItems([]);
           }}
-          className={`px-4 py-2 rounded ${activeTab === "create" ? "bg-blue-600 text-white" : "bg-gray-200"}`}
+          className={`btn ${activeTab === "create" ? "btn-primary" : "btn-secondary"}`}
         >
           New Quote
         </button>
@@ -213,40 +211,43 @@ export default function QuoteBuilder() {
       {/* LIST TAB */}
       {activeTab === "list" && (
         <div>
-          <h2 className="text-xl font-semibold mb-4">Recent Quotes</h2>
           {quotes.length === 0 ? (
-            <p className="text-gray-500">No quotes found.</p>
+            <div className="table-container">
+              <div className="px-6 py-12 text-center">
+                <p className="text-gray-500">No quotes found.</p>
+              </div>
+            </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm border-collapse">
-                <thead className="bg-gray-100 border-b-2">
+            <div className="table-container overflow-x-auto">
+              <table>
+                <thead>
                   <tr>
-                    <th className="p-3 text-left">Quote #</th>
-                    <th className="p-3 text-left">Customer</th>
-                    <th className="p-3 text-right">Amount</th>
-                    <th className="p-3 text-left">Status</th>
-                    <th className="p-3 text-left">Created</th>
-                    <th className="p-3">Action</th>
+                    <th>Quote #</th>
+                    <th>Customer</th>
+                    <th>Amount</th>
+                    <th>Status</th>
+                    <th>Created</th>
+                    <th>Action</th>
                   </tr>
                 </thead>
                 <tbody>
                   {quotes.map((quote) => (
-                    <tr key={quote.id} className="border-b hover:bg-gray-50">
-                      <td className="p-3 font-semibold">{quote.quote_number}</td>
-                      <td className="p-3">{quote.customers?.name}</td>
-                      <td className="p-3 text-right">${quote.total_amount?.toFixed(2)}</td>
-                      <td className="p-3">
+                    <tr key={quote.id}>
+                      <td className="font-semibold">{quote.quote_number}</td>
+                      <td>{quote.customers?.name}</td>
+                      <td className="font-semibold">${quote.total_amount?.toFixed(2)}</td>
+                      <td>
                         <span className={`px-2 py-1 rounded text-xs font-semibold ${quote.status === "draft" ? "bg-yellow-100 text-yellow-800" : "bg-green-100 text-green-800"}`}>
                           {quote.status}
                         </span>
                       </td>
-                      <td className="p-3 text-sm text-gray-600">
+                      <td className="text-gray-600">
                         {new Date(quote.created_at).toLocaleDateString()}
                       </td>
-                      <td className="p-3">
+                      <td>
                         <button
                           onClick={() => handleSelectQuote(quote)}
-                          className="bg-blue-500 text-white px-3 py-1 rounded text-sm"
+                          className="btn btn-primary text-sm"
                         >
                           View
                         </button>
@@ -265,294 +266,301 @@ export default function QuoteBuilder() {
         <div>
           <button
             onClick={() => setActiveTab("list")}
-            className="mb-4 px-4 py-2 bg-gray-200 rounded"
+            className="btn btn-secondary mb-6"
           >
             ← Back to Quotes
           </button>
-          <div className="bg-gray-50 p-6 rounded-lg">
-            <div className="flex justify-between items-start mb-6">
-              <div>
-                <h2 className="text-2xl font-bold">{selectedQuote.quote_number}</h2>
-                <p className="text-gray-600">{selectedQuote.customers?.name}</p>
+          <div className="table-container">
+            <div className="px-6 py-6">
+              <div className="flex justify-between items-start mb-6 pb-6 border-b border-gray-200">
+                <div>
+                  <h2 className="text-2xl font-semibold text-gray-900">{selectedQuote.quote_number}</h2>
+                  <p className="text-gray-600 mt-1">{selectedQuote.customers?.name}</p>
+                </div>
+                <span
+                  className={`px-4 py-2 rounded font-semibold text-sm ${
+                    selectedQuote.status === "draft"
+                      ? "bg-yellow-100 text-yellow-800"
+                      : "bg-green-100 text-green-800"
+                  }`}
+                >
+                  {selectedQuote.status}
+                </span>
               </div>
-              <span
-                className={`px-4 py-2 rounded font-semibold ${
-                  selectedQuote.status === "draft"
-                    ? "bg-yellow-100 text-yellow-800"
-                    : "bg-green-100 text-green-800"
-                }`}
-              >
-                {selectedQuote.status}
-              </span>
-            </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-              <div className="bg-white p-4 rounded">
-                <p className="text-sm text-gray-600">Total Amount</p>
-                <p className="font-bold text-lg">${selectedQuote.total_amount?.toFixed(2)}</p>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8 pb-8 border-b border-gray-200">
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Total Amount</p>
+                  <p className="text-2xl font-semibold text-gray-900">${selectedQuote.total_amount?.toFixed(2)}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Items</p>
+                  <p className="text-2xl font-semibold text-gray-900">{selectedQuote.quote_items?.length}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Payment Terms</p>
+                  <p className="font-semibold text-gray-900">{selectedQuote.payment_terms}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Profit</p>
+                  <p className="text-2xl font-semibold text-green-700">
+                    ${calculateQuoteProfit(selectedQuote).totalProfit.toFixed(2)}
+                  </p>
+                </div>
               </div>
-              <div className="bg-white p-4 rounded">
-                <p className="text-sm text-gray-600">Items</p>
-                <p className="font-bold text-lg">{selectedQuote.quote_items?.length}</p>
-              </div>
-              <div className="bg-white p-4 rounded">
-                <p className="text-sm text-gray-600">Payment Terms</p>
-                <p className="font-semibold text-sm">{selectedQuote.payment_terms}</p>
-              </div>
-              <div className="bg-white p-4 rounded">
-                <p className="text-sm text-gray-600">Profit</p>
-                <p className="font-bold text-lg text-green-600">
-                  ${calculateQuoteProfit(selectedQuote).totalProfit.toFixed(2)}
-                </p>
-              </div>
-            </div>
 
-            <h3 className="text-lg font-bold mb-4">Quote Items</h3>
-            {selectedQuote.quote_items?.length > 0 ? (
-              <div className="bg-white p-4 rounded-lg overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="border-b-2 bg-gray-50">
+              <h3 className="font-semibold text-gray-900 mb-4">Quote Items</h3>
+              {selectedQuote.quote_items?.length > 0 ? (
+                <table className="w-full">
+                  <thead>
                     <tr>
-                      <th className="p-2 text-left">Item</th>
-                      <th className="p-2 text-right">Qty</th>
-                      <th className="p-2 text-right">Unit Price</th>
-                      <th className="p-2 text-right">Margin</th>
-                      <th className="p-2 text-right">Line Total</th>
+                      <th>Item</th>
+                      <th>Qty</th>
+                      <th>Unit Price</th>
+                      <th>Margin</th>
+                      <th>Line Total</th>
                     </tr>
                   </thead>
                   <tbody>
                     {selectedQuote.quote_items.map((item, idx) => (
-                      <tr key={idx} className="border-b">
-                        <td className="p-2">{item.skus?.name}</td>
-                        <td className="p-2 text-right">{item.quantity}</td>
-                        <td className="p-2 text-right">${item.unit_price?.toFixed(2)}</td>
-                        <td className="p-2 text-right">{item.margin_percent}%</td>
-                        <td className="p-2 text-right font-semibold">
-                          ${item.line_total?.toFixed(2)}
-                        </td>
+                      <tr key={idx}>
+                        <td>{item.skus?.name}</td>
+                        <td>{item.quantity}</td>
+                        <td>${item.unit_price?.toFixed(2)}</td>
+                        <td>{item.margin_percent}%</td>
+                        <td className="font-semibold">${item.line_total?.toFixed(2)}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
-              </div>
-            ) : (
-              <p className="text-gray-500">No items in this quote</p>
-            )}
+              ) : (
+                <p className="text-gray-500 py-4">No items in this quote</p>
+              )}
+            </div>
           </div>
         </div>
       )}
 
       {/* CREATE TAB */}
       {activeTab === "create" && (
-        <form onSubmit={handleCreateQuote} className="bg-gray-50 p-6 rounded-lg">
-          <h2 className="text-xl font-bold mb-6">Create New Quote</h2>
+        <form onSubmit={handleCreateQuote} className="table-container">
+          <div className="px-6 py-6">
+            <h2 className="text-xl font-semibold mb-6 text-gray-900">Create New Quote</h2>
 
-          {/* Customer Section */}
-          <div className="bg-white p-4 rounded-lg mb-6">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="font-bold">Customer</h3>
-              <button
-                type="button"
-                onClick={() => setShowNewCustomer(!showNewCustomer)}
-                className="text-blue-600 text-sm font-semibold"
-              >
-                {showNewCustomer ? "Use Existing" : "Add New"}
-              </button>
-            </div>
-
-            {showNewCustomer ? (
-              <form onSubmit={handleAddCustomer} className="space-y-3">
-                <input
-                  type="text"
-                  placeholder="Company Name"
-                  value={newCustomer.name}
-                  onChange={(e) => setNewCustomer({ ...newCustomer, name: e.target.value })}
-                  className="w-full border rounded px-3 py-2"
-                  required
-                />
-                <div className="grid grid-cols-2 gap-3">
-                  <input
-                    type="email"
-                    placeholder="Email"
-                    value={newCustomer.email}
-                    onChange={(e) => setNewCustomer({ ...newCustomer, email: e.target.value })}
-                    className="border rounded px-3 py-2"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Phone"
-                    value={newCustomer.phone}
-                    onChange={(e) => setNewCustomer({ ...newCustomer, phone: e.target.value })}
-                    className="border rounded px-3 py-2"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <input
-                    type="text"
-                    placeholder="Country"
-                    value={newCustomer.country}
-                    onChange={(e) => setNewCustomer({ ...newCustomer, country: e.target.value })}
-                    className="border rounded px-3 py-2"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Contact Person"
-                    value={newCustomer.contact_person}
-                    onChange={(e) =>
-                      setNewCustomer({ ...newCustomer, contact_person: e.target.value })
-                    }
-                    className="border rounded px-3 py-2"
-                  />
-                </div>
-                <button
-                  type="submit"
-                  className="w-full bg-green-600 text-white py-2 rounded"
-                >
-                  Add Customer & Continue
-                </button>
-              </form>
-            ) : (
-              <select
-                value={quoteForm.customer_id}
-                onChange={(e) => setQuoteForm({ ...quoteForm, customer_id: e.target.value })}
-                className="w-full border rounded px-3 py-2"
-                required
-              >
-                <option value="">Select Customer</option>
-                {customers.map((cust) => (
-                  <option key={cust.id} value={cust.id}>
-                    {cust.name} ({cust.country})
-                  </option>
-                ))}
-              </select>
-            )}
-          </div>
-
-          {/* Quote Details */}
-          <div className="bg-white p-4 rounded-lg mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm font-semibold mb-2">Payment Terms</label>
-              <input
-                type="text"
-                value={quoteForm.payment_terms}
-                onChange={(e) => setQuoteForm({ ...quoteForm, payment_terms: e.target.value })}
-                className="w-full border rounded px-3 py-2"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-semibold mb-2">Delivery Days</label>
-              <input
-                type="number"
-                value={quoteForm.delivery_days}
-                onChange={(e) => setQuoteForm({ ...quoteForm, delivery_days: e.target.value })}
-                className="w-full border rounded px-3 py-2"
-              />
-            </div>
-          </div>
-
-          {/* Add Items Section */}
-          <div className="bg-white p-4 rounded-lg mb-6">
-            <h3 className="font-bold mb-4">Add Items to Quote</h3>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
-              <div>
-                <label className="block text-sm font-semibold mb-2">SKU</label>
-                <select
-                  value={selectedSku}
-                  onChange={(e) => setSelectedSku(e.target.value)}
-                  className="w-full border rounded px-3 py-2"
-                >
-                  <option value="">Select SKU</option>
-                  {skus.map((sku) => (
-                    <option key={sku.id} value={sku.id}>
-                      {sku.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-semibold mb-2">Qty</label>
-                <input
-                  type="number"
-                  value={itemQuantity}
-                  onChange={(e) => setItemQuantity(e.target.value)}
-                  placeholder="0"
-                  className="w-full border rounded px-3 py-2"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold mb-2">Margin %</label>
-                <input
-                  type="number"
-                  step="0.1"
-                  value={itemMargin}
-                  onChange={(e) => setItemMargin(parseFloat(e.target.value))}
-                  className="w-full border rounded px-3 py-2"
-                />
-              </div>
-              <div className="flex items-end">
+            {/* Customer Section */}
+            <div className="border-b border-gray-200 mb-6 pb-6">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="font-semibold text-gray-900">Customer</h3>
                 <button
                   type="button"
-                  onClick={handleAddQuoteItem}
-                  className="w-full bg-green-600 text-white rounded px-4 py-2"
+                  onClick={() => setShowNewCustomer(!showNewCustomer)}
+                  className="text-blue-600 text-sm font-semibold hover:text-blue-800"
                 >
-                  Add Item
+                  {showNewCustomer ? "Use Existing" : "Add New"}
                 </button>
+              </div>
+
+              {showNewCustomer ? (
+                <div className="space-y-4">
+                  <div className="form-group mb-0">
+                    <label>Company Name *</label>
+                    <input
+                      type="text"
+                      placeholder="Company Name"
+                      value={newCustomer.name}
+                      onChange={(e) => setNewCustomer({ ...newCustomer, name: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="form-group mb-0">
+                      <label>Email</label>
+                      <input
+                        type="email"
+                        placeholder="Email"
+                        value={newCustomer.email}
+                        onChange={(e) => setNewCustomer({ ...newCustomer, email: e.target.value })}
+                      />
+                    </div>
+                    <div className="form-group mb-0">
+                      <label>Phone</label>
+                      <input
+                        type="text"
+                        placeholder="Phone"
+                        value={newCustomer.phone}
+                        onChange={(e) => setNewCustomer({ ...newCustomer, phone: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="form-group mb-0">
+                      <label>Country</label>
+                      <input
+                        type="text"
+                        placeholder="Country"
+                        value={newCustomer.country}
+                        onChange={(e) => setNewCustomer({ ...newCustomer, country: e.target.value })}
+                      />
+                    </div>
+                    <div className="form-group mb-0">
+                      <label>Contact Person</label>
+                      <input
+                        type="text"
+                        placeholder="Contact Person"
+                        value={newCustomer.contact_person}
+                        onChange={(e) =>
+                          setNewCustomer({ ...newCustomer, contact_person: e.target.value })
+                        }
+                      />
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleAddCustomer}
+                    className="btn btn-primary w-full"
+                  >
+                    Add Customer & Continue
+                  </button>
+                </div>
+              ) : (
+                <div className="form-group mb-0">
+                  <label>Select Customer *</label>
+                  <select
+                    value={quoteForm.customer_id}
+                    onChange={(e) => setQuoteForm({ ...quoteForm, customer_id: e.target.value })}
+                    required
+                  >
+                    <option value="">Select Customer</option>
+                    {customers.map((cust) => (
+                      <option key={cust.id} value={cust.id}>
+                        {cust.name} ({cust.country})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
+
+            {/* Quote Details */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 pb-6 border-b border-gray-200">
+              <div className="form-group mb-0">
+                <label>Payment Terms</label>
+                <input
+                  type="text"
+                  value={quoteForm.payment_terms}
+                  onChange={(e) => setQuoteForm({ ...quoteForm, payment_terms: e.target.value })}
+                />
+              </div>
+              <div className="form-group mb-0">
+                <label>Delivery Days</label>
+                <input
+                  type="number"
+                  value={quoteForm.delivery_days}
+                  onChange={(e) => setQuoteForm({ ...quoteForm, delivery_days: e.target.value })}
+                />
               </div>
             </div>
 
-            {quoteItems.length > 0 && (
-              <div className="mt-6 pt-6 border-t">
-                <h4 className="font-semibold mb-3">Items in Quote:</h4>
-                <div className="space-y-2">
-                  {quoteItems.map((item, idx) => (
-                    <div key={idx} className="flex justify-between items-center bg-gray-50 p-3 rounded">
-                      <div>
-                        <p className="font-semibold">{item.sku_name}</p>
-                        <p className="text-sm text-gray-600">
-                          {item.quantity} × ${item.unit_price.toFixed(2)} ({item.margin_percent}% margin)
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-bold">${item.line_total.toFixed(2)}</p>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveQuoteItem(idx)}
-                          className="text-red-600 text-xs font-semibold"
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+            {/* Add Items Section */}
+            <div className="mb-6 pb-6 border-b border-gray-200">
+              <h3 className="font-semibold text-gray-900 mb-4">Add Items to Quote</h3>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                <div className="form-group mb-0">
+                  <label>SKU</label>
+                  <select
+                    value={selectedSku}
+                    onChange={(e) => setSelectedSku(e.target.value)}
+                  >
+                    <option value="">Select SKU</option>
+                    {skus.map((sku) => (
+                      <option key={sku.id} value={sku.id}>
+                        {sku.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
-
-                <div className="mt-4 pt-4 border-t-2 flex justify-between text-lg font-bold">
-                  <span>Total:</span>
-                  <span className="text-green-600">
-                    ${quoteItems.reduce((sum, item) => sum + item.line_total, 0).toFixed(2)}
-                  </span>
+                <div className="form-group mb-0">
+                  <label>Qty</label>
+                  <input
+                    type="number"
+                    value={itemQuantity}
+                    onChange={(e) => setItemQuantity(e.target.value)}
+                    placeholder="0"
+                  />
+                </div>
+                <div className="form-group mb-0">
+                  <label>Margin %</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={itemMargin}
+                    onChange={(e) => setItemMargin(parseFloat(e.target.value))}
+                  />
+                </div>
+                <div className="flex items-end">
+                  <button
+                    type="button"
+                    onClick={handleAddQuoteItem}
+                    className="btn btn-primary w-full"
+                  >
+                    Add Item
+                  </button>
                 </div>
               </div>
-            )}
-          </div>
 
-          <div className="mb-6">
-            <label className="block text-sm font-semibold mb-2">Notes</label>
-            <textarea
-              value={quoteForm.notes}
-              onChange={(e) => setQuoteForm({ ...quoteForm, notes: e.target.value })}
-              placeholder="Any additional notes"
-              rows="3"
-              className="w-full border rounded px-3 py-2"
-            />
-          </div>
+              {quoteItems.length > 0 && (
+                <div className="mt-6 pt-6 border-t border-gray-200">
+                  <h4 className="font-semibold text-gray-900 mb-4">Items in Quote:</h4>
+                  <div className="space-y-2 mb-4">
+                    {quoteItems.map((item, idx) => (
+                      <div key={idx} className="flex justify-between items-center bg-gray-50 p-3 rounded border border-gray-200">
+                        <div>
+                          <p className="font-semibold text-gray-900">{item.sku_name}</p>
+                          <p className="text-sm text-gray-600">
+                            {item.quantity} × ${item.unit_price.toFixed(2)} ({item.margin_percent}% margin)
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-semibold text-gray-900">${item.line_total.toFixed(2)}</p>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveQuoteItem(idx)}
+                            className="text-red-600 text-xs font-semibold hover:text-red-800"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
 
-          <button
-            type="submit"
-            className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold"
-          >
-            Create Quote
-          </button>
+                  <div className="flex justify-between text-lg font-semibold text-gray-900 py-3 border-t-2 border-gray-300">
+                    <span>Total:</span>
+                    <span className="text-green-700">
+                      ${quoteItems.reduce((sum, item) => sum + item.line_total, 0).toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="form-group mb-6">
+              <label>Notes</label>
+              <textarea
+                value={quoteForm.notes}
+                onChange={(e) => setQuoteForm({ ...quoteForm, notes: e.target.value })}
+                placeholder="Any additional notes"
+                rows="3"
+              />
+            </div>
+
+            <button
+              type="submit"
+              className="btn btn-primary w-full py-2"
+            >
+              Create Quote
+            </button>
+          </div>
         </form>
       )}
     </div>

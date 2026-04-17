@@ -73,13 +73,11 @@ export default function SKUManagement() {
   if (loading) return <div className="p-6 text-center">Loading...</div>;
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-6">
-      <h1 className="text-3xl font-bold mb-6">SKU Management</h1>
-
-      <div className="flex gap-4 mb-6">
+    <div>
+      <div className="flex gap-2 mb-6">
         <button
           onClick={() => setActiveTab("list")}
-          className={`px-4 py-2 rounded ${activeTab === "list" ? "bg-blue-600 text-white" : "bg-gray-200"}`}
+          className={`btn ${activeTab === "list" ? "btn-primary" : "btn-secondary"}`}
         >
           SKUs List
         </button>
@@ -88,7 +86,7 @@ export default function SKUManagement() {
             setActiveTab("create");
             setFormData({ name: "", recipe_id: "", pack_size_liters: "", pack_description: "", packaging_cost_per_unit: "" });
           }}
-          className={`px-4 py-2 rounded ${activeTab === "create" ? "bg-blue-600 text-white" : "bg-gray-200"}`}
+          className={`btn ${activeTab === "create" ? "btn-primary" : "btn-secondary"}`}
         >
           Create SKU
         </button>
@@ -97,36 +95,39 @@ export default function SKUManagement() {
       {/* LIST TAB */}
       {activeTab === "list" && (
         <div>
-          <h2 className="text-xl font-semibold mb-4">Available SKUs</h2>
           {skus.length === 0 ? (
-            <p className="text-gray-500">No SKUs found. Create one to get started.</p>
+            <div className="table-container">
+              <div className="px-6 py-12 text-center">
+                <p className="text-gray-500">No SKUs found. Create one to get started.</p>
+              </div>
+            </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm border-collapse">
-                <thead className="bg-gray-100 border-b-2 border-gray-300">
+            <div className="table-container overflow-x-auto">
+              <table>
+                <thead>
                   <tr>
-                    <th className="p-3 text-left">SKU Name</th>
-                    <th className="p-3 text-left">Recipe</th>
-                    <th className="p-3 text-right">Pack Size</th>
-                    <th className="p-3 text-right">Cost/Unit</th>
-                    <th className="p-3 text-center">Action</th>
+                    <th>SKU Name</th>
+                    <th>Recipe</th>
+                    <th>Pack Size</th>
+                    <th>Cost/Unit</th>
+                    <th>Action</th>
                   </tr>
                 </thead>
                 <tbody>
                   {skus.map((sku) => {
                     const costs = calculateCosts(sku);
                     return (
-                      <tr key={sku.id} className="border-b hover:bg-gray-50">
-                        <td className="p-3">{sku.name}</td>
-                        <td className="p-3">{sku.recipes?.name}</td>
-                        <td className="p-3 text-right">{sku.pack_size_liters}L</td>
-                        <td className="p-3 text-right font-semibold">
+                      <tr key={sku.id}>
+                        <td className="font-semibold">{sku.name}</td>
+                        <td>{sku.recipes?.name}</td>
+                        <td>{sku.pack_size_liters}L</td>
+                        <td className="font-semibold">
                           ${costs?.totalCost.toFixed(2)}
                         </td>
-                        <td className="p-3 text-center">
+                        <td>
                           <button
                             onClick={() => handleSelectSku(sku)}
-                            className="bg-blue-500 text-white px-3 py-1 rounded text-sm"
+                            className="btn btn-primary text-sm"
                           >
                             View
                           </button>
@@ -146,145 +147,144 @@ export default function SKUManagement() {
         <div>
           <button
             onClick={() => setActiveTab("list")}
-            className="mb-4 px-4 py-2 bg-gray-200 rounded"
+            className="btn btn-secondary mb-6"
           >
             ← Back to List
           </button>
-          <div className="bg-gray-50 p-6 rounded-lg">
-            <h2 className="text-2xl font-bold mb-6">{selectedSku.name}</h2>
+          <div className="table-container">
+            <div className="px-6 py-6">
+              <h2 className="text-2xl font-semibold mb-6 text-gray-900">{selectedSku.name}</h2>
 
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
-              <div className="bg-white p-4 rounded">
-                <p className="text-sm text-gray-600">Recipe</p>
-                <p className="font-semibold">{selectedSku.recipes?.name}</p>
-              </div>
-              <div className="bg-white p-4 rounded">
-                <p className="text-sm text-gray-600">Pack Size</p>
-                <p className="font-semibold">{selectedSku.pack_size_liters}L</p>
-              </div>
-              <div className="bg-white p-4 rounded">
-                <p className="text-sm text-gray-600">Pack Description</p>
-                <p className="font-semibold">{selectedSku.pack_description || "-"}</p>
-              </div>
-            </div>
-
-            <h3 className="text-lg font-bold mb-4">Cost Breakdown</h3>
-            {(() => {
-              const costs = calculateCosts(selectedSku);
-              if (!costs) return <p>Unable to calculate costs</p>;
-              return (
-                <div className="bg-white p-4 rounded-lg mb-6">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="flex justify-between py-2 border-b">
-                      <span>Material Cost</span>
-                      <span className="font-semibold">${costs.materialCost.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between py-2 border-b">
-                      <span>Blending Cost</span>
-                      <span className="font-semibold">${costs.blendingCost.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between py-2 border-b">
-                      <span>Packaging Cost</span>
-                      <span className="font-semibold">${costs.packagingCost.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between py-2 border-b">
-                      <span>Overhead (5%)</span>
-                      <span className="font-semibold">${costs.overheadCost.toFixed(2)}</span>
-                    </div>
-                  </div>
-                  <div className="flex justify-between py-3 border-t-2 border-gray-300 mt-4 text-lg font-bold">
-                    <span>Total Cost per Unit</span>
-                    <span className="text-green-600">${costs.totalCost.toFixed(2)}</span>
-                  </div>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8 border-b border-gray-200 pb-8">
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Recipe</p>
+                  <p className="font-semibold text-gray-900">{selectedSku.recipes?.name}</p>
                 </div>
-              );
-            })()}
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Pack Size</p>
+                  <p className="font-semibold text-gray-900">{selectedSku.pack_size_liters}L</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Pack Description</p>
+                  <p className="font-semibold text-gray-900">{selectedSku.pack_description || "-"}</p>
+                </div>
+              </div>
+
+              <h3 className="font-semibold text-gray-900 mb-4">Cost Breakdown</h3>
+              {(() => {
+                const costs = calculateCosts(selectedSku);
+                if (!costs) return <p>Unable to calculate costs</p>;
+                return (
+                  <table className="w-full">
+                    <tbody>
+                      <tr>
+                        <td className="py-3 text-gray-700">Material Cost</td>
+                        <td className="py-3 text-right font-semibold">${costs.materialCost.toFixed(2)}</td>
+                      </tr>
+                      <tr>
+                        <td className="py-3 text-gray-700">Blending Cost</td>
+                        <td className="py-3 text-right font-semibold">${costs.blendingCost.toFixed(2)}</td>
+                      </tr>
+                      <tr>
+                        <td className="py-3 text-gray-700">Packaging Cost</td>
+                        <td className="py-3 text-right font-semibold">${costs.packagingCost.toFixed(2)}</td>
+                      </tr>
+                      <tr>
+                        <td className="py-3 text-gray-700">Overhead (5%)</td>
+                        <td className="py-3 text-right font-semibold">${costs.overheadCost.toFixed(2)}</td>
+                      </tr>
+                      <tr className="border-t-2 border-gray-300 font-semibold text-lg">
+                        <td className="py-3 text-gray-900">Total Cost per Unit</td>
+                        <td className="py-3 text-right text-green-700">${costs.totalCost.toFixed(2)}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                );
+              })()}
+            </div>
           </div>
         </div>
       )}
 
       {/* CREATE TAB */}
       {activeTab === "create" && (
-        <form onSubmit={handleCreateSku} className="bg-gray-50 p-6 rounded-lg max-w-2xl">
-          <h2 className="text-xl font-bold mb-6">Create New SKU</h2>
+        <form onSubmit={handleCreateSku} className="table-container max-w-2xl">
+          <div className="px-6 py-6">
+            <h2 className="text-xl font-semibold mb-6 text-gray-900">Create New SKU</h2>
 
-          <div className="mb-6">
-            <label className="block text-sm font-semibold mb-2">SKU Name *</label>
-            <input
-              type="text"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              placeholder="e.g., SAE 40 1L Bottle"
-              className="w-full border rounded px-3 py-2"
-              required
-            />
-          </div>
-
-          <div className="mb-6">
-            <label className="block text-sm font-semibold mb-2">Recipe *</label>
-            <select
-              value={formData.recipe_id}
-              onChange={(e) => setFormData({ ...formData, recipe_id: e.target.value })}
-              className="w-full border rounded px-3 py-2"
-              required
-            >
-              <option value="">Select Recipe</option>
-              {recipes.map((recipe) => (
-                <option key={recipe.id} value={recipe.id}>
-                  {recipe.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-            <div>
-              <label className="block text-sm font-semibold mb-2">Pack Size (Liters) *</label>
+            <div className="form-group">
+              <label>SKU Name *</label>
               <input
-                type="number"
-                step="0.1"
-                value={formData.pack_size_liters}
-                onChange={(e) => setFormData({ ...formData, pack_size_liters: e.target.value })}
-                placeholder="1"
-                className="w-full border rounded px-3 py-2"
+                type="text"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                placeholder="e.g., SAE 40 1L Bottle"
                 required
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-semibold mb-2">Packaging Cost per Unit</label>
+            <div className="form-group">
+              <label>Recipe *</label>
+              <select
+                value={formData.recipe_id}
+                onChange={(e) => setFormData({ ...formData, recipe_id: e.target.value })}
+                required
+              >
+                <option value="">Select Recipe</option>
+                {recipes.map((recipe) => (
+                  <option key={recipe.id} value={recipe.id}>
+                    {recipe.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+              <div className="form-group mb-0">
+                <label>Pack Size (Liters) *</label>
+                <input
+                  type="number"
+                  step="0.1"
+                  value={formData.pack_size_liters}
+                  onChange={(e) => setFormData({ ...formData, pack_size_liters: e.target.value })}
+                  placeholder="1"
+                  required
+                />
+              </div>
+
+              <div className="form-group mb-0">
+                <label>Packaging Cost per Unit</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={formData.packaging_cost_per_unit}
+                  onChange={(e) =>
+                    setFormData({ ...formData, packaging_cost_per_unit: e.target.value })
+                  }
+                  placeholder="0.00"
+                />
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label>Pack Description</label>
               <input
-                type="number"
-                step="0.01"
-                value={formData.packaging_cost_per_unit}
+                type="text"
+                value={formData.pack_description}
                 onChange={(e) =>
-                  setFormData({ ...formData, packaging_cost_per_unit: e.target.value })
+                  setFormData({ ...formData, pack_description: e.target.value })
                 }
-                placeholder="0.00"
-                className="w-full border rounded px-3 py-2"
+                placeholder="e.g., 1L Plastic Bottle"
               />
             </div>
-          </div>
 
-          <div className="mb-6">
-            <label className="block text-sm font-semibold mb-2">Pack Description</label>
-            <input
-              type="text"
-              value={formData.pack_description}
-              onChange={(e) =>
-                setFormData({ ...formData, pack_description: e.target.value })
-              }
-              placeholder="e.g., 1L Plastic Bottle"
-              className="w-full border rounded px-3 py-2"
-            />
+            <button
+              type="submit"
+              className="btn btn-primary w-full py-2"
+            >
+              Create SKU
+            </button>
           </div>
-
-          <button
-            type="submit"
-            className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold"
-          >
-            Create SKU
-          </button>
         </form>
       )}
     </div>
