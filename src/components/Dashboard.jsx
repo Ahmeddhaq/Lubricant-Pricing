@@ -204,6 +204,24 @@ export default function Dashboard() {
     });
   };
 
+  const profitableTrend = [...stats.topSkus].slice(0, 5).reverse();
+  const trendWidth = 320;
+  const trendHeight = 150;
+  const trendPaddingX = 18;
+  const trendPaddingY = 18;
+  const trendMaxProfit = Math.max(...profitableTrend.map((sku) => sku.profit), 1);
+  const trendPoints = profitableTrend.map((sku, index) => {
+    const xStep = profitableTrend.length > 1 ? (trendWidth - trendPaddingX * 2) / (profitableTrend.length - 1) : 0;
+    const x = trendPaddingX + index * xStep;
+    const yRange = trendHeight - trendPaddingY * 2;
+    const y = trendHeight - trendPaddingY - (sku.profit / trendMaxProfit) * yRange;
+    return { x, y, name: sku.name, profit: sku.profit };
+  });
+  const trendPath = trendPoints.map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`).join(" ");
+  const trendAreaPath = trendPoints.length > 1
+    ? `${trendPath} L ${trendPoints[trendPoints.length - 1].x} ${trendHeight - trendPaddingY} L ${trendPoints[0].x} ${trendHeight - trendPaddingY} Z`
+    : "";
+
   if (loading) return <div className="p-6 text-center">Loading...</div>;
 
   return (
@@ -211,7 +229,7 @@ export default function Dashboard() {
       {/* ====== SECTION 1: KPI SUMMARY ====== */}
       <section className="page-section">
         <h2 className="section-title">KPI Summary</h2>
-        <div className="metric-grid">
+        <div className="metric-grid metric-grid-8">
           {/* Total Revenue */}
           <div className="metric-card">
             <div className="content-row-stack">
@@ -281,40 +299,46 @@ export default function Dashboard() {
       {/* ====== SECTION 2: PROFITABILITY OVERVIEW ====== */}
       <section className="page-section">
         <h2 className="section-title">Profitability Overview</h2>
-        <div className="section-grid" style={{ gridTemplateColumns: "repeat(3, minmax(0, 1fr))" }}>
-          {/* Top 5 SKUs */}
-          <div className="content-card">
+        <div className="section-grid profitability-grid">
+          {/* Profit Trend Graph */}
+          <div className="content-card chart-card xl:col-span-2">
             <div className="content-row-stack">
-              <h3 className="text-lg font-semibold text-gray-900">Top 5 SKUs by Profit</h3>
-              {stats.topSkus.length === 0 ? (
+              <h3 className="text-lg font-semibold text-gray-900">Profit Trend</h3>
+              <p className="section-subtitle">Top profitable SKUs plotted in descending order.</p>
+              {trendPoints.length === 0 ? (
                 <p className="text-gray-500">No data available</p>
               ) : (
-                <div className="space-y-3">
-                  {stats.topSkus.map((sku, idx) => (
-                    <div key={idx} className="compact-item">
-                      <div className="flex justify-between items-start mb-2">
-                        <p className="font-semibold text-gray-900">{sku.name}</p>
-                        <span className="text-xs bg-gray-100 text-gray-800 px-2 py-1 rounded">#{idx + 1}</span>
+                <div className="chart-grid">
+                  <div className="chart-panel">
+                    <svg viewBox={`0 0 ${trendWidth} ${trendHeight}`} className="w-full h-40">
+                      <line x1="18" y1="18" x2="18" y2="132" className="trend-axis" />
+                      <line x1="18" y1="132" x2="302" y2="132" className="trend-axis" />
+                      {trendAreaPath && <path d={trendAreaPath} className="trend-area" />}
+                      {trendPoints.length > 1 && <path d={trendPath} className="trend-line" />}
+                      {trendPoints.map((point, idx) => (
+                        <g key={idx}>
+                          <circle cx={point.x} cy={point.y} r="4.5" className="trend-point" />
+                        </g>
+                      ))}
+                    </svg>
+                  </div>
+
+                  <div className="chart-legend">
+                    {trendPoints.map((point, idx) => (
+                      <div key={idx} className="flex items-center gap-2">
+                        <span className="inline-block h-2.5 w-2.5 rounded-full bg-gray-900"></span>
+                        <span>{point.name}</span>
+                        <span className="font-semibold text-gray-900">${point.profit.toFixed(2)}</span>
                       </div>
-                      <div className="space-y-1 text-sm">
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Profit:</span>
-                          <span className="font-semibold text-gray-900">${sku.profit.toFixed(2)}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Margin:</span>
-                          <span className="font-semibold text-gray-900">{sku.margin.toFixed(1)}%</span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
           </div>
 
           {/* Bottom 5 SKUs */}
-          <div className="content-card">
+          <div className="content-card xl:col-span-1">
             <div className="content-row-stack">
               <h3 className="text-lg font-semibold text-gray-900">Bottom 5 SKUs by Profit</h3>
               {stats.bottomSkus.length === 0 ? (
@@ -345,13 +369,13 @@ export default function Dashboard() {
           </div>
 
           {/* Profit by Market */}
-          <div className="content-card">
+          <div className="content-card xl:col-span-2">
             <div className="content-row-stack">
               <h3 className="text-lg font-semibold text-gray-900">Profit by Market</h3>
               {Object.keys(stats.profitByMarket).length === 0 ? (
                 <p className="text-gray-500">No data available</p>
               ) : (
-                <div className="space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {Object.entries(stats.profitByMarket).map(([market, data], idx) => (
                     <div key={idx} className="compact-item">
                       <p className="font-semibold text-gray-900 mb-2">{market}</p>
