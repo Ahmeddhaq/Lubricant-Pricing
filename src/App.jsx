@@ -10,14 +10,22 @@ export default function PricingApp() {
   const [activeTab, setActiveTab] = useState("dashboard");
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="flex min-h-screen bg-white">
       <Navigation activeTab={activeTab} setActiveTab={setActiveTab} />
       
-      <main className="max-w-7xl mx-auto py-8 px-4">
-        {activeTab === "dashboard" && <Dashboard />}
-        {activeTab === "formulation" && <FormulationEngine />}
-        {activeTab === "skus" && <SKUManagement />}
-        {activeTab === "quotes" && <QuoteBuilder />}
+      <main className="main-content">
+        <div className="page-header">
+          {activeTab === "dashboard" && <h1>Dashboard</h1>}
+          {activeTab === "formulation" && <h1>Formulation Engine</h1>}
+          {activeTab === "skus" && <h1>SKU Management</h1>}
+          {activeTab === "quotes" && <h1>Quote Builder</h1>}
+        </div>
+        <div className="max-w-7xl">
+          {activeTab === "dashboard" && <Dashboard />}
+          {activeTab === "formulation" && <FormulationEngine />}
+          {activeTab === "skus" && <SKUManagement />}
+          {activeTab === "quotes" && <QuoteBuilder />}
+        </div>
       </main>
     </div>
   );
