@@ -1239,6 +1239,27 @@ td {
   vertical-align: top;
 }
 
+.sku-compact-table th {
+  padding: 0.7rem 0.75rem;
+  font-size: 0.72rem;
+}
+
+.sku-compact-table td {
+  padding: 0.7rem 0.75rem;
+  font-size: 0.88rem;
+  vertical-align: middle;
+}
+
+.sku-compact-table tbody tr:hover {
+  background: #f8fafc;
+}
+
+.sku-compact-table input {
+  min-height: 2.45rem;
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+}
+
 tbody tr:hover {
   background: #fafafa;
 }

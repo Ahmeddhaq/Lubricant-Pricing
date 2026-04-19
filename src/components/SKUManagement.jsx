@@ -26,7 +26,7 @@ const DEFAULT_SKU_FLAGS = {
   priceOverride: false,
 };
 
-export default function SKUManagement({ pendingImport, clearPendingImport, onOpenFormulation, onOpenSkuCreation, readySkuImport, dataRefreshToken }) {
+export default function SKUManagement({ pendingImport, clearPendingImport, onOpenFormulation, dataRefreshToken }) {
   const [skus, setSkus] = useState([]);
   const [recipes, setRecipes] = useState([]);
   const [baseOils, setBaseOils] = useState([]);
@@ -309,7 +309,6 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
         ? Number(skuForm.currentSellingPrice || (livePackPrices.length ? average(livePackPrices) : 0) || 0)
         : Number(selectedSku?.current_selling_price ?? 0);
 
-  const packMargins = packEntries.map(([packName]) => calculatePackMargin(packName));
   const pricedPackMargins = packEntries
     .filter(([, config]) => Number(config.sellingPrice || 0) > 0)
     .map(([packName]) => calculatePackMargin(packName));
@@ -568,36 +567,6 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
         </section>
       )}
 
-      {!importedSkuDraft && readySkuImport && (
-        <section className="page-section">
-          <div className="content-card border-emerald-300 bg-emerald-50/70">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <h2 className="section-title">Formulation created</h2>
-                <p className="section-subtitle">
-                  The formulation is saved and ready to become a SKU. Load it into the create form to finish the setup.
-                </p>
-                <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold text-emerald-900">
-                  <span className="rounded-full bg-emerald-100 px-3 py-1">Name: {readySkuImport.draft?.name || readySkuImport.draft?.recipeName || readySkuImport.linkedFormulationDraft?.name || "Imported SKU"}</span>
-                  <span className="rounded-full bg-emerald-100 px-3 py-1">Recipe: {readySkuImport.linkedFormulationDraft?.recipeName || readySkuImport.draft?.recipeName || "Ready"}</span>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                <button type="button" onClick={onOpenSkuCreation} className="btn btn-primary">
-                  Create SKU now
-                </button>
-                {onOpenFormulation && (
-                  <button type="button" onClick={onOpenFormulation} className="btn btn-secondary">
-                    Review formulation
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        </section>
-      )}
-
       <section className="page-section">
         <div className="content-card border-slate-200 bg-slate-50/80">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -664,15 +633,12 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
           )}
 
           {warningItems.length > 0 && (
-            <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
-              <p className="text-sm font-semibold text-amber-900">Light warnings</p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {warningItems.map((warning) => (
-                  <span key={warning} className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-amber-900">
-                    {warning}
-                  </span>
-                ))}
-              </div>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {warningItems.map((warning) => (
+                <span key={warning} className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-900">
+                  {warning}
+                </span>
+              ))}
             </div>
           )}
         </div>
@@ -681,7 +647,7 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
       <section className="page-section">
         <h2 className="section-title">Pack Configuration</h2>
         <div className="content-card overflow-x-auto">
-          <table className="min-w-full">
+          <table className="min-w-full sku-compact-table sku-pack-table">
             <thead>
               <tr>
                 <th>Pack</th>
@@ -689,7 +655,6 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
                 <th>Packaging Cost</th>
                 <th>Total Cost</th>
                 <th>Selling Price</th>
-                <th>Margin</th>
               </tr>
             </thead>
             <tbody>
@@ -748,11 +713,6 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
                         </span>
                       </div>
                     </td>
-                    <td>
-                      <span className={`rounded-full px-3 py-1 text-xs font-semibold ${marginHealthy ? "bg-emerald-50 text-emerald-700" : "bg-red-100 text-red-700"}`}>
-                        {marginHealthy ? "Healthy" : Number(config.sellingPrice || 0) > 0 ? "Below target" : "No price"}
-                      </span>
-                    </td>
                   </tr>
                 );
               })}
@@ -768,7 +728,7 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
             <div className="content-row-stack">
               <h3 className="text-lg font-semibold text-gray-900">Price per Market</h3>
               <div className="overflow-x-auto">
-                <table className="min-w-full">
+                <table className="min-w-full sku-compact-table sku-pricing-table">
                   <thead>
                     <tr>
                       <th>Market</th>
@@ -812,7 +772,7 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
             <div className="content-row-stack">
               <h3 className="text-lg font-semibold text-gray-900">Price per Customer Type</h3>
               <div className="overflow-x-auto">
-                <table className="min-w-full">
+                <table className="min-w-full sku-compact-table sku-pricing-table">
                   <thead>
                     <tr>
                       <th>Customer Type</th>
@@ -858,7 +818,7 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
         <h2 className="section-title">Cost Build-Up</h2>
         <div className="content-card">
           <div className="content-row-stack">
-            <div className="metric-grid metric-grid-5 mb-8">
+            <div className="metric-grid metric-grid-5">
               <div className="content-card-compact">
                 <div className="flex justify-between items-center">
                   <span className="text-gray-600">Blend Cost</span>
@@ -920,28 +880,6 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
                 </div>
               </div>
             </div>
-
-            <div className="space-y-3">
-              {[
-                { label: "Blend Cost", value: costBreakup.blendCost },
-                { label: "Packaging Cost", value: costBreakup.packagingCost },
-                { label: "Logistics Cost", value: costBreakup.logisticsCost },
-                { label: "Overhead", value: costBreakup.overheadAllocation },
-              ].map((item, idx) => {
-                const percentage = totalCostPerLiter > 0 ? (item.value / totalCostPerLiter) * 100 : 0;
-                return (
-                  <div key={idx} className="compact-item">
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-sm font-semibold text-gray-900">{item.label}</span>
-                      <span className="text-sm text-gray-600">${item.value.toFixed(2)} ({percentage.toFixed(1)}%)</span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
-                      <div className="bg-gray-400 h-full" style={{ width: `${percentage}%` }}></div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
           </div>
         </div>
       </section>
@@ -961,8 +899,10 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
           <div className="table-container">
             <div className="px-6 py-12 text-center">
               <p className="text-gray-500">
-                {recipes.length > 0 || readySkuImport
-                  ? "No saved SKUs yet. A formulation is already available, so click Add New SKU to create the first one."
+                {importedSkuDraft
+                  ? "No saved SKUs yet. Use the draft above to create the first one."
+                  : recipes.length > 0
+                    ? "No saved SKUs yet. A formulation is already available, so click Add New SKU to create the first one."
                   : "No saved SKUs yet. Save a formulation first, then create its SKU."}
               </p>
             </div>

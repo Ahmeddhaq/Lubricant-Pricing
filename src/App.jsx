@@ -122,7 +122,7 @@ function AppShell() {
     };
   };
 
-  const handleFormulationSaved = ({ recipe, linkedSkuDrafts = [], sourceUploadId = null }) => {
+  const handleFormulationSaved = ({ recipe, linkedSkuDrafts = [], sourceUploadId = null, snapshot = null }) => {
     setWorkspaceDataVersion((value) => value + 1);
     setWorkspaceNotice({
       title: "Formulation created",
@@ -289,8 +289,6 @@ function AppShell() {
               pendingImport={pendingImport}
               clearPendingImport={clearPendingImport}
               onOpenFormulation={() => handleTabChange("formulation")}
-              onOpenSkuCreation={openSkuCreation}
-              readySkuImport={readySkuImport}
               dataRefreshToken={workspaceDataVersion}
             />
           </div>
