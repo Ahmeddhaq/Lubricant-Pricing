@@ -193,7 +193,7 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
   };
 
   const pickBaseOilId = (linkedDraft) => {
-    if (!baseOils.length) return "";
+    if (baseOils.length === 0) return "";
 
     const candidateNames = [
       linkedDraft?.baseOilName,
@@ -210,15 +210,39 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
     return matchedBaseOil?.id || baseOils[0]?.id || "";
   };
 
+  const ensureBaseOilId = async (linkedDraft) => {
+    const pickedBaseOilId = pickBaseOilId(linkedDraft);
+    if (pickedBaseOilId) return pickedBaseOilId;
+
+    const fallbackName = linkedDraft?.baseOilName || linkedDraft?.baseOil || "Imported Base Oil";
+    const createdBaseOil = await baseOilsService.create({
+      name: fallbackName,
+      cost_per_liter: 0,
+      unit: "Liter",
+      description: "Auto-created fallback base oil for workbook import",
+    });
+
+    await loadData();
+    return createdBaseOil?.id || "";
+  };
+
   const createRecipeFromDraft = async (draft, linkedDraft) => {
     const existingRecipe = findMatchingRecipe(draft, linkedDraft);
     if (existingRecipe) return existingRecipe;
 
-    const recipeName = [draft?.recipeName, draft?.name, linkedDraft?.skuName, linkedDraft?.name, ...(draft?.recipeNameCandidates || []), ...(linkedDraft?.recipeNameCandidates || [])]
-      .filter(Boolean)[0];
-    const baseOilId = pickBaseOilId(linkedDraft);
+    const recipeName = [
+      draft?.recipeName,
+      draft?.formulationName,
+      draft?.name,
+      linkedDraft?.skuName,
+      linkedDraft?.name,
+      ...(draft?.recipeNameCandidates || []),
+      ...(linkedDraft?.recipeNameCandidates || []),
+    ].filter(Boolean)[0] || `Imported ${draft?.name || linkedDraft?.skuName || linkedDraft?.name || "Formulation"}`;
 
-    if (!recipeName || !baseOilId) return null;
+    const baseOilId = await ensureBaseOilId(linkedDraft);
+
+    if (!baseOilId) return null;
 
     const createdRecipe = await recipesService.create({
       name: recipeName,
@@ -361,7 +385,7 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
       const unresolvedNames = unresolvedDrafts
         .map((draft) => draft.name || draft.recipeName || draft.formulationName || draft.recipeNameCandidates?.[0] || "Unnamed SKU")
         .join(", ");
-      alert(`I found SKU rows, but the workbook did not provide enough information to create a formulation for: ${unresolvedNames}`);
+      alert(`I found SKU rows, but I could not create the fallback formulation for: ${unresolvedNames}`);
       return;
     }
 

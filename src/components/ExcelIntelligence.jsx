@@ -18,11 +18,11 @@ const FORMULATION_KEYWORDS = ["base oil", "additive", "ingredient", "recipe", "f
 const UPLOAD_CHECKLIST = [
   {
     title: "SKU import",
-    text: "Use one row per SKU with a product name, category, and at least a selling price or margin column.",
+    text: "Use one row per SKU with a product name, category, and at least a selling price or margin column. If the workbook does not include recipe data, the app can create a provisional formulation for you to confirm later.",
   },
   {
     title: "Formulation import",
-    text: "Include a formulation or recipe name plus base oil, component/additive, percentage, and unit cost columns.",
+    text: "Include a formulation or recipe name plus base oil, component/additive, percentage, and unit cost columns for the best match. Sparse sheets still fall back to a placeholder formulation.",
   },
   {
     title: "Paired workbook",
@@ -150,9 +150,7 @@ function buildGenericSkuInsights(sheetReport, systemBenchmarkMargin) {
     })
     .map(({ index }) => index);
 
-  const hasEssentialColumns = skuIndex >= 0 && (costIndex >= 0 || priceIndex >= 0 || marginIndex >= 0);
-  const hasContextColumns = priceIndex >= 0 || formulationIndex >= 0 || categoryIndex >= 0 || marketColumnIndexes.length > 0;
-  if (!hasEssentialColumns || !hasContextColumns) return [];
+  if (skuIndex < 0 && formulationIndex < 0) return [];
 
   return sheetReport.rows.slice(1).map((row, rowIndex) => {
     const rawSku = skuIndex >= 0 ? row[skuIndex] : "";
@@ -174,10 +172,19 @@ function buildGenericSkuInsights(sheetReport, systemBenchmarkMargin) {
       }
     });
 
-    const displayName = String(rawSku || rawFormulation || `SKU ${rowIndex + 2}`).trim();
-    if (!displayName && costPerLiter === null && directPrice === null && directMargin === null) {
+    const rowHasSignal = Boolean(
+      String(rawSku || rawFormulation || rawCategory || "").trim()
+      || costPerLiter !== null
+      || directPrice !== null
+      || directMargin !== null
+      || marketPrices.length > 0,
+    );
+
+    if (!rowHasSignal) {
       return null;
     }
+
+    const displayName = String(rawSku || rawFormulation || rawCategory || `SKU ${rowIndex + 2}`).trim();
 
     const derivedAveragePrice = marketPrices.length
       ? mean(marketPrices.map((entry) => entry.price))
@@ -228,6 +235,34 @@ function buildGenericSkuInsights(sheetReport, systemBenchmarkMargin) {
       recipeNameCandidates,
     };
   }).filter(Boolean);
+}
+
+function mergeSkuInsight(primary, secondary) {
+  const pickText = (...values) => values.find((value) => String(value ?? "").trim()) || "";
+  const pickNumber = (...values) => values.find((value) => Number.isFinite(value));
+  const pickArray = (primaryValues, secondaryValues) => (primaryValues?.length ? primaryValues : secondaryValues || []);
+
+  return {
+    ...secondary,
+    ...primary,
+    sku: primary.sku || secondary.sku,
+    displayName: pickText(primary.displayName, secondary.displayName),
+    category: pickText(primary.category, secondary.category),
+    costPerLiter: pickNumber(primary.costPerLiter, secondary.costPerLiter) ?? 0,
+    averagePrice: pickNumber(primary.averagePrice, secondary.averagePrice) ?? 0,
+    averageMargin: pickNumber(primary.averageMargin, secondary.averageMargin) ?? 0,
+    profitPerUnit: pickNumber(primary.profitPerUnit, secondary.profitPerUnit) ?? 0,
+    pricingLogicType: pickText(primary.pricingLogicType, secondary.pricingLogicType),
+    pricingLogicDetail: pickText(primary.pricingLogicDetail, secondary.pricingLogicDetail),
+    marketPrices: pickArray(primary.marketPrices, secondary.marketPrices),
+    components: pickArray(primary.components, secondary.components),
+    missingCostComponents: Array.from(new Set([...(primary.missingCostComponents || []), ...(secondary.missingCostComponents || [])])),
+    systemBenchmarkMargin: pickNumber(primary.systemBenchmarkMargin, secondary.systemBenchmarkMargin) ?? 25,
+    systemBenchmarkPrice: pickNumber(primary.systemBenchmarkPrice, secondary.systemBenchmarkPrice) ?? 0,
+    marginDelta: pickNumber(primary.marginDelta, secondary.marginDelta) ?? 0,
+    recipeName: pickText(primary.recipeName, secondary.recipeName),
+    recipeNameCandidates: Array.from(new Set([...(primary.recipeNameCandidates || []), ...(secondary.recipeNameCandidates || [])])),
+  };
 }
 
 function buildAnalysis(workbook, systemBenchmarkMargin) {
@@ -330,7 +365,7 @@ function buildAnalysis(workbook, systemBenchmarkMargin) {
   const detectedSkus = Array.from(new Set([...costBySku.keys(), ...pricingBySku.keys()]));
   const fallbackBenchmark = Number.isFinite(systemBenchmarkMargin) ? systemBenchmarkMargin : 25;
 
-  let skuInsights = detectedSkus.map((sku) => {
+  const structuredSkuInsights = detectedSkus.map((sku) => {
     const costEntry = costBySku.get(sku) || { components: [], totalCostPerLiter: 0, missingComponents: [] };
     const pricingEntry = pricingBySku.get(sku) || { marketPrices: [] };
     const priceValues = pricingEntry.marketPrices.map((entry) => entry.price);
@@ -367,9 +402,29 @@ function buildAnalysis(workbook, systemBenchmarkMargin) {
     };
   });
 
-  if (skuInsights.length === 0) {
-    skuInsights = sheetReports.flatMap((sheet) => buildGenericSkuInsights(sheet, fallbackBenchmark));
-  }
+  const genericSkuInsights = sheetReports.flatMap((sheet) => buildGenericSkuInsights(sheet, fallbackBenchmark));
+  const skuInsightMap = new Map();
+
+  structuredSkuInsights.forEach((insight) => {
+    const key = normalize(insight.sku || insight.displayName);
+    if (key) {
+      skuInsightMap.set(key, insight);
+    }
+  });
+
+  genericSkuInsights.forEach((insight) => {
+    const key = normalize(insight.sku || insight.displayName);
+    if (!key) return;
+
+    if (skuInsightMap.has(key)) {
+      skuInsightMap.set(key, mergeSkuInsight(skuInsightMap.get(key), insight));
+      return;
+    }
+
+    skuInsightMap.set(key, insight);
+  });
+
+  const skuInsights = Array.from(skuInsightMap.values());
 
   return {
     workbookName: workbook.Props?.Title || workbook.SheetNames[0] || "Uploaded workbook",
@@ -714,30 +769,30 @@ export default function ExcelIntelligence({ onPrepareImport, externalWorkbookReq
           </div>
 
           {showUploadHelp && (
-            <div id="upload-format-help" className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-              <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+            <div id="upload-format-help" className="mt-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between md:gap-6">
                 <div>
                   <h3 className="text-base font-semibold text-slate-900">Check this before uploading</h3>
-                  <p className="text-sm text-slate-600">
+                  <p className="mt-1 text-sm leading-6 text-slate-600">
                     The app works with a normal workbook, but it auto-detects better when the file follows one of these patterns.
                   </p>
                 </div>
-                <button type="button" className="text-sm font-semibold text-slate-500 hover:text-slate-900" onClick={() => setShowUploadHelp(false)}>
+                <button type="button" className="text-sm font-semibold text-slate-500 hover:text-slate-900 md:pt-1" onClick={() => setShowUploadHelp(false)}>
                   Close
                 </button>
               </div>
 
-              <div className="mt-4 grid gap-3 md:grid-cols-2">
+              <div className="mt-5 grid gap-4 md:grid-cols-2">
                 {UPLOAD_CHECKLIST.map((item) => (
-                  <div key={item.title} className="rounded-xl bg-slate-50 p-3">
+                  <div key={item.title} className="rounded-xl bg-slate-50 p-4 shadow-sm">
                     <p className="text-sm font-semibold text-slate-900">{item.title}</p>
-                    <p className="mt-1 text-sm text-slate-600">{item.text}</p>
+                    <p className="mt-2 text-sm leading-6 text-slate-600">{item.text}</p>
                   </div>
                 ))}
               </div>
 
-              <p className="mt-4 text-sm text-slate-600">
-                If the workbook has only SKU names and prices, the SKU import can still work, but a formulation can only be auto-created when the workbook gives enough recipe or base-oil detail.
+              <p className="mt-5 text-sm leading-6 text-slate-600">
+                If the workbook has only SKU names and prices, the SKU import can still work. The app will create a placeholder formulation when it needs one, then let you confirm or edit it in the SKU page.
               </p>
             </div>
           )}
