@@ -46,7 +46,7 @@ export default function HistoryPanel() {
   }, [session]);
 
   return (
-    <section className="page-section mb-6">
+    <section className="page-section history-panel">
       <div className="content-card border-slate-200 bg-slate-50/80">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
