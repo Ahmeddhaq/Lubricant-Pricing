@@ -5,17 +5,13 @@ import FormulationEngine from "./components/FormulationEngine";
 import SKUManagement from "./components/SKUManagement";
 import QuoteBuilder from "./components/QuoteBuilder";
 import ExcelIntelligence from "./components/ExcelIntelligence";
-import SetupRequired from "./components/SetupRequired";
 import { isSupabaseConfigured } from "./services/supabaseService";
 import "./App.css";
 
 export default function PricingApp() {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [pendingImport, setPendingImport] = useState(null);
-
-  if (!isSupabaseConfigured()) {
-    return <SetupRequired />;
-  }
+  const supabaseConfigured = isSupabaseConfigured();
 
   const handlePrepareImport = (payload, targetTab) => {
     setPendingImport({ ...payload, targetTab });
@@ -31,6 +27,20 @@ export default function PricingApp() {
       <Navigation activeTab={activeTab} setActiveTab={setActiveTab} />
       
       <main className="main-content">
+        {!supabaseConfigured && (
+          <div className="setup-warning-banner">
+            <div>
+              <h2>Frontend is loaded, but Supabase is not configured</h2>
+              <p>
+                The app shell is visible now. Add the Supabase env vars and schema to enable Formulation and SKU data loading.
+              </p>
+            </div>
+            <button type="button" onClick={() => setActiveTab("excel")} className="btn btn-primary">
+              Try Excel Intelligence
+            </button>
+          </div>
+        )}
+
         <div className="page-header">
           {activeTab === "dashboard" && <h1>Dashboard</h1>}
           {activeTab === "excel" && <h1>Excel Intelligence</h1>}
