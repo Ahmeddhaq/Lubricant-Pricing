@@ -260,8 +260,15 @@ function buildAnalysis(workbook, systemBenchmarkMargin) {
   };
 }
 
-function buildDrafts(report, selectedInsight) {
+function buildDraftBundle(report, selectedInsight) {
   if (!selectedInsight) return null;
+
+  const recipeNameCandidates = [
+    selectedInsight.displayName,
+    `${selectedInsight.displayName} Formulation`,
+    `${selectedInsight.displayName} Blend`,
+    report.formulationSheet?.sheetName,
+  ].filter(Boolean);
 
   const componentDrafts = selectedInsight.components.map((component, index) => ({
     id: `${selectedInsight.sku}-${index}`,
@@ -282,6 +289,7 @@ function buildDrafts(report, selectedInsight) {
     marginPercent: selectedInsight.averageMargin,
     batchSize: 100,
     components: componentDrafts,
+    recipeNameCandidates,
   };
 
   const skuDraft = {
@@ -289,7 +297,8 @@ function buildDrafts(report, selectedInsight) {
     workbookName: report.workbookName,
     name: selectedInsight.displayName,
     category: selectedInsight.category,
-    recipeName: `${selectedInsight.displayName} Formulation`,
+    recipeName: recipeNameCandidates[0],
+    recipeNameCandidates,
     recipeId: "",
     baseCostPerLiter: selectedInsight.costPerLiter,
     currentSellingPrice: selectedInsight.averagePrice,
@@ -430,7 +439,8 @@ export default function ExcelIntelligence({ onPrepareImport }) {
     }
   };
 
-  const selectedDrafts = analysis && selectedInsight ? buildDrafts(analysis, selectedInsight) : null;
+  const selectedDrafts = analysis && selectedInsight ? buildDraftBundle(analysis, selectedInsight) : null;
+  const allDraftBundles = analysis?.skuInsights?.length ? analysis.skuInsights.map((entry) => buildDraftBundle(analysis, entry)) : [];
 
   const compareMargin = selectedInsight
     ? (selectedInsight.averageMargin - (systemSummary.averageMargin ?? selectedInsight.systemBenchmarkMargin)).toFixed(2)
@@ -453,11 +463,34 @@ export default function ExcelIntelligence({ onPrepareImport }) {
 
   const handlePrepare = (targetTab) => {
     if (!selectedDrafts || !onPrepareImport) return;
-    const draft = targetTab === "formulation" ? selectedDrafts.formulationDraft : selectedDrafts.skuDraft;
+
+    if (targetTab === "formulation") {
+      onPrepareImport(
+        {
+          kind: "formulation",
+          draft: selectedDrafts.formulationDraft,
+        },
+        targetTab,
+      );
+      return;
+    }
+
+    if (allDraftBundles.length > 1) {
+      onPrepareImport(
+        {
+          kind: "sku-batch",
+          draft: selectedDrafts.skuDraft,
+          drafts: allDraftBundles,
+        },
+        targetTab,
+      );
+      return;
+    }
+
     onPrepareImport(
       {
-        kind: targetTab === "formulation" ? "formulation" : "sku",
-        draft,
+        kind: "sku",
+        draft: selectedDrafts.skuDraft,
       },
       targetTab,
     );
@@ -650,7 +683,7 @@ export default function ExcelIntelligence({ onPrepareImport }) {
 
                   <div className="flex flex-wrap gap-2">
                     <button type="button" onClick={() => handlePrepare("skus")} className="btn btn-primary">
-                      Convert to SKU draft
+                      {allDraftBundles.length > 1 ? `Convert ${allDraftBundles.length} SKU drafts` : "Convert to SKU draft"}
                     </button>
                     <button type="button" onClick={() => handlePrepare("formulation")} className="btn btn-secondary">
                       Convert to formulation draft
@@ -664,6 +697,7 @@ export default function ExcelIntelligence({ onPrepareImport }) {
                     <p>Name: {selectedDrafts.skuDraft.name}</p>
                     <p>Category: {selectedDrafts.skuDraft.category}</p>
                     <p>Base cost/l: ${selectedDrafts.skuDraft.baseCostPerLiter.toFixed(2)}</p>
+                    <p>Recipe hint: {selectedDrafts.skuDraft.recipeName}</p>
                   </div>
                   <div className="rounded-xl bg-white p-3 border border-slate-200">
                     <p className="font-semibold text-slate-900">Formulation draft</p>

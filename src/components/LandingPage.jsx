@@ -345,7 +345,7 @@ export default function LandingPage({ onSignIn, onCreateAccount }) {
         </div>
 
         <section style={{ ...styles.sidePanel, marginTop: isMobile ? "14px" : "0", padding: sidePanelPadding }}>
-          <h3 style={styles.sideTitle}>What it does in 10 seconds</h3>
+          <h3 style={styles.sideTitle}>What it does</h3>
           <p style={styles.sideCopy}>
             It takes formulation data, turns it into SKUs, applies pricing logic, generates quotes, and keeps a clean
             record of what changed and who changed it.

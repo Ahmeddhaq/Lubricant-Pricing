@@ -2,6 +2,14 @@ import React, { useState, useEffect } from "react";
 import { skusService, recipesService, costingEngine } from "../services/supabaseService";
 import { historyService } from "../services/historyService";
 
+function normalizeName(value) {
+  return String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ");
+}
+
 export default function SKUManagement({ pendingImport, clearPendingImport }) {
   const [skus, setSkus] = useState([]);
   const [recipes, setRecipes] = useState([]);
@@ -49,11 +57,33 @@ export default function SKUManagement({ pendingImport, clearPendingImport }) {
     priceOverride: false,
   });
 
-  const importedSkuDraft = pendingImport?.kind === "sku" ? pendingImport.draft : null;
+  const importedSkuDrafts = pendingImport?.kind === "sku-batch"
+    ? pendingImport.drafts || []
+    : pendingImport?.kind === "sku"
+      ? [pendingImport.draft]
+      : [];
+  const importedSkuDraft = importedSkuDrafts[0] || null;
+  const [importingBatch, setImportingBatch] = useState(false);
 
   useEffect(() => {
     loadData();
   }, []);
+
+  useEffect(() => {
+    if (!importedSkuDraft || !recipes.length) return;
+
+    if (!skuForm.recipe_id) {
+      const candidateNames = [
+        importedSkuDraft.recipeName,
+        ...(importedSkuDraft.recipeNameCandidates || []),
+      ].filter(Boolean).map(normalizeName);
+
+      const matchedRecipe = recipes.find((recipe) => candidateNames.includes(normalizeName(recipe.name)));
+      if (matchedRecipe) {
+        setSkuForm((current) => ({ ...current, recipe_id: matchedRecipe.id }));
+      }
+    }
+  }, [importedSkuDraft, recipes, skuForm.recipe_id]);
 
   const loadData = async () => {
     setLoading(true);
@@ -89,6 +119,49 @@ export default function SKUManagement({ pendingImport, clearPendingImport }) {
     const totalCost = calculateTotalCostPerPack(packSize);
     const config = packConfigs[packSize];
     return calculateMargin(totalCost, config.sellingPrice || 0);
+  };
+
+  const resolveRecipeIdForDraft = (draft) => {
+    const candidateNames = [draft?.recipeName, ...(draft?.recipeNameCandidates || [])].filter(Boolean).map(normalizeName);
+    const matchedRecipe = recipes.find((recipe) => candidateNames.includes(normalizeName(recipe.name)));
+    return matchedRecipe?.id || "";
+  };
+
+  const handleImportDrafts = async () => {
+    if (!importedSkuDrafts.length) return;
+
+    const unresolved = importedSkuDrafts.filter((draft) => !resolveRecipeIdForDraft(draft));
+    if (unresolved.length > 0) {
+      alert(`These SKUs still need a matching formulation in the system: ${unresolved.map((draft) => draft.name).join(", ")}`);
+      return;
+    }
+
+    setImportingBatch(true);
+    try {
+      for (const draft of importedSkuDrafts) {
+        const recipeId = resolveRecipeIdForDraft(draft);
+        await skusService.create({
+          name: draft.name || "Imported SKU",
+          category: draft.category || "",
+          recipe_id: recipeId,
+          base_cost_per_liter: parseFloat(draft.baseCostPerLiter) || 0,
+          current_selling_price: parseFloat(draft.currentSellingPrice) || 0,
+          margin_threshold: marginThreshold,
+          is_active: skuStatus.isActive,
+          price_override: skuStatus.priceOverride,
+        });
+      }
+
+      await loadData();
+      setActiveTab("list");
+      if (clearPendingImport) clearPendingImport();
+      alert(`Imported ${importedSkuDrafts.length} SKU${importedSkuDrafts.length === 1 ? "" : "s"} successfully!`);
+    } catch (err) {
+      console.error("Error bulk importing SKUs:", err);
+      alert(err?.message || "Failed to import SKUs");
+    } finally {
+      setImportingBatch(false);
+    }
   };
 
   const handleCreateSku = async (e) => {
@@ -132,7 +205,7 @@ export default function SKUManagement({ pendingImport, clearPendingImport }) {
       skuForm: {
         name: importedSkuDraft.name || "",
         category: importedSkuDraft.category || "",
-        recipe_id: importedSkuDraft.recipeId || "",
+        recipe_id: resolveRecipeIdForDraft(importedSkuDraft) || importedSkuDraft.recipeId || "",
         baseCostPerLiter: importedSkuDraft.baseCostPerLiter || 0,
         currentSellingPrice: importedSkuDraft.currentSellingPrice || 0,
       },
@@ -178,6 +251,11 @@ export default function SKUManagement({ pendingImport, clearPendingImport }) {
                 <p className="section-subtitle">
                   Excel detected a sellable SKU draft for {importedSkuDraft.name}. Nothing has been saved yet.
                 </p>
+                {importedSkuDrafts.length > 1 && (
+                  <p className="mt-2 text-sm font-semibold text-amber-900">
+                    {importedSkuDrafts.length} SKUs detected in this workbook.
+                  </p>
+                )}
                 <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold text-amber-900">
                   <span className="rounded-full bg-amber-100 px-3 py-1">Cost / L: ${Number(importedSkuDraft.baseCostPerLiter || 0).toFixed(2)}</span>
                   <span className="rounded-full bg-amber-100 px-3 py-1">Excel margin: {Number(importedSkuDraft.marginPercent || 0).toFixed(1)}%</span>
@@ -186,9 +264,15 @@ export default function SKUManagement({ pendingImport, clearPendingImport }) {
               </div>
 
               <div className="flex flex-wrap gap-2">
-                <button type="button" onClick={applyImportedDraft} className="btn btn-primary">
-                  Load into Create Form
-                </button>
+                {importedSkuDrafts.length > 1 ? (
+                  <button type="button" onClick={handleImportDrafts} disabled={importingBatch} className="btn btn-primary">
+                    {importingBatch ? "Importing..." : `Import All ${importedSkuDrafts.length} SKUs`}
+                  </button>
+                ) : (
+                  <button type="button" onClick={applyImportedDraft} className="btn btn-primary">
+                    Load into Create Form
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => clearPendingImport && clearPendingImport()}
