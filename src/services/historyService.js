@@ -53,16 +53,33 @@ export const historyService = {
   },
 
   recordConfigVersion(payload) {
+    const normalizedPayload = {
+      config_name: payload.configName,
+      config_type: payload.configType,
+      config_version: payload.configVersion,
+      config_data: payload.configData,
+      source_upload_id: payload.sourceUploadId,
+      notes: payload.notes,
+    };
+
     return request("/api/history", {
       method: "POST",
-      body: { type: "config", ...payload },
+      body: { type: "config", ...normalizedPayload },
     });
   },
 
   recordRun(payload) {
+    const normalizedPayload = {
+      run_label: payload.runLabel,
+      run_type: payload.runType,
+      run_data: payload.runData,
+      source_upload_id: payload.sourceUploadId,
+      notes: payload.notes,
+    };
+
     return request("/api/history", {
       method: "POST",
-      body: { type: "run", ...payload },
+      body: { type: "run", ...normalizedPayload },
     });
   },
 };

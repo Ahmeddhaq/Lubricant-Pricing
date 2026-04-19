@@ -180,10 +180,35 @@ function summarizeRun(record) {
   if (!record) return null;
 
   const data = getRecordData(record);
-  const cost = toNumber(data?.overallCost ?? data?.cost ?? data?.totalCost ?? data?.costPerUnit ?? 0);
-  const price = toNumber(data?.sellingPrice ?? data?.price ?? data?.currentSellingPrice ?? 0);
-  const profit = toNumber(data?.profit ?? data?.overallProfit ?? 0) || (price > 0 ? price - cost : 0);
-  const margin = toNumber(data?.margin ?? data?.profitMargin ?? 0) || (price > 0 ? (profit / price) * 100 : 0);
+  const cost = toNumber(
+    data?.estimatedPortfolioCost ??
+      data?.overallCost ??
+      data?.totalCost ??
+      data?.cost ??
+      data?.costPerUnit ??
+      0
+  );
+  const price = toNumber(
+    data?.estimatedPortfolioRevenue ??
+      data?.totalRevenue ??
+      data?.sellingPrice ??
+      data?.price ??
+      data?.currentSellingPrice ??
+      0
+  );
+  const profit = toNumber(
+    data?.estimatedPortfolioProfit ??
+      data?.grossProfit ??
+      data?.profit ??
+      data?.overallProfit ??
+      0
+  ) || (price > 0 ? price - cost : 0);
+  const margin = toNumber(
+    data?.estimatedPortfolioMargin ??
+      data?.profitMargin ??
+      data?.margin ??
+      0
+  ) || (price > 0 ? (profit / price) * 100 : 0);
 
   return {
     title: getRecordTitle(record),
@@ -368,45 +393,41 @@ export default function HistoryPanel({ onReuseUpload }) {
           <div className="text-sm text-slate-500">{authSession?.user?.email}</div>
         </div>
 
-        <div className="mt-4 grid gap-3 md:grid-cols-4">
-          {[
-            { label: "Sessions", value: totals.sessions },
-            { label: "Workbook Uploads", value: totals.uploads },
-            { label: "Saved Configs", value: totals.configs },
-            { label: "Session Runs", value: totals.runs },
-          ].map((item) => (
-            <div key={item.label} className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{item.label}</p>
-              <p className="mt-2 text-2xl font-semibold text-slate-900">{item.value}</p>
+        <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          <div className="rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm md:col-span-1 xl:col-span-1">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Sessions</p>
+            <div className="mt-2 flex items-end justify-between gap-4">
+              <p className="text-3xl font-semibold text-slate-900">{totals.sessions}</p>
+              <p className="text-sm text-slate-500">Workbook uploads grouped by source upload.</p>
             </div>
-          ))}
+          </div>
         </div>
 
         {loading ? (
-          <p className="mt-4 text-sm text-slate-500">Loading history...</p>
+          <p className="mt-6 text-sm text-slate-500">Loading history...</p>
         ) : error ? (
-          <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
+          <div className="mt-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
         ) : sessions.length === 0 ? (
-          <p className="mt-4 text-sm text-slate-500">No workbook sessions yet.</p>
+          <p className="mt-6 text-sm text-slate-500">No workbook sessions yet.</p>
         ) : (
-          <div className="mt-4 space-y-4">
+          <div className="mt-6 space-y-6">
             {sessions.map((session) => {
               const upload = session.upload ? normalizeUploadForReuse(session.upload) : null;
 
               return (
-                <div key={session.key} className="history-card">
-                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                    <div className="space-y-2">
+                <div key={session.key} className="history-card p-6 md:p-7">
+                  <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+                    <div className="space-y-3">
                       <div className="text-xs font-bold uppercase tracking-[0.2em] text-emerald-700">Workbook Session</div>
                       <h3 className="text-lg font-semibold text-slate-900">{session.title}</h3>
                       <p className="text-sm text-slate-500">
                         Uploaded {formatDate(session.uploadedAt)} · {session.sheetCount || 0} sheet(s) · {session.rowCount || 0} row(s) · {formatFileSize(session.fileSizeBytes)}
                       </p>
-                      <div className="flex flex-wrap gap-2 text-xs font-semibold text-slate-700">
-                        <span className="rounded-full bg-slate-100 px-3 py-1">{session.configCount} config(s)</span>
-                        <span className="rounded-full bg-slate-100 px-3 py-1">{session.runCount} run(s)</span>
+                      <div className="flex flex-wrap gap-3 text-xs font-semibold text-slate-700">
+                        <span className="rounded-full bg-slate-100 px-3 py-1.5">{session.configCount} config(s)</span>
+                        <span className="rounded-full bg-slate-100 px-3 py-1.5">{session.runCount} run(s)</span>
                         {session.upload && (
-                          <span className="rounded-full bg-emerald-100 px-3 py-1 text-emerald-800">Workbook linked</span>
+                          <span className="rounded-full bg-emerald-100 px-3 py-1.5 text-emerald-800">Workbook linked</span>
                         )}
                       </div>
                     </div>
@@ -423,28 +444,28 @@ export default function HistoryPanel({ onReuseUpload }) {
                     )}
                   </div>
 
-                  <div className="mt-4 grid gap-3 md:grid-cols-4">
+                  <div className="mt-6 grid gap-4 md:grid-cols-4">
                     {[
                       { label: "Overall Cost", value: formatMoney(session.sessionCost) },
                       { label: "Price", value: formatMoney(session.sessionPrice) },
                       { label: "Profit", value: formatMoney(session.sessionProfit) },
                       { label: "Margin", value: formatPercent(session.sessionMargin) },
                     ].map((metric) => (
-                      <div key={metric.label} className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+                      <div key={metric.label} className="rounded-xl border border-slate-200 bg-white px-4 py-4 shadow-sm">
                         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{metric.label}</p>
                         <p className="mt-2 text-lg font-semibold text-slate-900">{metric.value}</p>
                       </div>
                     ))}
                   </div>
 
-                  <div className="mt-4 grid gap-4 xl:grid-cols-2">
-                    <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4">
+                  <div className="mt-6 grid gap-5 xl:grid-cols-2">
+                    <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-5">
                       <div className="flex items-center justify-between gap-2">
                         <h4 className="text-sm font-bold uppercase tracking-[0.16em] text-slate-500">Saved Configs</h4>
                         <span className="text-xs text-slate-500">{session.configCount} record(s)</span>
                       </div>
 
-                      <div className="mt-3 space-y-3">
+                      <div className="mt-4 space-y-4">
                         {session.configs.length ? session.configs.map((config) => {
                           const summary = summarizeRecord(config);
                           const typeLabel = summary?.type?.includes("formulation") || summary?.componentCount > 0
@@ -476,21 +497,26 @@ export default function HistoryPanel({ onReuseUpload }) {
                       </div>
                     </div>
 
-                    <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4">
+                    <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-5">
                       <div className="flex items-center justify-between gap-2">
                         <h4 className="text-sm font-bold uppercase tracking-[0.16em] text-slate-500">Session Details</h4>
                         <span className="text-xs text-slate-500">Latest activity {formatDate(session.lastActivityAt)}</span>
                       </div>
 
-                      <div className="mt-3 space-y-3">
+                      <div className="mt-4 space-y-4">
                         <div className="history-card-item">
-                          <div className="font-semibold text-slate-900">Latest pricing view</div>
-                          <div className="mt-2 grid gap-2 text-sm text-slate-600 sm:grid-cols-2">
+                          <div className="font-semibold text-slate-900">Latest dashboard snapshot</div>
+                          <div className="mt-3 grid gap-3 text-sm text-slate-600 sm:grid-cols-2">
                             <div>Cost: {formatMoney(session.sessionCost)}</div>
                             <div>Price: {formatMoney(session.sessionPrice)}</div>
                             <div>Profit: {formatMoney(session.sessionProfit)}</div>
                             <div>Margin: {formatPercent(session.sessionMargin)}</div>
                           </div>
+                          {session.runSummary?.data && (
+                            <div className="mt-3 text-xs text-slate-500">
+                              Dashboard stats: {session.runSummary.data.totalSkus || 0} SKU(s) · {session.runSummary.data.totalFormulations || 0} formulation(s) · {session.runSummary.data.totalSnapshots || 0} snapshot(s)
+                            </div>
+                          )}
                         </div>
 
                         {session.latestRun ? (

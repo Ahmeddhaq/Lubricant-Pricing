@@ -42,7 +42,7 @@ const DEFAULT_SKU_FLAGS = {
   priceOverride: false,
 };
 
-export default function SKUManagement({ pendingImport, clearPendingImport, onOpenFormulation, dataRefreshToken, onImportComplete }) {
+export default function SKUManagement({ pendingImport, clearPendingImport, currentSessionUploadId, onOpenFormulation, dataRefreshToken, onImportComplete }) {
   const [skus, setSkus] = useState([]);
   const [recipes, setRecipes] = useState([]);
   const [baseOils, setBaseOils] = useState([]);
@@ -622,7 +622,7 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
         configType: "sku",
         configVersion: 1,
         configData: configSnapshot,
-        sourceUploadId: configSnapshot.sourceUploadId,
+        sourceUploadId: configSnapshot.sourceUploadId || currentSessionUploadId || null,
         notes: importedSkuDraft.workbookName || "Imported SKU draft",
       });
     } catch (historyError) {

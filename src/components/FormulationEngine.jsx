@@ -10,7 +10,7 @@ function normalizeName(value) {
     .replace(/\s+/g, " ");
 }
 
-export default function FormulationEngine({ pendingImport, clearPendingImport, onFormulationSaved }) {
+export default function FormulationEngine({ pendingImport, clearPendingImport, currentSessionUploadId, onFormulationSaved }) {
   const [recipes, setRecipes] = useState([]);
   const [baseOils, setBaseOils] = useState([]);
   const [additives, setAdditives] = useState([]);
@@ -288,7 +288,7 @@ export default function FormulationEngine({ pendingImport, clearPendingImport, o
         onFormulationSaved({
           recipe: createdRecipe,
           linkedSkuDrafts,
-          sourceUploadId: snapshot.sourceUploadId,
+          sourceUploadId: snapshot.sourceUploadId || currentSessionUploadId || null,
           snapshot,
         });
       }
@@ -299,7 +299,7 @@ export default function FormulationEngine({ pendingImport, clearPendingImport, o
           configType: "formulation",
           configVersion: 1,
           configData: snapshot,
-          sourceUploadId: snapshot.sourceUploadId,
+          sourceUploadId: snapshot.sourceUploadId || currentSessionUploadId || null,
           notes: snapshot.draft?.workbookName || "Imported formulation",
         });
       } catch (historyError) {
@@ -363,7 +363,7 @@ export default function FormulationEngine({ pendingImport, clearPendingImport, o
         configType: "formulation",
         configVersion: 1,
         configData: configSnapshot,
-        sourceUploadId: configSnapshot.sourceUploadId,
+        sourceUploadId: configSnapshot.sourceUploadId || currentSessionUploadId || null,
         notes: importedFormulationDraft.workbookName || "Imported formulation",
       });
     } catch (historyError) {

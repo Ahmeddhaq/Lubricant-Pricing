@@ -116,8 +116,32 @@ app.post("/api/history", async (req, res) => {
     notes: uploadPayload.notes,
   });
 
+  const normalizeConfigPayload = (configPayload) => ({
+    config_name: configPayload.config_name ?? configPayload.configName,
+    config_type: configPayload.config_type ?? configPayload.configType,
+    config_version: configPayload.config_version ?? configPayload.configVersion,
+    config_data: configPayload.config_data ?? configPayload.configData,
+    source_upload_id: configPayload.source_upload_id ?? configPayload.sourceUploadId,
+    notes: configPayload.notes,
+  });
+
+  const normalizeRunPayload = (runPayload) => ({
+    run_label: runPayload.run_label ?? runPayload.runLabel,
+    run_type: runPayload.run_type ?? runPayload.runType,
+    run_data: runPayload.run_data ?? runPayload.runData,
+    source_upload_id: runPayload.source_upload_id ?? runPayload.sourceUploadId,
+    notes: runPayload.notes,
+  });
+
   const insertByType = async (tableName) => {
-    const record = type === "upload" ? normalizeUploadPayload(payloadWithoutType) : payloadWithoutType;
+    const record =
+      type === "upload"
+        ? normalizeUploadPayload(payloadWithoutType)
+        : type === "config"
+          ? normalizeConfigPayload(payloadWithoutType)
+          : type === "run"
+            ? normalizeRunPayload(payloadWithoutType)
+            : payloadWithoutType;
     const { data, error } = await supabaseAuthed.from(tableName).insert([{ ...record, user_id: user.id }]).select().single();
     if (error) {
       res.status(500).json({ error: error.message });

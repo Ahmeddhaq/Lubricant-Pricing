@@ -614,7 +614,7 @@ function buildDraftBundle(report, selectedInsight) {
   return { formulationDraft, skuDraft };
 }
 
-export default function ExcelIntelligence({ onPrepareImport, onPrepareFormulationImport, externalWorkbookRequest, onExternalWorkbookHandled }) {
+export default function ExcelIntelligence({ onPrepareImport, onPrepareFormulationImport, onWorkbookSessionReady, externalWorkbookRequest, onExternalWorkbookHandled }) {
   const { user } = useAuth();
   const [analysis, setAnalysis] = useState(null);
   const [loadingWorkbook, setLoadingWorkbook] = useState(false);
@@ -755,6 +755,13 @@ export default function ExcelIntelligence({ onPrepareImport, onPrepareFormulatio
         console.error("Failed to save workbook session history:", sessionError);
       }
 
+      if (onWorkbookSessionReady) {
+        onWorkbookSessionReady({
+          uploadId: uploadSourceId,
+          workbookName: report.workbookName,
+        });
+      }
+
       setAnalysis({ ...report, sourceUploadId: uploadSourceId });
       setSelectedSku(report.skuInsights[0]?.sku || "");
       return;
@@ -763,6 +770,14 @@ export default function ExcelIntelligence({ onPrepareImport, onPrepareFormulatio
     const report = buildAnalysis(workbook, systemSummary.benchmarkMargin);
     setAnalysis({ ...report, sourceUploadId: uploadSourceId });
     setSelectedSku(report.skuInsights[0]?.sku || "");
+
+    if (onWorkbookSessionReady && uploadSourceId) {
+      onWorkbookSessionReady({
+        uploadId: uploadSourceId,
+        workbookName: report.workbookName,
+        reopened: true,
+      });
+    }
   };
 
   useEffect(() => {

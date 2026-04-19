@@ -19,6 +19,7 @@ function AppShell() {
   const [reopenedWorkbookRequest, setReopenedWorkbookRequest] = useState(null);
   const [readySkuImport, setReadySkuImport] = useState(null);
   const [readyFormulationImport, setReadyFormulationImport] = useState(null);
+  const [currentSessionUploadId, setCurrentSessionUploadId] = useState(null);
   const [workspaceNotice, setWorkspaceNotice] = useState(null);
   const [workspaceDataVersion, setWorkspaceDataVersion] = useState(0);
   const [supabaseStatus, setSupabaseStatus] = useState({ state: "checking" });
@@ -46,11 +47,21 @@ function AppShell() {
   }, []);
 
   const handlePrepareImport = (payload, targetTab) => {
+    const sessionUploadId = extractSessionUploadId(payload);
+    if (sessionUploadId) {
+      activateWorkbookSession(sessionUploadId);
+    }
+
     setPendingImport({ ...payload, targetTab });
     setSidebarOpen(false);
   };
 
   const handleFormulationImportReady = (payload) => {
+    const sessionUploadId = extractSessionUploadId(payload);
+    if (sessionUploadId) {
+      activateWorkbookSession(sessionUploadId);
+    }
+
     setReadyFormulationImport(payload);
     setWorkspaceNotice({
       title: "Formulation draft ready",
@@ -66,6 +77,30 @@ function AppShell() {
 
   const clearReopenedWorkbookRequest = () => {
     setReopenedWorkbookRequest(null);
+  };
+
+  const extractSessionUploadId = (payload) => {
+    if (!payload) return null;
+
+    return (
+      payload.sourceUploadId ||
+      payload.source_upload_id ||
+      payload?.draft?.sourceUploadId ||
+      payload?.linkedSkuDraft?.sourceUploadId ||
+      payload?.linkedFormulationDraft?.sourceUploadId ||
+      payload?.snapshot?.sourceUploadId ||
+      null
+    );
+  };
+
+  const activateWorkbookSession = (uploadId) => {
+    if (!uploadId) return;
+
+    setCurrentSessionUploadId(uploadId);
+    setPendingImport(null);
+    setReadySkuImport(null);
+    setReadyFormulationImport(null);
+    setWorkspaceNotice(null);
   };
 
   const buildSkuImportFromLinkedDrafts = (recipe, linkedSkuDrafts, sourceUploadId = null, fallbackSnapshot = null) => {
@@ -133,6 +168,11 @@ function AppShell() {
   };
 
   const handleFormulationSaved = ({ recipe, linkedSkuDrafts = [], sourceUploadId = null, snapshot = null }) => {
+    const sessionUploadId = sourceUploadId || snapshot?.sourceUploadId || currentSessionUploadId;
+    if (sessionUploadId) {
+      setCurrentSessionUploadId(sessionUploadId);
+    }
+
     setWorkspaceDataVersion((value) => value + 1);
     setWorkspaceNotice({
       title: "Formulation created",
@@ -189,6 +229,10 @@ function AppShell() {
     if (!upload?.storage_bucket || !upload?.storage_path) {
       alert("This upload does not have a workbook file attached.");
       return;
+    }
+
+    if (upload?.id) {
+      activateWorkbookSession(upload.id);
     }
 
     try {
@@ -307,7 +351,7 @@ function AppShell() {
         </div>
         <div className="page-frame">
           <div className={activeTab === "dashboard" ? "page-transition" : ""} hidden={activeTab !== "dashboard"}>
-            <Dashboard dataRefreshToken={workspaceDataVersion} />
+            <Dashboard key={currentSessionUploadId || "dashboard"} dataRefreshToken={workspaceDataVersion} currentSessionUploadId={currentSessionUploadId} />
           </div>
           <div className={activeTab === "history" ? "page-transition" : ""} hidden={activeTab !== "history"}>
             <HistoryPanel onReuseUpload={handleReuseUpload} />
@@ -316,21 +360,26 @@ function AppShell() {
             <ExcelIntelligence
               onPrepareImport={handlePrepareImport}
               onPrepareFormulationImport={handleFormulationImportReady}
+              onWorkbookSessionReady={({ uploadId }) => activateWorkbookSession(uploadId)}
               externalWorkbookRequest={reopenedWorkbookRequest}
               onExternalWorkbookHandled={clearReopenedWorkbookRequest}
             />
           </div>
           <div className={activeTab === "formulation" ? "page-transition" : ""} hidden={activeTab !== "formulation"}>
             <FormulationEngine
+              key={currentSessionUploadId || "formulation"}
               pendingImport={pendingImport}
               clearPendingImport={clearPendingImport}
+              currentSessionUploadId={currentSessionUploadId}
               onFormulationSaved={handleFormulationSaved}
             />
           </div>
           <div className={activeTab === "skus" ? "page-transition" : ""} hidden={activeTab !== "skus"}>
             <SKUManagement
+              key={currentSessionUploadId || "skus"}
               pendingImport={pendingImport}
               clearPendingImport={clearPendingImport}
+              currentSessionUploadId={currentSessionUploadId}
               onOpenFormulation={() => handleTabChange("formulation")}
               dataRefreshToken={workspaceDataVersion}
               onImportComplete={handleSkuImportComplete}

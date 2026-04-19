@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   quotesService,
   quoteItemsService,
@@ -10,6 +10,7 @@ import {
   costSnapshotsService,
   costingEngine,
 } from "../services/supabaseService";
+import { historyService } from "../services/historyService";
 
 function normalizeName(value) {
   return String(value ?? "")
@@ -54,7 +55,11 @@ function sum(values) {
   return values.reduce((total, value) => total + Number(value || 0), 0);
 }
 
-export default function Dashboard({ dataRefreshToken = 0 }) {
+function getHistorySourceUploadId(record) {
+  return record?.source_upload_id || record?.sourceUploadId || null;
+}
+
+export default function Dashboard({ dataRefreshToken = 0, currentSessionUploadId = null }) {
   const [quotes, setQuotes] = useState([]);
   const [skus, setSkus] = useState([]);
   const [stats, setStats] = useState({
@@ -111,10 +116,71 @@ export default function Dashboard({ dataRefreshToken = 0 }) {
     priceChanges: [],
   });
   const [loading, setLoading] = useState(true);
+  const lastDashboardSnapshotRef = useRef("");
 
   useEffect(() => {
     loadData();
   }, [dataRefreshToken]);
+
+  useEffect(() => {
+    if (loading || !currentSessionUploadId) return;
+
+    let cancelled = false;
+
+    const syncSnapshot = async () => {
+      try {
+        const history = await historyService.fetchHistory();
+        if (cancelled) return;
+
+        const hasCurrentSessionConfig = (history.configs || []).some((record) => getHistorySourceUploadId(record) === currentSessionUploadId);
+        const hasMeaningfulData =
+          stats.totalSkus > 0 ||
+          stats.totalFormulations > 0 ||
+          stats.totalRevenue > 0 ||
+          stats.totalCost > 0 ||
+          stats.totalSnapshots > 0;
+
+        if (!hasCurrentSessionConfig || !hasMeaningfulData) return;
+
+        const snapshotSignature = [
+          currentSessionUploadId,
+          stats.totalRevenue,
+          stats.totalCost,
+          stats.grossProfit,
+          stats.profitMargin,
+          stats.totalSkus,
+          stats.totalFormulations,
+          stats.totalSnapshots,
+          stats.averageSkuCostPerUnit,
+          stats.averageFormulaCostPerLiter,
+        ].join("|");
+
+        if (lastDashboardSnapshotRef.current === snapshotSignature) return;
+        lastDashboardSnapshotRef.current = snapshotSignature;
+
+        historyService.recordRun({
+          runLabel: "Dashboard snapshot",
+          runType: "dashboard-snapshot",
+          runData: {
+            ...stats,
+            dashboardSnapshotAt: new Date().toISOString(),
+          },
+          sourceUploadId: currentSessionUploadId,
+          notes: "Dashboard snapshot",
+        }).catch((error) => {
+          console.error("Failed to save dashboard snapshot:", error);
+        });
+      } catch (error) {
+        console.error("Failed to verify dashboard snapshot state:", error);
+      }
+    };
+
+    syncSnapshot();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [loading, stats, currentSessionUploadId]);
 
   const loadData = async () => {
     setLoading(true);
