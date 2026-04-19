@@ -30,73 +30,91 @@ export default function Navigation({ activeTab, setActiveTab, user, onSignOut })
   ];
 
   return (
-    <nav className="sidebar-container">
-      <div className="sidebar-brand">
-        <h1>Lubricant Pricing</h1>
-      </div>
-      <div className="sidebar-menu">
-        {tabs.map((tab) => (
-          <div
-            key={tab.id}
-            role="button"
-            tabIndex={0}
-            onClick={() => setActiveTab(tab.id)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" || event.key === " ") {
-                event.preventDefault();
-                setActiveTab(tab.id);
-              }
-            }}
-            className={`sidebar-menu-item ${
-              activeTab === tab.id ? "active" : ""
-            }`}
-          >
-            <span className="sidebar-menu-item-label">{tab.label}</span>
-            {tab.summary && (
-              <button
-                type="button"
-                className="sidebar-info-button"
-                aria-label={`Open help for ${tab.label}`}
-                aria-expanded={openInfoTab === tab.id}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  setOpenInfoTab(openInfoTab === tab.id ? null : tab.id);
-                }}
-              >
-                i
-              </button>
-            )}
+    <>
+      <nav className="sidebar-container">
+        <div className="sidebar-brand">
+          <h1>Lubricant Pricing</h1>
+        </div>
+        <div className="sidebar-menu">
+          {tabs.map((tab) => (
+            <div
+              key={tab.id}
+              role="button"
+              tabIndex={0}
+              onClick={() => setActiveTab(tab.id)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  setActiveTab(tab.id);
+                }
+              }}
+              className={`sidebar-menu-item ${
+                activeTab === tab.id ? "active" : ""
+              }`}
+            >
+              <span className="sidebar-menu-item-label">{tab.label}</span>
+              {tab.summary && (
+                <button
+                  type="button"
+                  className="sidebar-info-button"
+                  aria-label={`Open help for ${tab.label}`}
+                  aria-expanded={openInfoTab === tab.id}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setOpenInfoTab(openInfoTab === tab.id ? null : tab.id);
+                  }}
+                >
+                  i
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+        <div className="sidebar-footer">
+          <div className="sidebar-user-card">
+            <div className="sidebar-user-label">Signed in</div>
+            <div className="sidebar-user-email">{user?.email}</div>
+            <button type="button" onClick={onSignOut} className="sidebar-user-button">
+              Sign out
+            </button>
           </div>
-        ))}
-      </div>
+          <div className="sidebar-version">v1.0.0</div>
+        </div>
+      </nav>
 
       {tabs.map((tab) =>
         tab.summary && openInfoTab === tab.id ? (
-          <div key={`${tab.id}-help`} className="sidebar-help-panel">
-            <div className="sidebar-help-title">{tab.label}</div>
-            <div className="sidebar-help-summary">{tab.summary}</div>
-            <div className="sidebar-help-section">
-              <span>What it does</span>
-              <p>{tab.whatItDoes}</p>
-            </div>
-            <div className="sidebar-help-section">
-              <span>What you need to do</span>
-              <p>{tab.whatYouDo}</p>
+          <div key={`${tab.id}-modal`} className="sidebar-help-backdrop" onClick={() => setOpenInfoTab(null)}>
+            <div
+              className="sidebar-help-modal"
+              role="dialog"
+              aria-modal="true"
+              aria-label={`${tab.label} help`}
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="sidebar-help-modal-header">
+                <div>
+                  <div className="sidebar-help-title">{tab.label}</div>
+                  <div className="sidebar-help-summary">{tab.summary}</div>
+                </div>
+                <button type="button" className="sidebar-help-close" onClick={() => setOpenInfoTab(null)}>
+                  Close
+                </button>
+              </div>
+
+              <div className="sidebar-help-section">
+                <span>What it does</span>
+                <p>{tab.whatItDoes}</p>
+              </div>
+              <div className="sidebar-help-section">
+                <span>What you need to do</span>
+                <p>{tab.whatYouDo}</p>
+              </div>
             </div>
           </div>
         ) : null
       )}
-      <div className="sidebar-footer">
-        <div className="sidebar-user-card">
-          <div className="sidebar-user-label">Signed in</div>
-          <div className="sidebar-user-email">{user?.email}</div>
-          <button type="button" onClick={onSignOut} className="sidebar-user-button">
-            Sign out
-          </button>
-        </div>
-        <div className="sidebar-version">v1.0.0</div>
-      </div>
-    </nav>
+    </>
   );
 }
 
