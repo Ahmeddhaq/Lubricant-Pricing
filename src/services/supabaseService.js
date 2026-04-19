@@ -319,9 +319,19 @@ export const skusService = {
 // ============= COST SNAPSHOTS =============
 export const costSnapshotsService = {
   async createSnapshot(skuId, costData) {
+    const snapshotPayload = {
+      sku_id: skuId,
+      cost_per_unit: costData.totalCost ?? costData.costPerUnit ?? 0,
+      material_cost: costData.materialCost ?? 0,
+      blending_cost: costData.blendingCost ?? 0,
+      packaging_cost: costData.packagingCost ?? 0,
+      overhead_cost: costData.overheadCost ?? 0,
+      total_cost: costData.totalCost ?? costData.costPerUnit ?? 0,
+    };
+
     const { data, error } = await supabase
       .from("cost_snapshots")
-      .insert([{ sku_id: skuId, ...costData }])
+      .insert([snapshotPayload])
       .select();
     if (error) throw error;
     return data[0];

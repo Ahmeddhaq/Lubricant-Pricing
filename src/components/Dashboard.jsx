@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { quotesService, skusService, costSnapshotsService, costingEngine } from "../services/supabaseService";
+import { quotesService, skusService, recipesService, costSnapshotsService, costingEngine } from "../services/supabaseService";
 
 function normalizeName(value) {
   return String(value ?? "")
@@ -25,6 +25,21 @@ function dedupeLatestSkus(records) {
     .filter((record, index, array) => array.findIndex((candidate) => getSkuIdentity(candidate) === getSkuIdentity(record)) === index);
 }
 
+function average(values) {
+  const numericValues = values.map((value) => Number(value)).filter((value) => Number.isFinite(value));
+  if (!numericValues.length) return 0;
+  return numericValues.reduce((sum, value) => sum + value, 0) / numericValues.length;
+}
+
+function toNumber(value) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function sortByDateDesc(left, right, field = "updated_at") {
+  return new Date(right?.[field] || right?.created_at || 0) - new Date(left?.[field] || left?.created_at || 0);
+}
+
 export default function Dashboard({ dataRefreshToken = 0 }) {
   const [quotes, setQuotes] = useState([]);
   const [skus, setSkus] = useState([]);
@@ -36,6 +51,12 @@ export default function Dashboard({ dataRefreshToken = 0 }) {
     profitMargin: 0,
     activeDeals: 0,
     containersShipped: { teu20: 0, teu40: 0 },
+    totalFormulations: 0,
+    averageMaterialCostPerLiter: 0,
+    averageFormulaCostPerLiter: 0,
+    averagePackagingCost: 0,
+    averageOverheadCost: 0,
+    averageAdditiveCostPercentage: 0,
     
     // Profitability Overview
     topSkus: [],
@@ -65,6 +86,7 @@ export default function Dashboard({ dataRefreshToken = 0 }) {
     // Recent Activity
     recentQuotes: [],
     recentFormulations: [],
+    recentCostSnapshots: [],
     priceChanges: [],
   });
   const [loading, setLoading] = useState(true);
@@ -76,17 +98,25 @@ export default function Dashboard({ dataRefreshToken = 0 }) {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [quotesData, skusData] = await Promise.all([
+      const [quotesData, skusData, recipesData] = await Promise.all([
         quotesService.getAll(),
         skusService.getAll(),
+        recipesService.getAll(),
       ]);
 
-      setQuotes(quotesData);
       const uniqueSkus = dedupeLatestSkus(skusData);
+      const latestSnapshots = await Promise.all(
+        uniqueSkus.map((sku) => costSnapshotsService.getLatestBySku(sku.id).catch((error) => {
+          console.error(`Failed to load latest cost snapshot for SKU ${sku.id}:`, error);
+          return null;
+        }))
+      );
+
+      setQuotes(quotesData);
       setSkus(uniqueSkus);
 
       // Calculate statistics
-      calculateStats(quotesData, uniqueSkus);
+      calculateStats(quotesData, uniqueSkus, recipesData, latestSnapshots.filter(Boolean));
     } catch (err) {
       console.error("Error loading data:", err);
     } finally {
@@ -94,7 +124,7 @@ export default function Dashboard({ dataRefreshToken = 0 }) {
     }
   };
 
-  const calculateStats = (quotesData, skusData) => {
+  const calculateStats = (quotesData, skusData, recipesData, latestSnapshots) => {
     let totalRevenue = 0;
     let totalCost = 0;
     const skuProfits = {};
@@ -102,6 +132,40 @@ export default function Dashboard({ dataRefreshToken = 0 }) {
     const dealStages = { open: 0, negotiation: 0, won: 0, lost: 0 };
     let pipelineValue = 0;
     let containersShipped = { teu20: 0, teu40: 0 };
+    const recipeById = new Map((recipesData || []).map((recipe) => [recipe.id, recipe]));
+    const skusByRecipeId = new Map();
+    skusData.forEach((sku) => {
+      if (!sku.recipe_id) return;
+      if (!skusByRecipeId.has(sku.recipe_id)) {
+        skusByRecipeId.set(sku.recipe_id, []);
+      }
+      skusByRecipeId.get(sku.recipe_id).push(sku);
+    });
+    const latestSnapshotBySkuId = new Map((latestSnapshots || []).map((snapshot) => [snapshot.sku_id, snapshot]));
+
+    const getCostDataForSku = (sku) => {
+      const snapshot = latestSnapshotBySkuId.get(sku.id);
+      if (snapshot) {
+        return {
+          materialCost: toNumber(snapshot.material_cost),
+          blendingCost: toNumber(snapshot.blending_cost),
+          packagingCost: toNumber(snapshot.packaging_cost),
+          overheadCost: toNumber(snapshot.overhead_cost),
+          totalCost: toNumber(snapshot.total_cost || snapshot.cost_per_unit),
+          source: "snapshot",
+        };
+      }
+
+      const recipe = recipeById.get(sku.recipe_id) || sku.recipes || null;
+      if (!recipe) {
+        return null;
+      }
+
+      return {
+        ...costingEngine.calculateTotalCostPerUnit(recipe, sku),
+        source: "calculated",
+      };
+    };
 
     quotesData.forEach((quote) => {
       // Track deal pipeline
@@ -125,8 +189,8 @@ export default function Dashboard({ dataRefreshToken = 0 }) {
           // Calculate cost
           const sku = skusData.find((s) => s.id === item.sku_id);
           if (sku) {
-            const costData = costingEngine.calculateTotalCostPerUnit(sku.recipes, sku);
-            const itemCost = costData.totalCost * item.quantity;
+            const costData = getCostDataForSku(sku);
+            const itemCost = (costData?.totalCost || 0) * item.quantity;
             totalCost += itemCost;
 
             // Track by SKU
@@ -174,14 +238,119 @@ export default function Dashboard({ dataRefreshToken = 0 }) {
           qRevenue += item.line_total || 0;
           const sku = skusData.find((s) => s.id === item.sku_id);
           if (sku) {
-            const costData = costingEngine.calculateTotalCostPerUnit(sku.recipes, sku);
-            qCost += costData.totalCost * item.quantity;
+            const costData = getCostDataForSku(sku);
+            qCost += (costData?.totalCost || 0) * item.quantity;
           }
         });
         return { ...q, qProfit: qRevenue - qCost };
       })
       .filter((q) => q.qProfit < 0)
       .slice(0, 5);
+
+    const recipeMetrics = (recipesData || []).map((recipe) => {
+      const baseOilCost = toNumber(recipe.base_oils?.cost_per_liter);
+      const additiveCost = (recipe.recipe_ingredients || []).reduce(
+        (sum, ingredient) => sum + toNumber(ingredient.quantity_per_liter) * toNumber(ingredient.additives?.cost_per_unit),
+        0
+      );
+      const materialCostPerLiter = costingEngine.calculateMaterialCostPerLiter(recipe);
+      const blendingCostPerLiter = toNumber(recipe.blending_cost_per_liter);
+      const totalFormulaCostPerLiter = materialCostPerLiter + blendingCostPerLiter;
+      const additiveShare = materialCostPerLiter > 0 ? (additiveCost / materialCostPerLiter) * 100 : 0;
+      const linkedSkus = skusByRecipeId.get(recipe.id) || [];
+      const latestSnapshot = linkedSkus
+        .map((sku) => latestSnapshotBySkuId.get(sku.id))
+        .filter(Boolean)
+        .sort((left, right) => sortByDateDesc(left, right, "snapshot_date"))[0] || null;
+
+      return {
+        id: recipe.id,
+        name: recipe.name,
+        baseOilName: recipe.base_oils?.name || "-",
+        baseOilCost,
+        additiveCost,
+        materialCostPerLiter,
+        blendingCostPerLiter,
+        totalFormulaCostPerLiter,
+        additiveShare,
+        ingredientCount: (recipe.recipe_ingredients || []).length,
+        linkedSkuCount: linkedSkus.length,
+        latestSnapshot,
+        latestSnapshotCostPerUnit: toNumber(latestSnapshot?.total_cost || latestSnapshot?.cost_per_unit),
+        updatedAt: recipe.updated_at || recipe.created_at,
+      };
+    });
+
+    const totalFormulations = recipeMetrics.length;
+    const averageMaterialCostPerLiter = average(recipeMetrics.map((metric) => metric.materialCostPerLiter));
+    const averageFormulaCostPerLiter = average(recipeMetrics.map((metric) => metric.totalFormulaCostPerLiter));
+    const averageAdditiveCostPercentage = average(recipeMetrics.map((metric) => metric.additiveShare));
+    const averagePackagingCost = average((latestSnapshots || []).map((snapshot) => toNumber(snapshot.packaging_cost)));
+    const averageOverheadCost = average((latestSnapshots || []).map((snapshot) => toNumber(snapshot.overhead_cost)));
+
+    const baseOilMap = new Map();
+    recipeMetrics.forEach((metric) => {
+      if (!baseOilMap.has(metric.baseOilName)) {
+        baseOilMap.set(metric.baseOilName, { name: metric.baseOilName, count: 0, totalCost: 0 });
+      }
+
+      const entry = baseOilMap.get(metric.baseOilName);
+      entry.count += 1;
+      entry.totalCost += metric.baseOilCost;
+    });
+
+    const baseOilCosts = Array.from(baseOilMap.values())
+      .map((entry) => ({
+        ...entry,
+        averageCost: entry.count > 0 ? entry.totalCost / entry.count : 0,
+      }))
+      .sort((left, right) => right.count - left.count || right.averageCost - left.averageCost)
+      .slice(0, 5);
+
+    const recentFormulations = [...recipeMetrics]
+      .sort((left, right) => sortByDateDesc(left, right, "updatedAt"))
+      .slice(0, 5);
+
+    const recentCostSnapshots = [...(latestSnapshots || [])]
+      .sort((left, right) => sortByDateDesc(left, right, "snapshot_date"))
+      .slice(0, 5)
+      .map((snapshot) => {
+        const sku = skusData.find((entry) => entry.id === snapshot.sku_id) || null;
+        const recipe = sku ? (recipeById.get(sku.recipe_id) || sku.recipes || null) : null;
+
+        return {
+          ...snapshot,
+          skuName: sku?.name || "-",
+          recipeName: recipe?.name || "-",
+          totalCost: toNumber(snapshot.total_cost || snapshot.cost_per_unit),
+          materialCost: toNumber(snapshot.material_cost),
+          blendingCost: toNumber(snapshot.blending_cost),
+          packagingCost: toNumber(snapshot.packaging_cost),
+          overheadCost: toNumber(snapshot.overhead_cost),
+        };
+      });
+
+    const costAlerts = [];
+    const missingSnapshotCount = recipeMetrics.filter((metric) => !metric.latestSnapshot).length;
+    if (missingSnapshotCount > 0) {
+      costAlerts.push(`${missingSnapshotCount} formulation${missingSnapshotCount === 1 ? "" : "s"} do not have a saved cost snapshot yet.`);
+    }
+
+    const now = new Date();
+    const warningCutoff = new Date(now);
+    warningCutoff.setDate(warningCutoff.getDate() + 30);
+    const expiringQuotes = quotesData
+      .filter((quote) => quote.valid_until && !Number.isNaN(new Date(quote.valid_until).getTime()))
+      .filter((quote) => {
+        const expiryDate = new Date(quote.valid_until);
+        return expiryDate >= now && expiryDate <= warningCutoff;
+      })
+      .sort((left, right) => new Date(left.valid_until) - new Date(right.valid_until))
+      .slice(0, 5)
+      .map((quote) => ({
+        ...quote,
+        daysRemaining: Math.max(0, Math.ceil((new Date(quote.valid_until) - now) / (1000 * 60 * 60 * 24))),
+      }));
 
     // Average profit per container (approximate)
     const avgProfitPerContainer = containersShipped.teu20 + containersShipped.teu40 > 0
@@ -196,6 +365,12 @@ export default function Dashboard({ dataRefreshToken = 0 }) {
       profitMargin: parseFloat(profitMargin.toFixed(2)),
       activeDeals: dealStages.open + dealStages.negotiation,
       containersShipped,
+      totalFormulations,
+      averageMaterialCostPerLiter: parseFloat(averageMaterialCostPerLiter.toFixed(2)),
+      averageFormulaCostPerLiter: parseFloat(averageFormulaCostPerLiter.toFixed(2)),
+      averagePackagingCost: parseFloat(averagePackagingCost.toFixed(2)),
+      averageOverheadCost: parseFloat(averageOverheadCost.toFixed(2)),
+      averageAdditiveCostPercentage: parseFloat(averageAdditiveCostPercentage.toFixed(2)),
 
       // Profitability Overview
       topSkus,
@@ -203,17 +378,17 @@ export default function Dashboard({ dataRefreshToken = 0 }) {
       profitByMarket: marketProfits,
       avgProfitPerContainer: parseFloat(avgProfitPerContainer.toFixed(2)),
 
-      // Cost Drivers (placeholder - would need detailed costing data)
-      baseOilCosts: [],
-      additiveCostPercentage: 0,
-      packagingCost: 0,
-      logisticsCost: 0,
+      // Cost Drivers
+      baseOilCosts,
+      additiveCostPercentage: parseFloat(averageAdditiveCostPercentage.toFixed(2)),
+      packagingCost: parseFloat(averagePackagingCost.toFixed(2)),
+      logisticsCost: parseFloat(averageOverheadCost.toFixed(2)),
 
       // Alerts & Warnings
       lowMarginSkus,
       losingQuotes,
-      costAlerts: [],
-      expiringQuotes: [],
+      costAlerts,
+      expiringQuotes,
 
       // Deal Pipeline
       openDeals: dealStages.open,
@@ -223,8 +398,9 @@ export default function Dashboard({ dataRefreshToken = 0 }) {
       pipelineValue: parseFloat(pipelineValue.toFixed(2)),
 
       // Recent Activity
-      recentQuotes: quotesData.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 5),
-      recentFormulations: [],
+      recentQuotes: [...quotesData].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 5),
+      recentFormulations,
+      recentCostSnapshots,
       priceChanges: [],
     });
   };
@@ -430,33 +606,61 @@ export default function Dashboard({ dataRefreshToken = 0 }) {
           <div className="metric-card">
             <div className="content-row-stack">
               <p className="metric-label">Base Oil Cost Trend</p>
-              <p className="metric-value content-value-lg">—</p>
-              <p className="metric-caption">Data pending</p>
+              <p className="metric-value content-value-lg">
+                {stats.baseOilCosts[0] ? `$${stats.baseOilCosts[0].averageCost.toFixed(2)}` : "—"}
+              </p>
+              <p className="metric-caption">
+                {stats.baseOilCosts[0]
+                  ? `${stats.baseOilCosts[0].name} · ${stats.baseOilCosts[0].count} formulations`
+                  : "No formulation data yet"}
+              </p>
             </div>
           </div>
 
           <div className="metric-card">
             <div className="content-row-stack">
               <p className="metric-label">Additive Cost %</p>
-              <p className="metric-value content-value-lg">—</p>
-              <p className="metric-caption">Data pending</p>
+              <p className="metric-value content-value-lg">{stats.additiveCostPercentage.toFixed(1)}%</p>
+              <p className="metric-caption">Average additive share of formulation material cost</p>
             </div>
           </div>
 
           <div className="metric-card">
             <div className="content-row-stack">
               <p className="metric-label">Packaging Cost</p>
-              <p className="metric-value content-value-lg">—</p>
-              <p className="metric-caption">Data pending</p>
+              <p className="metric-value content-value-lg">${stats.packagingCost.toFixed(2)}</p>
+              <p className="metric-caption">Average latest snapshot packaging cost/unit</p>
             </div>
           </div>
 
           <div className="metric-card">
             <div className="content-row-stack">
-              <p className="metric-label">Logistics Cost</p>
-              <p className="metric-value content-value-lg">—</p>
-              <p className="metric-caption">Data pending</p>
+              <p className="metric-label">Overhead Cost</p>
+              <p className="metric-value content-value-lg">${stats.averageOverheadCost.toFixed(2)}</p>
+              <p className="metric-caption">Average latest snapshot overhead cost/unit</p>
             </div>
+          </div>
+        </div>
+
+        <div className="content-card mt-4">
+          <div className="content-row-stack">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">Formulation Mix</h3>
+              <p className="section-subtitle">
+                {stats.totalFormulations} formulations analyzed · Average recipe cost/L ${stats.averageFormulaCostPerLiter.toFixed(2)}
+              </p>
+            </div>
+            {stats.baseOilCosts.length === 0 ? (
+              <p className="text-gray-500">No formulation mix data available</p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {stats.baseOilCosts.map((entry) => (
+                  <span key={entry.name} className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+                    {entry.name} · {entry.count} recipe{entry.count === 1 ? "" : "s"} · ${entry.averageCost.toFixed(2)}/L
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </section>
@@ -484,6 +688,19 @@ export default function Dashboard({ dataRefreshToken = 0 }) {
                   ))}
                 </div>
               )}
+
+              {stats.costAlerts.length > 0 && (
+                <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                  <p className="font-semibold">Formulation cost alerts</p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {stats.costAlerts.map((alert) => (
+                      <span key={alert} className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-amber-900">
+                        {alert}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -504,6 +721,19 @@ export default function Dashboard({ dataRefreshToken = 0 }) {
                       <p className="text-sm text-gray-600">Customer: {quote.customers?.name || "Unknown"}</p>
                     </div>
                   ))}
+                </div>
+              )}
+
+              {stats.expiringQuotes.length > 0 && (
+                <div className="mt-4 rounded-xl border border-sky-200 bg-sky-50 p-3 text-sm text-sky-900">
+                  <p className="font-semibold">Quotes expiring soon</p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {stats.expiringQuotes.map((quote) => (
+                      <span key={quote.id} className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-sky-900">
+                        {quote.quote_number} · {quote.daysRemaining} day{quote.daysRemaining === 1 ? "" : "s"}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
@@ -594,6 +824,80 @@ export default function Dashboard({ dataRefreshToken = 0 }) {
                         <td className="text-gray-600">
                           {new Date(quote.created_at).toLocaleDateString()}
                         </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="content-card mt-4">
+          <div className="content-row-stack">
+            <h3 className="text-lg font-semibold text-gray-900">Recently Created Formulations</h3>
+            {stats.recentFormulations.length === 0 ? (
+              <p className="text-gray-500">No recent formulations</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Formulation</th>
+                      <th>Base Oil</th>
+                      <th>Material Cost/L</th>
+                      <th>Blend Cost/L</th>
+                      <th>Linked SKUs</th>
+                      <th>Updated</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {stats.recentFormulations.map((recipe) => (
+                      <tr key={recipe.id}>
+                        <td className="font-semibold">{recipe.name}</td>
+                        <td>{recipe.baseOilName}</td>
+                        <td className="text-right font-semibold">${recipe.materialCostPerLiter.toFixed(2)}</td>
+                        <td className="text-right">${recipe.blendingCostPerLiter.toFixed(2)}</td>
+                        <td className="text-right">{recipe.linkedSkuCount}</td>
+                        <td className="text-gray-600">{new Date(recipe.updatedAt).toLocaleDateString()}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="content-card mt-4">
+          <div className="content-row-stack">
+            <h3 className="text-lg font-semibold text-gray-900">Latest Cost Snapshots</h3>
+            {stats.recentCostSnapshots.length === 0 ? (
+              <p className="text-gray-500">No saved cost snapshots yet</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>SKU</th>
+                      <th>Formulation</th>
+                      <th>Material</th>
+                      <th>Packaging</th>
+                      <th>Overhead</th>
+                      <th>Total Cost</th>
+                      <th>Date</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {stats.recentCostSnapshots.map((snapshot) => (
+                      <tr key={snapshot.id}>
+                        <td className="font-semibold">{snapshot.skuName}</td>
+                        <td>{snapshot.recipeName}</td>
+                        <td className="text-right">${snapshot.materialCost.toFixed(2)}</td>
+                        <td className="text-right">${snapshot.packagingCost.toFixed(2)}</td>
+                        <td className="text-right">${snapshot.overheadCost.toFixed(2)}</td>
+                        <td className="text-right font-semibold">${snapshot.totalCost.toFixed(2)}</td>
+                        <td className="text-gray-600">{new Date(snapshot.snapshot_date || snapshot.created_at).toLocaleDateString()}</td>
                       </tr>
                     ))}
                   </tbody>
