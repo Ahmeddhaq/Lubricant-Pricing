@@ -20,6 +20,7 @@ body {
     radial-gradient(circle at bottom right, rgba(17, 24, 39, 0.03), transparent 20%),
     var(--app-bg);
   color: var(--text);
+  overflow-x: hidden;
 }
 
 #root {
@@ -386,6 +387,21 @@ body {
   border-right: 1px solid rgba(255, 255, 255, 0.06);
   z-index: 100;
   box-shadow: 12px 0 30px rgba(17, 24, 39, 0.08);
+}
+
+.sidebar-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  background: rgba(15, 23, 42, 0.42);
+  backdrop-filter: blur(4px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 180ms ease;
+}
+
+.sidebar-toggle-button {
+  display: none;
 }
 
 .sidebar-brand {
@@ -1296,22 +1312,94 @@ tbody tr:last-child td {
     margin: -1.5rem -1.5rem 1.5rem;
     padding: 1.25rem 1.5rem 1rem;
   }
+
+  .metric-grid-8 {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .metric-grid-6,
+  .metric-grid-5 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .metric-grid-4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .section-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .profitability-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .form-grid-4 > .form-group,
+  .form-grid-4 > div,
+  .form-grid-5 > .form-group,
+  .form-grid-5 > div {
+    grid-column: span 6;
+  }
 }
 
 @media (max-width: 768px) {
   .sidebar-container {
-    position: static;
-    width: 100%;
-    height: auto;
-    border-right: none;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 0 0 1.25rem 1.25rem;
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 17rem;
+    max-width: 86vw;
+    height: 100vh;
+    border-right: 1px solid rgba(255, 255, 255, 0.06);
+    border-bottom: none;
+    border-radius: 0 1.25rem 1.25rem 0;
+    transform: translateX(-102%);
+    transition: transform 220ms ease;
+    overflow-y: auto;
+  }
+
+  .sidebar-container.sidebar-open {
+    transform: translateX(0);
+  }
+
+  .sidebar-backdrop.open {
+    opacity: 1;
+    pointer-events: auto;
   }
 
   .main-content {
     margin-left: 0;
     width: 100%;
-    padding: 1rem;
+    padding: 4rem 0.9rem 1rem;
+  }
+
+  .sidebar-toggle-button {
+    position: fixed;
+    top: 0.85rem;
+    left: 0.85rem;
+    z-index: 120;
+    width: 2.75rem;
+    height: 2.75rem;
+    display: inline-flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.22rem;
+    padding: 0;
+    border: 1px solid rgba(15, 23, 42, 0.12);
+    border-radius: 0.9rem;
+    background: rgba(255, 255, 255, 0.96);
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.15);
+    cursor: pointer;
+  }
+
+  .sidebar-toggle-button span {
+    display: block;
+    width: 1.1rem;
+    height: 2px;
+    margin: 0 auto;
+    border-radius: 999px;
+    background: #0f172a;
   }
 
   .page-header {
@@ -1330,6 +1418,18 @@ tbody tr:last-child td {
 
   .page-stack {
     gap: 1.5rem;
+  }
+
+  .page-section {
+    gap: 0.75rem;
+  }
+
+  .content-card,
+  .metric-card,
+  .table-container,
+  .section-grid,
+  .page-section {
+    min-width: 0;
   }
 
   .metric-grid,
@@ -1355,6 +1455,25 @@ tbody tr:last-child td {
     grid-template-columns: 1fr;
   }
 
+  .section-grid,
+  .form-grid,
+  .form-grid-2,
+  .form-grid-3,
+  .form-grid-4,
+  .form-grid-5,
+  .metric-grid-2,
+  .metric-grid-3,
+  .metric-grid-4,
+  .metric-grid-5,
+  .metric-grid-6,
+  .metric-grid-8,
+  .inline-group,
+  .inline-group-2,
+  .inline-group-3,
+  .inline-group-4 {
+    grid-template-columns: 1fr !important;
+  }
+
   .metric-card,
   .content-card {
     padding: 1rem;
@@ -1370,6 +1489,28 @@ tbody tr:last-child td {
   td {
     padding: 0.75rem 0.8rem;
   }
+
+  table {
+    min-width: 640px;
+  }
+
+  .table-container {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .compact-item .flex {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.5rem;
+  }
+
+  .compact-item input,
+  .compact-item select,
+  .compact-item .w-28,
+  .compact-item .w-32 {
+    width: 100% !important;
+  }
 }
 
 @media (max-width: 640px) {
@@ -1383,5 +1524,21 @@ tbody tr:last-child td {
 
   .page-header h1 {
     font-size: 1.35rem;
+  }
+
+  .page-section {
+    gap: 0.65rem;
+  }
+
+  .section-title {
+    font-size: 1.2rem;
+  }
+
+  .section-subtitle {
+    font-size: 0.9rem;
+  }
+
+  .btn {
+    width: 100%;
   }
 }

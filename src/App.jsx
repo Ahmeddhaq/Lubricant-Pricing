@@ -18,6 +18,7 @@ function AppShell() {
   const [pendingImport, setPendingImport] = useState(null);
   const [supabaseStatus, setSupabaseStatus] = useState({ state: "checking" });
   const [authView, setAuthView] = useState("landing");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const { session, loading: authLoading, user, signOut } = useAuth();
   const supabaseConfigured = isSupabaseConfigured();
 
@@ -42,10 +43,16 @@ function AppShell() {
   const handlePrepareImport = (payload, targetTab) => {
     setPendingImport({ ...payload, targetTab });
     setActiveTab(targetTab);
+    setSidebarOpen(false);
   };
 
   const clearPendingImport = () => {
     setPendingImport(null);
+  };
+
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    setSidebarOpen(false);
   };
 
   if (!supabaseConfigured) {
@@ -74,9 +81,28 @@ function AppShell() {
 
   return (
     <div className="app-container flex min-h-screen bg-white">
-      <Navigation activeTab={activeTab} setActiveTab={setActiveTab} user={user} onSignOut={signOut} />
+      <Navigation
+        activeTab={activeTab}
+        setActiveTab={handleTabChange}
+        user={user}
+        onSignOut={signOut}
+        sidebarOpen={sidebarOpen}
+        setSidebarOpen={setSidebarOpen}
+      />
       
       <main className="main-content">
+        <button
+          type="button"
+          className="sidebar-toggle-button"
+          aria-label={sidebarOpen ? "Close sidebar" : "Open sidebar"}
+          aria-expanded={sidebarOpen}
+          onClick={() => setSidebarOpen((value) => !value)}
+        >
+          <span />
+          <span />
+          <span />
+        </button>
+
         {supabaseStatus.state === "error" && (
           <div className="setup-warning-banner">
             <div>

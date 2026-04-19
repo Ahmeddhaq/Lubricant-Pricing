@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 
-export default function Navigation({ activeTab, setActiveTab, user, onSignOut }) {
+export default function Navigation({ activeTab, setActiveTab, user, onSignOut, sidebarOpen, setSidebarOpen }) {
   const [openInfoTab, setOpenInfoTab] = useState(null);
 
   const tabs = [
@@ -31,7 +31,13 @@ export default function Navigation({ activeTab, setActiveTab, user, onSignOut })
 
   return (
     <>
-      <nav className="sidebar-container">
+      <div
+        className={`sidebar-backdrop ${sidebarOpen ? "open" : ""}`}
+        onClick={() => setSidebarOpen(false)}
+        aria-hidden="true"
+      />
+
+      <nav className={`sidebar-container ${sidebarOpen ? "sidebar-open" : ""}`}>
         <div className="sidebar-brand">
           <h1>Lubricant Pricing</h1>
         </div>
@@ -74,7 +80,14 @@ export default function Navigation({ activeTab, setActiveTab, user, onSignOut })
           <div className="sidebar-user-card">
             <div className="sidebar-user-label">Signed in</div>
             <div className="sidebar-user-email">{user?.email}</div>
-            <button type="button" onClick={onSignOut} className="sidebar-user-button">
+            <button
+              type="button"
+              onClick={() => {
+                setSidebarOpen(false);
+                onSignOut();
+              }}
+              className="sidebar-user-button"
+            >
               Sign out
             </button>
           </div>
