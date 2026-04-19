@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { baseOilsService, additivesService, recipesService, recipeIngredientsService, costingEngine } from "../services/supabaseService";
+import { historyService } from "../services/historyService";
 
 export default function FormulationEngine({ pendingImport, clearPendingImport }) {
   const [recipes, setRecipes] = useState([]);
@@ -181,25 +182,34 @@ export default function FormulationEngine({ pendingImport, clearPendingImport })
     ]);
   };
 
-  const applyImportedDraft = () => {
+  const applyImportedDraft = async () => {
     if (!importedFormulationDraft) return;
 
-    setSkuForm({
-      name: importedFormulationDraft.skuName || importedFormulationDraft.name || "",
-      category: importedFormulationDraft.category || "",
-      specification: importedFormulationDraft.pricingLogicType || "",
-      version: "1.0",
-    });
-    setComponents((importedFormulationDraft.components || []).map((component, index) => ({
-      id: component.id || `${component.name || "component"}-${index}`,
-      name: component.name || component.component || "Component",
-      type: component.type || "Additive",
-      supplier: component.supplier || "Imported from Excel",
-      percentage: Number(component.percentage || component.share || 0),
-      unitCost: Number(component.unitCost || component.cost || 0),
+    const configSnapshot = {
+      skuForm: {
+        name: importedFormulationDraft.skuName || importedFormulationDraft.name || "",
+        category: importedFormulationDraft.category || "",
+        specification: importedFormulationDraft.pricingLogicType || "",
+        version: "1.0",
+      },
+      components: (importedFormulationDraft.components || []).map((component, index) => ({
+        id: component.id || `${component.name || "component"}-${index}`,
+        name: component.name || component.component || "Component",
+        type: component.type || "Additive",
+        supplier: component.supplier || "Imported from Excel",
+        percentage: Number(component.percentage || component.share || 0),
+        unitCost: Number(component.unitCost || component.cost || 0),
+      })),
+      batchSize: importedFormulationDraft.batchSize || "100",
+      sourceUploadId: importedFormulationDraft.sourceUploadId || null,
+    };
+
+    setSkuForm(configSnapshot.skuForm);
+    setComponents(configSnapshot.components.map((component) => ({
+      ...component,
       lastUpdated: new Date().toLocaleDateString(),
     })));
-    setBatchSize(importedFormulationDraft.batchSize || "100");
+    setBatchSize(configSnapshot.batchSize);
     setChangeHistory([
       {
         timestamp: new Date().toLocaleString(),
@@ -207,6 +217,19 @@ export default function FormulationEngine({ pendingImport, clearPendingImport })
         user: "Current User",
       },
     ]);
+
+    try {
+      await historyService.recordConfigVersion({
+        configName: `${configSnapshot.skuForm.name || "Formulation"} formulation`,
+        configType: "formulation",
+        configVersion: 1,
+        configData: configSnapshot,
+        sourceUploadId: configSnapshot.sourceUploadId,
+        notes: importedFormulationDraft.workbookName || "Imported formulation",
+      });
+    } catch (historyError) {
+      console.error("Failed to save formulation history:", historyError);
+    }
 
     if (clearPendingImport) {
       clearPendingImport();

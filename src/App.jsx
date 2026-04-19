@@ -5,13 +5,19 @@ import FormulationEngine from "./components/FormulationEngine";
 import SKUManagement from "./components/SKUManagement";
 import QuoteBuilder from "./components/QuoteBuilder";
 import ExcelIntelligence from "./components/ExcelIntelligence";
-import { checkSupabaseConnection } from "./services/supabaseService";
+import SetupRequired from "./components/SetupRequired";
+import AuthScreen from "./components/AuthScreen";
+import HistoryPanel from "./components/HistoryPanel";
+import { AuthProvider, useAuth } from "./context/AuthContext";
+import { checkSupabaseConnection, isSupabaseConfigured } from "./services/supabaseService";
 import "./App.css";
 
-export default function PricingApp() {
+function AppShell() {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [pendingImport, setPendingImport] = useState(null);
   const [supabaseStatus, setSupabaseStatus] = useState({ state: "checking" });
+  const { session, loading: authLoading, user, signOut } = useAuth();
+  const supabaseConfigured = isSupabaseConfigured();
 
   useEffect(() => {
     let cancelled = false;
@@ -40,9 +46,21 @@ export default function PricingApp() {
     setPendingImport(null);
   };
 
+  if (!supabaseConfigured) {
+    return <SetupRequired />;
+  }
+
+  if (authLoading) {
+    return <div className="flex min-h-screen items-center justify-center text-sm font-semibold text-slate-500">Loading workspace...</div>;
+  }
+
+  if (!session) {
+    return <AuthScreen />;
+  }
+
   return (
     <div className="app-container flex min-h-screen bg-white">
-      <Navigation activeTab={activeTab} setActiveTab={setActiveTab} />
+      <Navigation activeTab={activeTab} setActiveTab={setActiveTab} user={user} onSignOut={signOut} />
       
       <main className="main-content">
         {supabaseStatus.state === "error" && (
@@ -60,6 +78,8 @@ export default function PricingApp() {
             </button>
           </div>
         )}
+
+        <HistoryPanel />
 
         <div className="page-header">
           {activeTab === "dashboard" && <h1>Dashboard</h1>}
@@ -81,5 +101,13 @@ export default function PricingApp() {
         </div>
       </main>
     </div>
+  );
+}
+
+export default function PricingApp() {
+  return (
+    <AuthProvider>
+      <AppShell />
+    </AuthProvider>
   );
 }

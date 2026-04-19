@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { skusService, recipesService, costingEngine } from "../services/supabaseService";
+import { historyService } from "../services/historyService";
 
 export default function SKUManagement({ pendingImport, clearPendingImport }) {
   const [skus, setSkus] = useState([]);
@@ -124,17 +125,40 @@ export default function SKUManagement({ pendingImport, clearPendingImport }) {
     setActiveTab("detail");
   };
 
-  const applyImportedDraft = () => {
+  const applyImportedDraft = async () => {
     if (!importedSkuDraft) return;
 
-    setSkuForm({
-      name: importedSkuDraft.name || "",
-      category: importedSkuDraft.category || "",
-      recipe_id: importedSkuDraft.recipeId || "",
-      baseCostPerLiter: importedSkuDraft.baseCostPerLiter || 0,
-      currentSellingPrice: importedSkuDraft.currentSellingPrice || 0,
-    });
+    const configSnapshot = {
+      skuForm: {
+        name: importedSkuDraft.name || "",
+        category: importedSkuDraft.category || "",
+        recipe_id: importedSkuDraft.recipeId || "",
+        baseCostPerLiter: importedSkuDraft.baseCostPerLiter || 0,
+        currentSellingPrice: importedSkuDraft.currentSellingPrice || 0,
+      },
+      packConfigs,
+      pricingMatrix,
+      costBreakup,
+      marginThreshold,
+      skuStatus,
+      sourceUploadId: importedSkuDraft.sourceUploadId || null,
+    };
+
+    setSkuForm(configSnapshot.skuForm);
     setActiveTab("create");
+
+    try {
+      await historyService.recordConfigVersion({
+        configName: `${configSnapshot.skuForm.name || "SKU"} configuration`,
+        configType: "sku",
+        configVersion: 1,
+        configData: configSnapshot,
+        sourceUploadId: configSnapshot.sourceUploadId,
+        notes: importedSkuDraft.workbookName || "Imported SKU draft",
+      });
+    } catch (historyError) {
+      console.error("Failed to save SKU history:", historyError);
+    }
 
     if (clearPendingImport) {
       clearPendingImport();

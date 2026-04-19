@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import * as XLSX from "xlsx";
-import { costingEngine, recipesService, skusService } from "../services/supabaseService";
+import { costingEngine, recipesService, skusService, supabase } from "../services/supabaseService";
+import { historyService } from "../services/historyService";
+import { useAuth } from "../context/AuthContext";
 
 const CATEGORY_HINTS = [
   { test: /5w|10w|15w|20w|30|40|engine/i, value: "Engine Oil" },
@@ -271,6 +273,7 @@ function buildDrafts(report, selectedInsight) {
   }));
 
   const formulationDraft = {
+    sourceUploadId: report.sourceUploadId || null,
     workbookName: report.workbookName,
     skuName: selectedInsight.displayName,
     category: selectedInsight.category,
@@ -282,6 +285,7 @@ function buildDrafts(report, selectedInsight) {
   };
 
   const skuDraft = {
+    sourceUploadId: report.sourceUploadId || null,
     workbookName: report.workbookName,
     name: selectedInsight.displayName,
     category: selectedInsight.category,
@@ -300,6 +304,7 @@ function buildDrafts(report, selectedInsight) {
 }
 
 export default function ExcelIntelligence({ onPrepareImport }) {
+  const { user } = useAuth();
   const [analysis, setAnalysis] = useState(null);
   const [loadingWorkbook, setLoadingWorkbook] = useState(false);
   const [error, setError] = useState("");
@@ -372,6 +377,12 @@ export default function ExcelIntelligence({ onPrepareImport }) {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    if (!user?.id) {
+      setError("You must be signed in to upload workbooks.");
+      event.target.value = "";
+      return;
+    }
+
     setLoadingWorkbook(true);
     setError("");
 
@@ -382,8 +393,33 @@ export default function ExcelIntelligence({ onPrepareImport }) {
         cellDates: true,
       });
 
+      const safeFilename = file.name.replace(/[^a-zA-Z0-9._-]+/g, "_");
+      const storagePath = `${user.id}/${Date.now()}-${safeFilename}`;
+      const { error: storageError } = await supabase.storage
+        .from("excel-uploads")
+        .upload(storagePath, file, {
+          contentType: file.type || "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          upsert: false,
+        });
+
+      if (storageError) {
+        throw storageError;
+      }
+
       const report = buildAnalysis(workbook, systemSummary.benchmarkMargin);
-      setAnalysis(report);
+      const rowCount = report.sheetReports.reduce((total, sheet) => total + Math.max((sheet.rows || []).length - 1, 0), 0);
+      const uploadRecord = await historyService.recordUpload({
+        originalFilename: file.name,
+        storageBucket: "excel-uploads",
+        storagePath,
+        fileSizeBytes: file.size,
+        sheetCount: report.sheetReports.length,
+        rowCount,
+        sourceAppVersion: "1.0.0",
+        notes: report.workbookName,
+      });
+
+      setAnalysis({ ...report, sourceUploadId: uploadRecord.id });
       setSelectedSku(report.skuInsights[0]?.sku || "");
     } catch (readError) {
       setAnalysis(null);
