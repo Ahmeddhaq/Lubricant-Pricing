@@ -10,6 +10,22 @@ function normalizeName(value) {
     .replace(/\s+/g, " ");
 }
 
+function getSkuIdentity(sku) {
+  return [
+    normalizeName(sku?.name),
+    normalizeName(sku?.category),
+    String(sku?.recipe_id || ""),
+    String(Number(sku?.pack_size_liters || 0)),
+    normalizeName(sku?.pack_description),
+  ].join("|");
+}
+
+function dedupeLatestSkus(records) {
+  return [...records]
+    .sort((left, right) => new Date(right.updated_at || right.created_at || 0) - new Date(left.updated_at || left.created_at || 0))
+    .filter((record, index, array) => array.findIndex((candidate) => getSkuIdentity(candidate) === getSkuIdentity(record)) === index);
+}
+
 function average(values) {
   const numericValues = values.map((value) => Number(value)).filter((value) => Number.isFinite(value));
   if (!numericValues.length) return 0;
@@ -198,7 +214,7 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
         baseOilsService.getAll(),
         additivesService.getAll(),
       ]);
-      setSkus(skusData);
+      setSkus(dedupeLatestSkus(skusData));
       setRecipes(recipesData);
       setBaseOils(baseOilsData);
       setAdditives(additivesData);
@@ -437,10 +453,7 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
     const linkedDraftsToUse = [...linkedFormulationDrafts];
     const existingSkuKeys = new Set(
       skus.map((sku) => [
-        normalizeName(sku.name),
-        normalizeName(sku.category),
-        String(sku.recipe_id || ""),
-        Number(sku.pack_size_liters || 0),
+        getSkuIdentity(sku),
         Number(sku.packaging_cost_per_unit || 0),
       ].join("|")),
     );
@@ -481,10 +494,7 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
       for (const { draft, recipeId } of resolvedDrafts) {
         const payload = buildSkuCreatePayload({ draft, recipeId });
         const payloadKey = [
-          normalizeName(payload.name),
-          normalizeName(payload.category),
-          String(payload.recipe_id || ""),
-          Number(payload.pack_size_liters || 0),
+          getSkuIdentity(payload),
           Number(payload.packaging_cost_per_unit || 0),
         ].join("|");
 
@@ -1080,6 +1090,7 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
                 <thead>
                   <tr>
                     <th>Product Name</th>
+                    <th>Pack Size</th>
                     <th>Category</th>
                     <th>Linked Formulation</th>
                     <th>Base Cost/L</th>
@@ -1094,6 +1105,7 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
                     return (
                       <tr key={sku.id}>
                         <td className="font-semibold">{sku.name}</td>
+                        <td>{sku.pack_size_liters ? `${sku.pack_size_liters}L` : "-"}</td>
                         <td>{sku.category || "-"}</td>
                         <td>{sku.recipes?.name || "-"}</td>
                         <td className="text-right">${(sku.base_cost_per_liter || 0).toFixed(2)}</td>

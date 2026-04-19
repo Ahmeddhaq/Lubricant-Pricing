@@ -1,7 +1,31 @@
 import React, { useState, useEffect } from "react";
 import { quotesService, skusService, costSnapshotsService, costingEngine } from "../services/supabaseService";
 
-export default function Dashboard() {
+function normalizeName(value) {
+  return String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ");
+}
+
+function getSkuIdentity(sku) {
+  return [
+    normalizeName(sku?.name),
+    normalizeName(sku?.category),
+    String(sku?.recipe_id || ""),
+    String(Number(sku?.pack_size_liters || 0)),
+    normalizeName(sku?.pack_description),
+  ].join("|");
+}
+
+function dedupeLatestSkus(records) {
+  return [...records]
+    .sort((left, right) => new Date(right.updated_at || right.created_at || 0) - new Date(left.updated_at || left.created_at || 0))
+    .filter((record, index, array) => array.findIndex((candidate) => getSkuIdentity(candidate) === getSkuIdentity(record)) === index);
+}
+
+export default function Dashboard({ dataRefreshToken = 0 }) {
   const [quotes, setQuotes] = useState([]);
   const [skus, setSkus] = useState([]);
   const [stats, setStats] = useState({
@@ -47,7 +71,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [dataRefreshToken]);
 
   const loadData = async () => {
     setLoading(true);
@@ -58,10 +82,11 @@ export default function Dashboard() {
       ]);
 
       setQuotes(quotesData);
-      setSkus(skusData);
+      const uniqueSkus = dedupeLatestSkus(skusData);
+      setSkus(uniqueSkus);
 
       // Calculate statistics
-      calculateStats(quotesData, skusData);
+      calculateStats(quotesData, uniqueSkus);
     } catch (err) {
       console.error("Error loading data:", err);
     } finally {

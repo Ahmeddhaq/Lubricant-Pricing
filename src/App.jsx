@@ -132,6 +132,10 @@ function AppShell() {
   };
 
   const handleSkuImportComplete = ({ importedCount = 0 } = {}) => {
+    if (importedCount > 0) {
+      setWorkspaceDataVersion((value) => value + 1);
+    }
+
     setWorkspaceNotice({
       title: importedCount > 0 ? "Dashboard ready" : "Nothing new imported",
       message:
@@ -274,7 +278,7 @@ function AppShell() {
         </div>
         <div className="page-frame">
           <div className={activeTab === "dashboard" ? "page-transition" : ""} hidden={activeTab !== "dashboard"}>
-            <Dashboard />
+            <Dashboard dataRefreshToken={workspaceDataVersion} />
           </div>
           <div className={activeTab === "history" ? "page-transition" : ""} hidden={activeTab !== "history"}>
             <HistoryPanel onReuseUpload={handleReuseUpload} />
