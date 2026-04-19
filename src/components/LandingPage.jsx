@@ -296,7 +296,7 @@ export default function LandingPage({ onSignIn, onCreateAccount }) {
   const outerPadding = isMobile ? "16px" : "24px";
   const headerDirection = isMobile ? "column" : "row";
   const headerAlign = isMobile ? "flex-start" : "center";
-  const heroColumns = isMobile ? "1fr" : "minmax(0, 1.2fr) minmax(320px, 0.8fr)";
+  const heroColumns = "1fr";
   const sectionPadding = isMobile ? "18px" : "24px";
   const titleSize = isMobile ? "clamp(2rem, 10vw, 3rem)" : "clamp(2.35rem, 4.2vw, 4.6rem)";
   const heroPanelPadding = isMobile ? "20px" : "32px";
