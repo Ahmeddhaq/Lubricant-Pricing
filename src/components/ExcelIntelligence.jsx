@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx";
 import { costingEngine, recipesService, skusService, supabase } from "../services/supabaseService";
 import { historyService } from "../services/historyService";
@@ -504,6 +504,7 @@ export default function ExcelIntelligence({ onPrepareImport, externalWorkbookReq
     averageMargin: null,
     benchmarkMargin: 25,
   });
+  const autoImportTriggeredRef = useRef("");
 
   useEffect(() => {
     let cancelled = false;
@@ -674,8 +675,14 @@ export default function ExcelIntelligence({ onPrepareImport, externalWorkbookReq
     }
   };
 
-  const selectedDrafts = analysis && selectedInsight ? buildDraftBundle(analysis, selectedInsight) : null;
-  const allDraftBundles = analysis?.skuInsights?.length ? analysis.skuInsights.map((entry) => buildDraftBundle(analysis, entry)) : [];
+  const selectedDrafts = useMemo(
+    () => (analysis && selectedInsight ? buildDraftBundle(analysis, selectedInsight) : null),
+    [analysis, selectedInsight],
+  );
+  const allDraftBundles = useMemo(
+    () => (analysis?.skuInsights?.length ? analysis.skuInsights.map((entry) => buildDraftBundle(analysis, entry)) : []),
+    [analysis],
+  );
 
   const compareMargin = selectedInsight
     ? (selectedInsight.averageMargin - (systemSummary.averageMargin ?? selectedInsight.systemBenchmarkMargin)).toFixed(2)
@@ -736,21 +743,41 @@ export default function ExcelIntelligence({ onPrepareImport, externalWorkbookReq
     );
   };
 
+  const autoImportKey = useMemo(() => {
+    if (!analysis || !selectedDrafts || allDraftBundles.length < 2 || !onPrepareImport) {
+      return "";
+    }
+
+    return [
+      analysis.sourceUploadId || analysis.workbookName || "workbook",
+      allDraftBundles.length,
+      selectedDrafts.skuDraft?.sku || selectedDrafts.skuDraft?.name || selectedDrafts.formulationDraft?.recipeName || "sku",
+    ].join("|");
+  }, [analysis, selectedDrafts, allDraftBundles.length, onPrepareImport]);
+
   // Auto-import batch SKUs when analysis is ready
   useEffect(() => {
-    if (!analysis || !selectedDrafts || allDraftBundles.length < 2 || !onPrepareImport) {
+    if (!autoImportKey) {
+      if (!analysis) {
+        autoImportTriggeredRef.current = "";
+      }
       return;
     }
 
+    if (autoImportTriggeredRef.current === autoImportKey) {
+      return;
+    }
+
+    autoImportTriggeredRef.current = autoImportKey;
     console.log("🚀 Auto-triggering batch SKU import for", allDraftBundles.length, "SKUs");
 
     // Small delay to ensure UI state is settled
-    const timer = setTimeout(() => {
+    const timer = window.setTimeout(() => {
       handlePrepare("skus");
     }, 500);
 
-    return () => clearTimeout(timer);
-  }, [analysis, selectedDrafts, allDraftBundles.length, onPrepareImport]);
+    return () => window.clearTimeout(timer);
+  }, [autoImportKey, allDraftBundles.length, analysis]);
 
   return (
     <div className="page-stack">

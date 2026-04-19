@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { skusService, recipesService, recipeIngredientsService, baseOilsService, additivesService, costingEngine } from "../services/supabaseService";
 import { historyService } from "../services/historyService";
 
@@ -26,7 +26,7 @@ const DEFAULT_SKU_FLAGS = {
   priceOverride: false,
 };
 
-export default function SKUManagement({ pendingImport, clearPendingImport, onOpenFormulation, dataRefreshToken }) {
+export default function SKUManagement({ pendingImport, clearPendingImport, onOpenFormulation, dataRefreshToken, onImportComplete }) {
   const [skus, setSkus] = useState([]);
   const [recipes, setRecipes] = useState([]);
   const [baseOils, setBaseOils] = useState([]);
@@ -76,13 +76,25 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
   const importedSkuDraft = importedSkuDrafts[0] || null;
   const linkedFormulationDrafts = pendingImport?.linkedFormulationDrafts || (pendingImport?.linkedFormulationDraft ? [pendingImport.linkedFormulationDraft] : []);
   const hasAccessibleBaseOils = baseOils.length > 0;
+  const pendingImportSignature = importedSkuDrafts.length
+    ? [
+        pendingImport?.kind || "pending",
+        importedSkuDrafts
+          .map((draft) => draft?.name || draft?.recipeName || draft?.formulationName || draft?.skuName || "")
+          .join("||"),
+        linkedFormulationDrafts
+          .map((draft) => draft?.name || draft?.recipeName || draft?.skuName || "")
+          .join("||"),
+      ].join("::")
+    : "";
   const [importingBatch, setImportingBatch] = useState(false);
   const [linkedMatchConfirmed, setLinkedMatchConfirmed] = useState(false);
   const [creatingLinkedRecipe, setCreatingLinkedRecipe] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
   const [toastType, setToastType] = useState("success"); // success, info, error
-  const [lastImportTime, setLastImportTime] = useState(0); // Prevent auto-import loop
+  const importInProgressRef = useRef(false);
+  const autoImportTriggeredRef = useRef("");
 
   useEffect(() => {
     loadData();
@@ -133,10 +145,16 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
     setLinkedMatchConfirmed(false);
   }, [importedSkuDraft?.name, importedSkuDraft?.recipeName, skuForm.recipe_id]);
 
+  useEffect(() => {
+    if (!pendingImportSignature) {
+      autoImportTriggeredRef.current = "";
+    }
+  }, [pendingImportSignature]);
+
   // Auto-import when all recipes are ready for batch imports
   useEffect(() => {
     if (
-      !importedSkuDrafts.length ||
+      !pendingImportSignature ||
       !hasAccessibleBaseOils ||
       creatingLinkedRecipe ||
       importingBatch ||
@@ -145,11 +163,11 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
       return;
     }
 
-    // Prevent re-triggering within 2 seconds of last import (anti-loop guard)
-    const now = Date.now();
-    if (now - lastImportTime < 2000) {
+    if (autoImportTriggeredRef.current === pendingImportSignature) {
       return;
     }
+
+    autoImportTriggeredRef.current = pendingImportSignature;
 
     console.log("🔍 Checking if auto-import should trigger...");
     console.log("importedSkuDrafts:", importedSkuDrafts.length);
@@ -162,17 +180,14 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
       .join("\n");
     console.log("📊 Ready to auto-import SKUs:\n" + skuSummary);
     
-    // Mark import time immediately to prevent loop
-    setLastImportTime(now);
-    
     // Auto-trigger import with a small delay to ensure state is settled
-    const timer = setTimeout(() => {
+    const timer = window.setTimeout(() => {
       console.log("🚀 Triggering auto-import...");
       handleImportDrafts();
     }, 500);
 
-    return () => clearTimeout(timer);
-  }, [importedSkuDrafts, hasAccessibleBaseOils, creatingLinkedRecipe, importingBatch, lastImportTime]);
+    return () => window.clearTimeout(timer);
+  }, [pendingImportSignature, hasAccessibleBaseOils, creatingLinkedRecipe, importingBatch, importedSkuDrafts.length, recipes.length]);
 
   const loadData = async () => {
     setLoading(true);
@@ -407,6 +422,7 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
   ].filter(Boolean);
 
   const handleImportDrafts = async () => {
+    if (importInProgressRef.current) return;
     if (!importedSkuDrafts.length) return;
     if (!hasAccessibleBaseOils) {
       setToastMessage("No base oils available yet. Add at least one base_oils row to Supabase before importing.");
@@ -416,48 +432,86 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
       return;
     }
 
+    importInProgressRef.current = true;
+    const draftsToImport = [...importedSkuDrafts];
+    const linkedDraftsToUse = [...linkedFormulationDrafts];
+    const existingSkuKeys = new Set(
+      skus.map((sku) => [
+        normalizeName(sku.name),
+        normalizeName(sku.category),
+        String(sku.recipe_id || ""),
+        Number(sku.pack_size_liters || 0),
+        Number(sku.packaging_cost_per_unit || 0),
+      ].join("|")),
+    );
     const resolvedDrafts = [];
     const unresolvedDrafts = [];
 
-    for (const [index, draft] of importedSkuDrafts.entries()) {
-      const linkedDraft = linkedFormulationDrafts[index] || linkedFormulationDrafts[0] || null;
-      let recipeId = resolveRecipeIdForDraft(draft);
-
-      if (!recipeId) {
-        const createdRecipe = await createRecipeFromDraft(draft, linkedDraft);
-        recipeId = createdRecipe?.id || "";
-      }
-
-      if (recipeId) {
-        resolvedDrafts.push({ draft, recipeId });
-      } else {
-        unresolvedDrafts.push(draft);
-      }
-    }
-
-    if (resolvedDrafts.length === 0) {
-      const unresolvedNames = unresolvedDrafts
-        .map((draft) => draft.name || draft.recipeName || draft.formulationName || draft.recipeNameCandidates?.[0] || "Unnamed SKU")
-        .join(", ");
-      setToastMessage(`Could not create formulations for: ${unresolvedNames}`);
-      setToastType("error");
-      setShowToast(true);
-      setTimeout(() => setShowToast(false), 5000);
-      return;
-    }
-
     setImportingBatch(true);
+
     try {
-      for (const { draft, recipeId } of resolvedDrafts) {
-        await skusService.create(buildSkuCreatePayload({ draft, recipeId }));
+      for (const [index, draft] of draftsToImport.entries()) {
+        const linkedDraft = linkedDraftsToUse[index] || linkedDraftsToUse[0] || null;
+        let recipeId = resolveRecipeIdForDraft(draft);
+
+        if (!recipeId) {
+          const createdRecipe = await createRecipeFromDraft(draft, linkedDraft);
+          recipeId = createdRecipe?.id || "";
+        }
+
+        if (recipeId) {
+          resolvedDrafts.push({ draft, recipeId });
+        } else {
+          unresolvedDrafts.push(draft);
+        }
       }
 
-      // CLEAR imported SKU drafts FIRST to prevent re-import loop and duplicates
-      if (clearPendingImport) clearPendingImport();
+      if (resolvedDrafts.length === 0) {
+        const unresolvedNames = unresolvedDrafts
+          .map((draft) => draft.name || draft.recipeName || draft.formulationName || draft.recipeNameCandidates?.[0] || "Unnamed SKU")
+          .join(", ");
+        setToastMessage(`Could not create formulations for: ${unresolvedNames}`);
+        setToastType("error");
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 5000);
+        return;
+      }
+
+      let insertedCount = 0;
+      for (const { draft, recipeId } of resolvedDrafts) {
+        const payload = buildSkuCreatePayload({ draft, recipeId });
+        const payloadKey = [
+          normalizeName(payload.name),
+          normalizeName(payload.category),
+          String(payload.recipe_id || ""),
+          Number(payload.pack_size_liters || 0),
+          Number(payload.packaging_cost_per_unit || 0),
+        ].join("|");
+
+        if (existingSkuKeys.has(payloadKey)) {
+          console.warn(`Skipping duplicate SKU import: ${payload.name}`);
+          continue;
+        }
+
+        existingSkuKeys.add(payloadKey);
+        await skusService.create(payload);
+        insertedCount += 1;
+      }
+
+      if (insertedCount === 0) {
+        setToastMessage("All imported SKUs already exist. No new records were created.");
+        setToastType("info");
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 5000);
+        if (onImportComplete) onImportComplete({ importedCount: 0, skippedCount: resolvedDrafts.length });
+        if (clearPendingImport) clearPendingImport();
+        return;
+      }
 
       await loadData();
 
-      // Show success toast (DO NOT auto-navigate)
+      if (clearPendingImport) clearPendingImport();
+
       const message = `✓ Dashboard Ready for Analysis! ${resolvedDrafts.length} SKU${resolvedDrafts.length === 1 ? "" : "s"} imported.`;
       setToastMessage(message);
       setToastType("success");
@@ -470,6 +524,8 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
           .join(", ");
         console.warn(`These still need a formulation match: ${unresolvedNames}`);
       }
+
+      if (onImportComplete) onImportComplete({ importedCount: insertedCount, skippedCount: resolvedDrafts.length - insertedCount });
     } catch (err) {
       console.error("Error bulk importing SKUs:", err);
       setToastMessage(`Import failed: ${err?.message || "Unknown error"}`);
@@ -478,6 +534,7 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
       setTimeout(() => setShowToast(false), 5000);
     } finally {
       setImportingBatch(false);
+      importInProgressRef.current = false;
     }
   };
 

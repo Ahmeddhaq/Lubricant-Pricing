@@ -46,7 +46,6 @@ function AppShell() {
 
   const handlePrepareImport = (payload, targetTab) => {
     setPendingImport({ ...payload, targetTab });
-    setActiveTab(targetTab);
     setSidebarOpen(false);
   };
 
@@ -130,6 +129,16 @@ function AppShell() {
     });
 
     setReadySkuImport(buildSkuImportFromLinkedDrafts(recipe, linkedSkuDrafts, sourceUploadId, snapshot));
+  };
+
+  const handleSkuImportComplete = ({ importedCount = 0 } = {}) => {
+    setWorkspaceNotice({
+      title: importedCount > 0 ? "Dashboard ready" : "Nothing new imported",
+      message:
+        importedCount > 0
+          ? `${importedCount} SKU${importedCount === 1 ? "" : "s"} imported and ready for analysis.`
+          : "All imported SKUs already exist, so no new records were created.",
+    });
   };
 
   const openSkuCreation = () => {
@@ -290,6 +299,7 @@ function AppShell() {
               clearPendingImport={clearPendingImport}
               onOpenFormulation={() => handleTabChange("formulation")}
               dataRefreshToken={workspaceDataVersion}
+              onImportComplete={handleSkuImportComplete}
             />
           </div>
           <div className={activeTab === "quotes" ? "page-transition" : ""} hidden={activeTab !== "quotes"}>
