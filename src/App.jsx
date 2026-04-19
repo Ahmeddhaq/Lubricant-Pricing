@@ -139,7 +139,11 @@ function AppShell() {
             <FormulationEngine pendingImport={pendingImport} clearPendingImport={clearPendingImport} />
           </div>
           <div className={activeTab === "skus" ? "page-transition" : ""} hidden={activeTab !== "skus"}>
-            <SKUManagement pendingImport={pendingImport} clearPendingImport={clearPendingImport} />
+            <SKUManagement
+              pendingImport={pendingImport}
+              clearPendingImport={clearPendingImport}
+              onOpenFormulation={() => handleTabChange("formulation")}
+            />
           </div>
           <div className={activeTab === "quotes" ? "page-transition" : ""} hidden={activeTab !== "quotes"}>
             <QuoteBuilder />

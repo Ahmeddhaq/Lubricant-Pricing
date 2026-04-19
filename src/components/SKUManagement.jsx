@@ -10,7 +10,23 @@ function normalizeName(value) {
     .replace(/\s+/g, " ");
 }
 
-export default function SKUManagement({ pendingImport, clearPendingImport }) {
+function average(values) {
+  const numericValues = values.map((value) => Number(value)).filter((value) => Number.isFinite(value));
+  if (!numericValues.length) return 0;
+  return numericValues.reduce((sum, value) => sum + value, 0) / numericValues.length;
+}
+
+function getRecipeNameById(recipes, recipeId) {
+  return recipes.find((recipe) => recipe.id === recipeId)?.name || "";
+}
+
+const DEFAULT_MARGIN_THRESHOLD = 15;
+const DEFAULT_SKU_FLAGS = {
+  isActive: true,
+  priceOverride: false,
+};
+
+export default function SKUManagement({ pendingImport, clearPendingImport, onOpenFormulation }) {
   const [skus, setSkus] = useState([]);
   const [recipes, setRecipes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -48,14 +64,7 @@ export default function SKUManagement({ pendingImport, clearPendingImport }) {
     overheadAllocation: 0,
   });
 
-  // Margin Analysis
-  const [marginThreshold, setMarginThreshold] = useState(15);
-
-  // Status & Controls
-  const [skuStatus, setSkuStatus] = useState({
-    isActive: true,
-    priceOverride: false,
-  });
+  const marginThreshold = DEFAULT_MARGIN_THRESHOLD;
 
   const importedSkuDrafts = pendingImport?.kind === "sku-batch"
     ? pendingImport.drafts || []
@@ -121,11 +130,81 @@ export default function SKUManagement({ pendingImport, clearPendingImport }) {
     return calculateMargin(totalCost, config.sellingPrice || 0);
   };
 
+  const getSummarySource = () => importedSkuDraft || selectedSku || null;
+
   const resolveRecipeIdForDraft = (draft) => {
     const candidateNames = [draft?.recipeName, ...(draft?.recipeNameCandidates || [])].filter(Boolean).map(normalizeName);
     const matchedRecipe = recipes.find((recipe) => candidateNames.includes(normalizeName(recipe.name)));
     return matchedRecipe?.id || "";
   };
+
+  const summarySource = getSummarySource();
+  const useFormSummary = Boolean(importedSkuDraft) ? false : activeTab === "create" || !selectedSku;
+  const totalCostPerLiter = costBreakup.blendCost + costBreakup.packagingCost + costBreakup.logisticsCost + costBreakup.overheadAllocation;
+  const packEntries = Object.entries(packConfigs);
+  const marketEntries = Object.entries(pricingMatrix.byMarket);
+  const customerEntries = Object.entries(pricingMatrix.byCustomer);
+  const livePackPrices = packEntries.map(([, config]) => Number(config.sellingPrice || 0)).filter((price) => price > 0);
+
+  const summaryName = importedSkuDraft?.name || (useFormSummary ? skuForm.name : selectedSku?.name) || "New SKU";
+  const summaryCategory = importedSkuDraft?.category || (useFormSummary ? skuForm.category : selectedSku?.category) || "-";
+  const summaryBaseCost = Number(
+    importedSkuDraft?.baseCostPerLiter ?? (useFormSummary ? skuForm.baseCostPerLiter : selectedSku?.base_cost_per_liter) ?? 0,
+  );
+
+  const summarySellingPrice = importedSkuDraft
+      ? Number(importedSkuDraft.currentSellingPrice ?? 0)
+      : useFormSummary
+        ? Number(skuForm.currentSellingPrice || (livePackPrices.length ? average(livePackPrices) : 0) || 0)
+        : Number(selectedSku?.current_selling_price ?? 0);
+
+  const packMargins = packEntries.map(([packName]) => calculatePackMargin(packName));
+  const pricedPackMargins = packEntries
+    .filter(([, config]) => Number(config.sellingPrice || 0) > 0)
+    .map(([packName]) => calculatePackMargin(packName));
+  const summaryAveragePrice = summarySellingPrice || (livePackPrices.length ? average(livePackPrices) : 0);
+  const summaryAverageMargin = importedSkuDraft
+      ? Number(importedSkuDraft.marginPercent ?? 0)
+      : useFormSummary
+        ? (pricedPackMargins.length
+          ? average(pricedPackMargins.filter((margin) => Number.isFinite(margin)))
+          : calculateMargin(summaryBaseCost, summaryAveragePrice))
+        : calculateMargin(summaryBaseCost, summarySellingPrice);
+
+  const summaryRecipeId = importedSkuDraft
+    ? resolveRecipeIdForDraft(importedSkuDraft)
+    : useFormSummary
+      ? skuForm.recipe_id
+      : selectedSku?.recipe_id || "";
+  const summaryLinkedFormulationName = importedSkuDraft
+    ? getRecipeNameById(recipes, resolveRecipeIdForDraft(importedSkuDraft)) || importedSkuDraft.recipeName || importedSkuDraft.recipeNameCandidates?.[0] || ""
+    : useFormSummary
+      ? getRecipeNameById(recipes, skuForm.recipe_id)
+      : selectedSku
+        ? selectedSku.recipes?.name || getRecipeNameById(recipes, selectedSku.recipe_id)
+        : "";
+
+  const summarySourceLabel = summarySource === importedSkuDraft
+    ? "Imported workbook"
+    : useFormSummary
+      ? "Current draft"
+      : summarySource === selectedSku
+        ? "Selected SKU"
+        : "Current draft";
+
+  const warningItems = [];
+  const lowMarginPacks = packEntries
+    .filter(([packName, config]) => Number(config.sellingPrice || 0) > 0 && calculatePackMargin(packName) < marginThreshold)
+    .map(([packName]) => packName);
+  if (lowMarginPacks.length > 0) {
+    warningItems.push(`Margin below ${marginThreshold}% on ${lowMarginPacks.join(", ")}`);
+  }
+  if (!costBreakup.logisticsCost) {
+    warningItems.push("Missing logistics cost");
+  }
+  if (!summaryLinkedFormulationName) {
+    warningItems.push("Linked formulation not selected");
+  }
 
   const handleImportDrafts = async () => {
     if (!importedSkuDrafts.length) return;
@@ -147,8 +226,8 @@ export default function SKUManagement({ pendingImport, clearPendingImport }) {
           base_cost_per_liter: parseFloat(draft.baseCostPerLiter) || 0,
           current_selling_price: parseFloat(draft.currentSellingPrice) || 0,
           margin_threshold: marginThreshold,
-          is_active: skuStatus.isActive,
-          price_override: skuStatus.priceOverride,
+          is_active: DEFAULT_SKU_FLAGS.isActive,
+          price_override: DEFAULT_SKU_FLAGS.priceOverride,
         });
       }
 
@@ -179,8 +258,8 @@ export default function SKUManagement({ pendingImport, clearPendingImport }) {
         base_cost_per_liter: parseFloat(skuForm.baseCostPerLiter) || 0,
         current_selling_price: parseFloat(skuForm.currentSellingPrice) || 0,
         margin_threshold: marginThreshold,
-        is_active: skuStatus.isActive,
-        price_override: skuStatus.priceOverride,
+        is_active: DEFAULT_SKU_FLAGS.isActive,
+        price_override: DEFAULT_SKU_FLAGS.priceOverride,
       });
 
       setSkuForm({ name: "", category: "", recipe_id: "", baseCostPerLiter: 0, currentSellingPrice: 0 });
@@ -195,7 +274,7 @@ export default function SKUManagement({ pendingImport, clearPendingImport }) {
 
   const handleSelectSku = (sku) => {
     setSelectedSku(sku);
-    setActiveTab("detail");
+    setActiveTab("list");
   };
 
   const applyImportedDraft = async () => {
@@ -213,7 +292,6 @@ export default function SKUManagement({ pendingImport, clearPendingImport }) {
       pricingMatrix,
       costBreakup,
       marginThreshold,
-      skuStatus,
       sourceUploadId: importedSkuDraft.sourceUploadId || null,
     };
 
@@ -286,7 +364,331 @@ export default function SKUManagement({ pendingImport, clearPendingImport }) {
         </section>
       )}
 
-      {/* ====== SECTION 1: SKU LIST ====== */}
+      <section className="page-section">
+        <div className="content-card border-slate-200 bg-slate-50/80">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <h2 className="section-title">SKU Header</h2>
+              <p className="section-subtitle">
+                Configuration summary for the SKU you are building or reviewing.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => onOpenFormulation && summaryRecipeId && onOpenFormulation()}
+              disabled={!summaryRecipeId || !onOpenFormulation}
+              className="btn btn-secondary"
+            >
+              View formulation
+            </button>
+          </div>
+
+          <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+            {[
+              { label: "SKU Name", value: summaryName },
+              { label: "Category", value: summaryCategory },
+              { label: "Base Cost/L", value: `$${summaryBaseCost.toFixed(2)}` },
+              { label: "Avg Selling Price", value: `$${summaryAveragePrice.toFixed(2)}` },
+              { label: "Avg Margin", value: `${summaryAverageMargin.toFixed(1)}%` },
+            ].map((item) => (
+              <div key={item.label} className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{item.label}</p>
+                <p className="mt-2 text-lg font-semibold text-slate-900">{item.value}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-4 flex flex-wrap gap-2 text-xs font-semibold">
+            <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-700">{summarySourceLabel}</span>
+            <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-700">
+              {summaryLinkedFormulationName ? `Linked formulation: ${summaryLinkedFormulationName}` : "Linked formulation not selected"}
+            </span>
+          </div>
+
+          {warningItems.length > 0 && (
+            <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
+              <p className="text-sm font-semibold text-amber-900">Light warnings</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {warningItems.map((warning) => (
+                  <span key={warning} className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-amber-900">
+                    {warning}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </section>
+
+      <section className="page-section">
+        <h2 className="section-title">Pack Configuration</h2>
+        <div className="content-card overflow-x-auto">
+          <table className="min-w-full">
+            <thead>
+              <tr>
+                <th>Pack</th>
+                <th>Units / Carton</th>
+                <th>Packaging Cost</th>
+                <th>Total Cost</th>
+                <th>Selling Price</th>
+                <th>Margin</th>
+              </tr>
+            </thead>
+            <tbody>
+              {packEntries.map(([packName, config]) => {
+                const totalCost = calculateTotalCostPerPack(packName);
+                const margin = calculatePackMargin(packName);
+                const marginHealthy = Number(config.sellingPrice || 0) > 0 && margin >= marginThreshold;
+
+                return (
+                  <tr key={packName} className={!marginHealthy && Number(config.sellingPrice || 0) > 0 ? "bg-red-50" : ""}>
+                    <td>
+                      <div className="flex flex-col">
+                        <span className="font-semibold text-gray-900">{packName}</span>
+                        <span className="text-xs text-gray-500">{config.size}L pack</span>
+                      </div>
+                    </td>
+                    <td>
+                      <input
+                        type="number"
+                        step="1"
+                        value={config.unitsPerCarton}
+                        onChange={(e) => setPackConfigs({
+                          ...packConfigs,
+                          [packName]: { ...config, unitsPerCarton: parseFloat(e.target.value) || 0 },
+                        })}
+                        className="w-24 px-2 py-1 border border-gray-300 rounded text-right font-semibold"
+                      />
+                    </td>
+                    <td>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={config.packagingCost}
+                        onChange={(e) => setPackConfigs({
+                          ...packConfigs,
+                          [packName]: { ...config, packagingCost: parseFloat(e.target.value) || 0 },
+                        })}
+                        className="w-28 px-2 py-1 border border-gray-300 rounded text-right font-semibold"
+                      />
+                    </td>
+                    <td className="font-semibold text-gray-900">${totalCost.toFixed(2)}</td>
+                    <td>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={config.sellingPrice}
+                          onChange={(e) => setPackConfigs({
+                            ...packConfigs,
+                            [packName]: { ...config, sellingPrice: parseFloat(e.target.value) || 0 },
+                          })}
+                          className="w-32 px-2 py-1 border border-gray-300 rounded text-right font-semibold"
+                        />
+                        <span className={`rounded-full px-2 py-1 text-xs font-bold ${marginHealthy ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"}`}>
+                          {margin.toFixed(1)}%
+                        </span>
+                      </div>
+                    </td>
+                    <td>
+                      <span className={`rounded-full px-3 py-1 text-xs font-semibold ${marginHealthy ? "bg-emerald-50 text-emerald-700" : "bg-red-100 text-red-700"}`}>
+                        {marginHealthy ? "Healthy" : Number(config.sellingPrice || 0) > 0 ? "Below target" : "No price"}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="page-section">
+        <h2 className="section-title">Pricing Matrix</h2>
+        <div className="section-grid" style={{ gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}>
+          <div className="content-card">
+            <div className="content-row-stack">
+              <h3 className="text-lg font-semibold text-gray-900">Price per Market</h3>
+              <div className="overflow-x-auto">
+                <table className="min-w-full">
+                  <thead>
+                    <tr>
+                      <th>Market</th>
+                      <th>Price</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {marketEntries.map(([market, price]) => {
+                      const margin = calculateMargin(totalCostPerLiter, price);
+                      const healthy = Number(price || 0) > 0 && margin >= marginThreshold;
+                      return (
+                        <tr key={market} className={!healthy && Number(price || 0) > 0 ? "bg-red-50" : ""}>
+                          <td className="font-semibold text-gray-900">{market}</td>
+                          <td>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={price}
+                                onChange={(e) => setPricingMatrix({
+                                  ...pricingMatrix,
+                                  byMarket: { ...pricingMatrix.byMarket, [market]: parseFloat(e.target.value) || 0 },
+                                })}
+                                className="w-32 px-2 py-1 border border-gray-300 rounded text-right font-semibold"
+                              />
+                              <span className={`rounded-full px-2 py-1 text-xs font-bold ${healthy ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"}`}>
+                                {margin.toFixed(1)}%
+                              </span>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div className="content-card">
+            <div className="content-row-stack">
+              <h3 className="text-lg font-semibold text-gray-900">Price per Customer Type</h3>
+              <div className="overflow-x-auto">
+                <table className="min-w-full">
+                  <thead>
+                    <tr>
+                      <th>Customer Type</th>
+                      <th>Price</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {customerEntries.map(([type, price]) => {
+                      const margin = calculateMargin(totalCostPerLiter, price);
+                      const healthy = Number(price || 0) > 0 && margin >= marginThreshold;
+                      return (
+                        <tr key={type} className={!healthy && Number(price || 0) > 0 ? "bg-red-50" : ""}>
+                          <td className="font-semibold text-gray-900">{type}</td>
+                          <td>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={price}
+                                onChange={(e) => setPricingMatrix({
+                                  ...pricingMatrix,
+                                  byCustomer: { ...pricingMatrix.byCustomer, [type]: parseFloat(e.target.value) || 0 },
+                                })}
+                                className="w-32 px-2 py-1 border border-gray-300 rounded text-right font-semibold"
+                              />
+                              <span className={`rounded-full px-2 py-1 text-xs font-bold ${healthy ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"}`}>
+                                {margin.toFixed(1)}%
+                              </span>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="page-section">
+        <h2 className="section-title">Cost Build-Up</h2>
+        <div className="content-card">
+          <div className="content-row-stack">
+            <div className="metric-grid metric-grid-5 mb-8">
+              <div className="content-card-compact">
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600">Blend Cost</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={costBreakup.blendCost}
+                    onChange={(e) => setCostBreakup({ ...costBreakup, blendCost: parseFloat(e.target.value) || 0 })}
+                    className="w-28 px-2 py-1 border border-gray-300 rounded text-right font-semibold"
+                  />
+                </div>
+              </div>
+
+              <div className="content-card-compact">
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600">Packaging Cost</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={costBreakup.packagingCost}
+                    onChange={(e) => setCostBreakup({ ...costBreakup, packagingCost: parseFloat(e.target.value) || 0 })}
+                    className="w-28 px-2 py-1 border border-gray-300 rounded text-right font-semibold"
+                  />
+                </div>
+              </div>
+
+              <div className="content-card-compact">
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600">Logistics Cost</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={costBreakup.logisticsCost}
+                    onChange={(e) => setCostBreakup({ ...costBreakup, logisticsCost: parseFloat(e.target.value) || 0 })}
+                    className="w-28 px-2 py-1 border border-gray-300 rounded text-right font-semibold"
+                  />
+                </div>
+              </div>
+
+              <div className="content-card-compact">
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600">Overhead %</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={costBreakup.overheadAllocation}
+                    onChange={(e) => setCostBreakup({ ...costBreakup, overheadAllocation: parseFloat(e.target.value) || 0 })}
+                    className="w-28 px-2 py-1 border border-gray-300 rounded text-right font-semibold"
+                  />
+                </div>
+              </div>
+
+              <div className="content-card-compact">
+                <div className="flex justify-between items-center">
+                  <span className="font-semibold text-gray-900">Total Cost/L</span>
+                  <span className="text-lg font-semibold text-gray-900">
+                    ${totalCostPerLiter.toFixed(2)}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              {[
+                { label: "Blend Cost", value: costBreakup.blendCost },
+                { label: "Packaging Cost", value: costBreakup.packagingCost },
+                { label: "Logistics Cost", value: costBreakup.logisticsCost },
+                { label: "Overhead", value: costBreakup.overheadAllocation },
+              ].map((item, idx) => {
+                const percentage = totalCostPerLiter > 0 ? (item.value / totalCostPerLiter) * 100 : 0;
+                return (
+                  <div key={idx} className="compact-item">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-sm font-semibold text-gray-900">{item.label}</span>
+                      <span className="text-sm text-gray-600">${item.value.toFixed(2)} ({percentage.toFixed(1)}%)</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                      <div className="bg-gray-400 h-full" style={{ width: `${percentage}%` }}></div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </section>
+
       <section>
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-semibold text-gray-900">SKU Catalog</h2>
@@ -348,366 +750,6 @@ export default function SKUManagement({ pendingImport, clearPendingImport }) {
             </div>
           </div>
         )}
-      </section>
-
-      {/* ====== SECTION 2: PACK CONFIGURATION ====== */}
-      <section className="page-section">
-        <h2 className="section-title">Pack Configuration</h2>
-        <div className="section-grid sku-pack-grid" style={{ gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}>
-          {Object.entries(packConfigs).map(([packName, config], idx) => {
-            const totalCost = calculateTotalCostPerPack(packName);
-            const margin = calculateMargin(totalCost, config.sellingPrice || 0);
-            return (
-              <div key={idx} className="content-card sku-pack-card">
-                <div className="content-row-stack">
-                  <h3 className="text-lg font-semibold text-gray-900">{packName} Configuration</h3>
-                  <div className="space-y-5">
-                    <div className="compact-item">
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-600">Pack Size</span>
-                        <span className="font-semibold text-gray-900">{config.size}L</span>
-                      </div>
-                    </div>
-
-                    <div className="compact-item">
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-600">Units per Carton</span>
-                        <span className="font-semibold text-gray-900">{config.unitsPerCarton}</span>
-                      </div>
-                    </div>
-
-                    <div className="compact-item">
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-600">Packaging Cost</span>
-                        <span className="font-semibold text-gray-900">${config.packagingCost.toFixed(2)}</span>
-                      </div>
-                    </div>
-
-                    <div className="compact-item">
-                      <div className="flex justify-between items-center mb-2">
-                        <span className="text-gray-600">Final Cost per Pack</span>
-                        <span className="text-lg font-semibold text-gray-900">${totalCost.toFixed(2)}</span>
-                      </div>
-                    </div>
-
-                    <div className="compact-item">
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-600">Selling Price per Pack</span>
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={config.sellingPrice}
-                          onChange={(e) => setPackConfigs({
-                            ...packConfigs,
-                            [packName]: { ...config, sellingPrice: parseFloat(e.target.value) || 0 }
-                          })}
-                          className="w-32 px-2 py-1 border border-gray-300 rounded text-right"
-                        />
-                      </div>
-                    </div>
-
-                    <div className={`compact-item ${margin >= marginThreshold ? "" : "border-red-300 bg-red-50"}`}>
-                      <div className="flex justify-between items-center">
-                        <span className="font-semibold text-gray-900">Pack Margin</span>
-                        <span className={`text-lg font-semibold ${margin >= marginThreshold ? "text-gray-900" : "text-red-600"}`}>
-                          {margin.toFixed(1)}%
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* ====== SECTION 3: PRICING MATRIX ====== */}
-      <section className="page-section">
-        <h2 className="section-title">Pricing Matrix</h2>
-        <div className="section-grid" style={{ gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}>
-          {/* Price by Market */}
-          <div className="content-card">
-            <div className="content-row-stack">
-              <h3 className="text-lg font-semibold text-gray-900">Price per Market</h3>
-              <div className="space-y-3">
-                {Object.entries(pricingMatrix.byMarket).map(([market, price], idx) => (
-                  <div key={idx} className="compact-item">
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600 font-semibold">{market}</span>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={price}
-                        onChange={(e) => setPricingMatrix({
-                          ...pricingMatrix,
-                          byMarket: { ...pricingMatrix.byMarket, [market]: parseFloat(e.target.value) || 0 }
-                        })}
-                        className="w-32 px-2 py-1 border border-gray-300 rounded text-right font-semibold"
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Price by Customer Type */}
-          <div className="content-card">
-            <div className="content-row-stack">
-              <h3 className="text-lg font-semibold text-gray-900">Price per Customer Type</h3>
-              <div className="space-y-3">
-                {Object.entries(pricingMatrix.byCustomer).map(([type, price], idx) => (
-                  <div key={idx} className="compact-item">
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600 font-semibold">{type}</span>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={price}
-                        onChange={(e) => setPricingMatrix({
-                          ...pricingMatrix,
-                          byCustomer: { ...pricingMatrix.byCustomer, [type]: parseFloat(e.target.value) || 0 }
-                        })}
-                        className="w-32 px-2 py-1 border border-gray-300 rounded text-right font-semibold"
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ====== SECTION 4: COST BUILD-UP VIEW ====== */}
-      <section className="page-section">
-        <h2 className="section-title">Cost Build-Up View</h2>
-        <div className="content-card">
-          <div className="content-row-stack">
-            <div className="metric-grid metric-grid-5 mb-8">
-              <div className="content-card-compact">
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600">Blend Cost</span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={costBreakup.blendCost}
-                    onChange={(e) => setCostBreakup({ ...costBreakup, blendCost: parseFloat(e.target.value) || 0 })}
-                    className="w-28 px-2 py-1 border border-gray-300 rounded text-right font-semibold"
-                  />
-                </div>
-              </div>
-
-              <div className="content-card-compact">
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600">Packaging Cost</span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={costBreakup.packagingCost}
-                    onChange={(e) => setCostBreakup({ ...costBreakup, packagingCost: parseFloat(e.target.value) || 0 })}
-                    className="w-28 px-2 py-1 border border-gray-300 rounded text-right font-semibold"
-                  />
-                </div>
-              </div>
-
-              <div className="content-card-compact">
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600">Logistics Cost</span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={costBreakup.logisticsCost}
-                    onChange={(e) => setCostBreakup({ ...costBreakup, logisticsCost: parseFloat(e.target.value) || 0 })}
-                    className="w-28 px-2 py-1 border border-gray-300 rounded text-right font-semibold"
-                  />
-                </div>
-              </div>
-
-              <div className="content-card-compact">
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600">Overhead %</span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={costBreakup.overheadAllocation}
-                    onChange={(e) => setCostBreakup({ ...costBreakup, overheadAllocation: parseFloat(e.target.value) || 0 })}
-                    className="w-28 px-2 py-1 border border-gray-300 rounded text-right font-semibold"
-                  />
-                </div>
-              </div>
-
-              <div className="content-card-compact">
-                <div className="flex justify-between items-center">
-                  <span className="font-semibold text-gray-900">Total Cost/L</span>
-                  <span className="text-lg font-semibold text-gray-900">
-                    ${(costBreakup.blendCost + costBreakup.packagingCost + costBreakup.logisticsCost + costBreakup.overheadAllocation).toFixed(2)}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Cost Breakdown Visualization */}
-            <div className="space-y-3">
-              {[
-                { label: "Blend Cost", value: costBreakup.blendCost },
-                { label: "Packaging Cost", value: costBreakup.packagingCost },
-                { label: "Logistics Cost", value: costBreakup.logisticsCost },
-                { label: "Overhead", value: costBreakup.overheadAllocation },
-              ].map((item, idx) => {
-                const total = costBreakup.blendCost + costBreakup.packagingCost + costBreakup.logisticsCost + costBreakup.overheadAllocation;
-                const percentage = total > 0 ? (item.value / total) * 100 : 0;
-                return (
-                  <div key={idx} className="compact-item">
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-sm font-semibold text-gray-900">{item.label}</span>
-                      <span className="text-sm text-gray-600">${item.value.toFixed(2)} ({percentage.toFixed(1)}%)</span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
-                      <div className="bg-gray-400 h-full" style={{ width: `${percentage}%` }}></div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ====== SECTION 5: MARGIN ANALYSIS ====== */}
-      <section className="page-section">
-        <h2 className="section-title">Margin Analysis</h2>
-        <div className="metric-grid metric-grid-3">
-          {/* Margin per Pack */}
-          <div className="content-card">
-            <div className="content-row-stack">
-              <h3 className="text-lg font-semibold text-gray-900">Margin per Pack</h3>
-              <div className="space-y-3">
-                {Object.keys(packConfigs).map((packName, idx) => {
-                  const margin = calculatePackMargin(packName);
-                  return (
-                    <div key={idx} className={`compact-item ${margin >= marginThreshold ? "" : "border-red-300 bg-red-50"}`}>
-                      <div className="flex justify-between items-center">
-                        <span className="font-semibold text-gray-900">{packName}</span>
-                        <span className={`text-lg font-semibold ${margin >= marginThreshold ? "text-gray-900" : "text-red-600"}`}>
-                          {margin.toFixed(1)}%
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-
-          {/* Margin per Market */}
-          <div className="content-card">
-            <div className="content-row-stack">
-              <h3 className="text-lg font-semibold text-gray-900">Margin per Market</h3>
-              <div className="space-y-3">
-                {Object.entries(pricingMatrix.byMarket).map(([market, price], idx) => {
-                  const totalCost = costBreakup.blendCost + costBreakup.packagingCost + costBreakup.logisticsCost + costBreakup.overheadAllocation;
-                  const margin = calculateMargin(totalCost, price);
-                  return (
-                    <div key={idx} className={`compact-item ${margin >= marginThreshold ? "" : "border-red-300 bg-red-50"}`}>
-                      <div className="flex justify-between items-center">
-                        <span className="font-semibold text-gray-900">{market}</span>
-                        <span className={`text-lg font-semibold ${margin >= marginThreshold ? "text-gray-900" : "text-red-600"}`}>
-                          {margin.toFixed(1)}%
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-
-          {/* Margin per Customer Type */}
-          <div className="content-card">
-            <div className="content-row-stack">
-              <h3 className="text-lg font-semibold text-gray-900">Margin per Customer</h3>
-              <div className="space-y-3">
-                {Object.entries(pricingMatrix.byCustomer).map(([type, price], idx) => {
-                  const totalCost = costBreakup.blendCost + costBreakup.packagingCost + costBreakup.logisticsCost + costBreakup.overheadAllocation;
-                  const margin = calculateMargin(totalCost, price);
-                  return (
-                    <div key={idx} className={`compact-item ${margin >= marginThreshold ? "" : "border-red-300 bg-red-50"}`}>
-                      <div className="flex justify-between items-center">
-                        <span className="font-semibold text-gray-900">{type}</span>
-                        <span className={`text-lg font-semibold ${margin >= marginThreshold ? "text-gray-900" : "text-red-600"}`}>
-                          {margin.toFixed(1)}%
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ====== SECTION 6: STATUS & CONTROLS ====== */}
-      <section className="page-section">
-        <h2 className="section-title">Status & Controls</h2>
-        <div className="metric-grid metric-grid-3">
-          {/* SKU Status */}
-          <div className="content-card">
-            <div className="content-row-stack">
-              <h3 className="text-lg font-semibold text-gray-900">SKU Status</h3>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-600 font-semibold">Active / Inactive</span>
-                  <button
-                    onClick={() => setSkuStatus({ ...skuStatus, isActive: !skuStatus.isActive })}
-                    className={`px-4 py-2 rounded font-semibold text-white ${skuStatus.isActive ? "bg-gray-900" : "bg-gray-400"}`}
-                  >
-                    {skuStatus.isActive ? "Active" : "Inactive"}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Minimum Margin Threshold */}
-          <div className="content-card">
-            <div className="content-row-stack">
-              <h3 className="text-lg font-semibold text-gray-900">Margin Threshold</h3>
-              <div className="space-y-4">
-                <div>
-                  <label className="text-sm text-gray-600 font-semibold block mb-2">Minimum Margin %</label>
-                  <input
-                    type="number"
-                    step="1"
-                    value={marginThreshold}
-                    onChange={(e) => setMarginThreshold(parseFloat(e.target.value) || 0)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded text-center text-lg font-semibold"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Price Override */}
-          <div className="content-card">
-            <div className="content-row-stack">
-              <h3 className="text-lg font-semibold text-gray-900">Price Control</h3>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-600 font-semibold">Allow Price Override</span>
-                  <button
-                    onClick={() => setSkuStatus({ ...skuStatus, priceOverride: !skuStatus.priceOverride })}
-                    className={`px-4 py-2 rounded font-semibold text-white ${skuStatus.priceOverride ? "bg-gray-900" : "bg-gray-400"}`}
-                  >
-                    {skuStatus.priceOverride ? "Enabled" : "Disabled"}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
       </section>
 
       {/* ====== CREATE SKU FORM ====== */}
