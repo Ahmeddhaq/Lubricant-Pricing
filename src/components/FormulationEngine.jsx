@@ -2,6 +2,14 @@ import React, { useState, useEffect } from "react";
 import { baseOilsService, additivesService, recipesService, recipeIngredientsService, costingEngine } from "../services/supabaseService";
 import { historyService } from "../services/historyService";
 
+function normalizeName(value) {
+  return String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ");
+}
+
 export default function FormulationEngine({ pendingImport, clearPendingImport }) {
   const [recipes, setRecipes] = useState([]);
   const [baseOils, setBaseOils] = useState([]);
@@ -10,6 +18,8 @@ export default function FormulationEngine({ pendingImport, clearPendingImport })
   const [activeTab, setActiveTab] = useState("list");
   const [selectedRecipe, setSelectedRecipe] = useState(null);
   const [editingRecipe, setEditingRecipe] = useState(null);
+  const [selectedBaseOilId, setSelectedBaseOilId] = useState("");
+  const [savingRecipe, setSavingRecipe] = useState(false);
 
   // SKU Selector / Creator states
   const [skuForm, setSkuForm] = useState({
@@ -35,10 +45,17 @@ export default function FormulationEngine({ pendingImport, clearPendingImport })
   const [materialPriceUpdates, setMaterialPriceUpdates] = useState({});
 
   const importedFormulationDraft = pendingImport?.kind === "formulation" ? pendingImport.draft : null;
+  const linkedSkuDrafts = pendingImport?.linkedSkuDrafts || (pendingImport?.linkedSkuDraft ? [pendingImport.linkedSkuDraft] : []);
 
   useEffect(() => {
     loadData();
   }, []);
+
+  useEffect(() => {
+    if (!selectedBaseOilId && baseOils.length > 0) {
+      setSelectedBaseOilId(baseOils[0].id);
+    }
+  }, [baseOils, selectedBaseOilId]);
 
   const loadData = async () => {
     setLoading(true);
@@ -163,27 +180,146 @@ export default function FormulationEngine({ pendingImport, clearPendingImport })
     ]);
   };
 
+  const resolveBaseOilId = (draft) => {
+    const candidates = [draft?.baseOilName, draft?.baseOil, draft?.baseOilCandidate, draft?.baseOilType].filter(Boolean).map(normalizeName);
+    const matchedBaseOil = baseOils.find((entry) => {
+      const baseOilName = normalizeName(entry.name);
+      return candidates.some((candidate) => baseOilName === candidate || baseOilName.includes(candidate) || candidate.includes(baseOilName));
+    });
+    return matchedBaseOil?.id || selectedBaseOilId || baseOils[0]?.id || "";
+  };
+
+  const normalizeComponentForSave = (component, index) => ({
+    id: component.id || `${component.name || component.component || "component"}-${index}`,
+    name: component.name || component.component || "Component",
+    type: component.type || "Additive",
+    supplier: component.supplier || "Imported from Excel",
+    percentage: Number(component.percentage || component.share || 0),
+    unitCost: Number(component.unitCost || component.cost || 0),
+  });
+
+  const buildFormulationSnapshot = (sourceDraft = null) => {
+    const draft = sourceDraft || importedFormulationDraft || {};
+    const sourceComponents = components.length > 0 ? components : (draft.components || []);
+
+    return {
+      skuForm: {
+        name: skuForm.name || draft.skuName || draft.name || "",
+        category: skuForm.category || draft.category || "",
+        specification: skuForm.specification || draft.pricingLogicType || "",
+        version: skuForm.version || "1.0",
+      },
+      components: sourceComponents.map((component, index) => normalizeComponentForSave(component, index)),
+      batchSize: batchSize || draft.batchSize || "100",
+      sourceUploadId: draft.sourceUploadId || null,
+      selectedBaseOilId: resolveBaseOilId(draft),
+      draft,
+    };
+  };
+
+  const saveFormulationSnapshot = async (snapshot) => {
+    if (!snapshot.skuForm.name) {
+      alert("Please enter a formulation name.");
+      return false;
+    }
+
+    if (!snapshot.selectedBaseOilId) {
+      alert("Add at least one base oil before saving a formulation.");
+      return false;
+    }
+
+    setSavingRecipe(true);
+    try {
+      const createdRecipe = await recipesService.create({
+        name: snapshot.skuForm.name,
+        description: snapshot.skuForm.specification || snapshot.draft?.pricingLogicType || "",
+        status: "active",
+        base_oil_id: snapshot.selectedBaseOilId,
+        blending_cost_per_liter: 0,
+      });
+
+      const baseOilName = normalizeName(baseOils.find((entry) => entry.id === snapshot.selectedBaseOilId)?.name);
+      for (const component of snapshot.components) {
+        if (/base oil/i.test(component.type) || (baseOilName && normalizeName(component.name) === baseOilName)) {
+          continue;
+        }
+
+        const matchedAdditive = additives.find((entry) => {
+          const additiveName = normalizeName(entry.name);
+          const componentName = normalizeName(component.name);
+          return additiveName === componentName || additiveName.includes(componentName) || componentName.includes(additiveName);
+        });
+
+        if (!matchedAdditive) continue;
+
+        const quantityPerLiter = Number(component.percentage || 0) / 100;
+        if (quantityPerLiter <= 0) continue;
+
+        await recipeIngredientsService.addIngredient(createdRecipe.id, matchedAdditive.id, quantityPerLiter);
+      }
+
+      setChangeHistory((current) => [
+        ...current,
+        {
+          timestamp: new Date().toLocaleString(),
+          change: `Saved formulation: ${createdRecipe.name}`,
+          user: "Current User",
+        },
+      ]);
+
+      await loadData();
+      setSelectedRecipe(createdRecipe);
+      setEditingRecipe(createdRecipe);
+      setActiveTab("list");
+
+      try {
+        await historyService.recordConfigVersion({
+          configName: `${createdRecipe.name} formulation`,
+          configType: "formulation",
+          configVersion: 1,
+          configData: snapshot,
+          sourceUploadId: snapshot.sourceUploadId,
+          notes: snapshot.draft?.workbookName || "Imported formulation",
+        });
+      } catch (historyError) {
+        console.error("Failed to save formulation history:", historyError);
+      }
+
+      return true;
+    } catch (saveError) {
+      console.error("Failed to save formulation:", saveError);
+      alert(saveError?.message || "Failed to save formulation.");
+      return false;
+    } finally {
+      setSavingRecipe(false);
+    }
+  };
+
+  const handleSaveCurrentFormulation = async () => {
+    const snapshot = buildFormulationSnapshot();
+    await saveFormulationSnapshot(snapshot);
+  };
+
+  const handleCreateImportedFormulation = async () => {
+    if (!importedFormulationDraft) return;
+    const snapshot = buildFormulationSnapshot(importedFormulationDraft);
+    setSkuForm(snapshot.skuForm);
+    setComponents(snapshot.components.map((component) => ({
+      ...component,
+      lastUpdated: new Date().toLocaleDateString(),
+    })));
+    setBatchSize(snapshot.batchSize);
+    setSelectedBaseOilId(snapshot.selectedBaseOilId);
+    const saved = await saveFormulationSnapshot(snapshot);
+    if (saved && clearPendingImport) {
+      clearPendingImport();
+    }
+  };
+
   const applyImportedDraft = async () => {
     if (!importedFormulationDraft) return;
 
-    const configSnapshot = {
-      skuForm: {
-        name: importedFormulationDraft.skuName || importedFormulationDraft.name || "",
-        category: importedFormulationDraft.category || "",
-        specification: importedFormulationDraft.pricingLogicType || "",
-        version: "1.0",
-      },
-      components: (importedFormulationDraft.components || []).map((component, index) => ({
-        id: component.id || `${component.name || "component"}-${index}`,
-        name: component.name || component.component || "Component",
-        type: component.type || "Additive",
-        supplier: component.supplier || "Imported from Excel",
-        percentage: Number(component.percentage || component.share || 0),
-        unitCost: Number(component.unitCost || component.cost || 0),
-      })),
-      batchSize: importedFormulationDraft.batchSize || "100",
-      sourceUploadId: importedFormulationDraft.sourceUploadId || null,
-    };
+    const configSnapshot = buildFormulationSnapshot(importedFormulationDraft);
 
     setSkuForm(configSnapshot.skuForm);
     setComponents(configSnapshot.components.map((component) => ({
@@ -191,6 +327,7 @@ export default function FormulationEngine({ pendingImport, clearPendingImport })
       lastUpdated: new Date().toLocaleDateString(),
     })));
     setBatchSize(configSnapshot.batchSize);
+    setSelectedBaseOilId(configSnapshot.selectedBaseOilId);
     setChangeHistory([
       {
         timestamp: new Date().toLocaleString(),
@@ -237,6 +374,11 @@ export default function FormulationEngine({ pendingImport, clearPendingImport })
                   <span className="rounded-full bg-emerald-100 px-3 py-1">Excel margin: {Number(importedFormulationDraft.marginPercent || 0).toFixed(1)}%</span>
                   <span className="rounded-full bg-emerald-100 px-3 py-1">Rows: {(importedFormulationDraft.components || []).length}</span>
                 </div>
+                {linkedSkuDrafts.length > 0 && (
+                  <p className="mt-2 text-sm font-semibold text-emerald-900">
+                    {linkedSkuDrafts.length} SKU draft{linkedSkuDrafts.length === 1 ? "" : "s"} are linked to this workbook.
+                  </p>
+                )}
               </div>
 
               <div className="flex flex-wrap gap-2">
@@ -261,7 +403,23 @@ export default function FormulationEngine({ pendingImport, clearPendingImport })
         <h2 className="section-title">Product Definition</h2>
         <div className="table-container">
           <div className="content-card">
-            <div className="form-grid form-grid-4">
+            <div className="form-grid form-grid-5">
+              <div className="form-group">
+                <label className="text-sm font-semibold text-gray-900">Base Oil *</label>
+                <select
+                  value={selectedBaseOilId}
+                  onChange={(e) => setSelectedBaseOilId(e.target.value)}
+                  className="mt-1"
+                >
+                  <option value="">Select Base Oil</option>
+                  {baseOils.map((baseOil) => (
+                    <option key={baseOil.id} value={baseOil.id}>
+                      {baseOil.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <div className="form-group">
                 <label className="text-sm font-semibold text-gray-900">SKU Name *</label>
                 <input
@@ -310,6 +468,17 @@ export default function FormulationEngine({ pendingImport, clearPendingImport })
                   disabled
                 />
               </div>
+            </div>
+
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button type="button" onClick={handleSaveCurrentFormulation} disabled={savingRecipe} className="btn btn-primary">
+                {savingRecipe ? "Saving..." : "Save formulation"}
+              </button>
+              {importedFormulationDraft && (
+                <button type="button" onClick={handleCreateImportedFormulation} disabled={savingRecipe} className="btn btn-secondary">
+                  {savingRecipe ? "Creating..." : "Create formulation from workbook"}
+                </button>
+              )}
             </div>
           </div>
         </div>

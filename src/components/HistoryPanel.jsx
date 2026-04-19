@@ -7,11 +7,20 @@ function formatDate(value) {
   return new Date(value).toLocaleString();
 }
 
-export default function HistoryPanel() {
+function formatFileSize(bytes) {
+  const size = Number(bytes);
+  if (!Number.isFinite(size) || size <= 0) return "-";
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+export default function HistoryPanel({ onReuseUpload }) {
   const { session } = useAuth();
   const [history, setHistory] = useState({ uploads: [], configs: [], runs: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [reopeningUploadId, setReopeningUploadId] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -22,6 +31,17 @@ export default function HistoryPanel() {
 
       try {
         const data = await historyService.fetchHistory();
+
+    const handleReuseUpload = async (upload) => {
+      if (!onReuseUpload) return;
+
+      setReopeningUploadId(upload.id);
+      try {
+        await onReuseUpload(upload);
+      } finally {
+        setReopeningUploadId(null);
+      }
+    };
         if (!cancelled) {
           setHistory(data);
         }
@@ -29,7 +49,7 @@ export default function HistoryPanel() {
         if (!cancelled) {
           setError(loadError.message || "Failed to load history.");
         }
-      } finally {
+              <p className="section-subtitle">Workbook uploads, saved configs, and usage runs for the current account.</p>
         if (!cancelled) {
           setLoading(false);
         }
@@ -63,12 +83,28 @@ export default function HistoryPanel() {
         ) : (
           <div className="mt-4 grid gap-5 lg:grid-cols-3">
             <div className="history-card">
-              <h3 className="history-card-title">Recent Uploads</h3>
-              <div className="history-card-body">
-                {history.uploads.length ? history.uploads.slice(0, 4).map((item) => (
-                  <div key={item.id} className="history-card-item">
-                    <div className="font-semibold text-slate-900">{item.original_filename}</div>
-                    <div className="text-slate-500">{formatDate(item.uploaded_at)}</div>
+              <h3 className="history-card-title">Workbook Uploads</h3>
+              <div className="history-card-body space-y-3 max-h-[34rem] overflow-y-auto pr-1">
+                {history.uploads.length ? history.uploads.map((item) => (
+                  <div key={item.id} className="history-card-item rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="space-y-1">
+                        <div className="font-semibold text-slate-900">{item.original_filename}</div>
+                        <div className="text-xs text-slate-500">{formatDate(item.uploaded_at)}</div>
+                        <div className="text-xs text-slate-500">
+                          {item.sheet_count || 0} sheet(s) • {item.row_count || 0} row(s) • {formatFileSize(item.file_size_bytes)}
+                        </div>
+                        {item.notes && <div className="text-xs text-slate-500">{item.notes}</div>}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleReuseUpload(item)}
+                        disabled={!onReuseUpload || reopeningUploadId === item.id}
+                        className="btn btn-primary text-sm"
+                      >
+                        {reopeningUploadId === item.id ? "Opening..." : "Reuse workbook"}
+                      </button>
+                    </div>
                   </div>
                 )) : <p className="history-card-empty">No uploads yet.</p>}
               </div>

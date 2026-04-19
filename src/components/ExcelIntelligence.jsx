@@ -418,7 +418,7 @@ function buildDraftBundle(report, selectedInsight) {
   return { formulationDraft, skuDraft };
 }
 
-export default function ExcelIntelligence({ onPrepareImport }) {
+export default function ExcelIntelligence({ onPrepareImport, externalWorkbookRequest, onExternalWorkbookHandled }) {
   const { user } = useAuth();
   const [analysis, setAnalysis] = useState(null);
   const [loadingWorkbook, setLoadingWorkbook] = useState(false);
@@ -488,25 +488,19 @@ export default function ExcelIntelligence({ onPrepareImport }) {
     }
   }, [analysis, selectedSku]);
 
-  const handleFileUpload = async (event) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+  const processWorkbookFile = async (file, { persistUpload = true, sourceUploadId = null } = {}) => {
+    const workbook = XLSX.read(await file.arrayBuffer(), {
+      type: "array",
+      cellFormula: true,
+      cellDates: true,
+    });
 
-    if (!user?.id) {
-      setError("You must be signed in to upload workbooks.");
-      event.target.value = "";
-      return;
-    }
+    let uploadSourceId = sourceUploadId;
 
-    setLoadingWorkbook(true);
-    setError("");
-
-    try {
-      const workbook = XLSX.read(await file.arrayBuffer(), {
-        type: "array",
-        cellFormula: true,
-        cellDates: true,
-      });
+    if (persistUpload) {
+      if (!user?.id) {
+        throw new Error("You must be signed in to upload workbooks.");
+      }
 
       const safeFilename = file.name.replace(/[^a-zA-Z0-9._-]+/g, "_");
       const storagePath = `${user.id}/${Date.now()}-${safeFilename}`;
@@ -534,8 +528,68 @@ export default function ExcelIntelligence({ onPrepareImport }) {
         notes: report.workbookName,
       });
 
-      setAnalysis({ ...report, sourceUploadId: uploadRecord.id });
+      uploadSourceId = uploadRecord.id;
+      setAnalysis({ ...report, sourceUploadId: uploadSourceId });
       setSelectedSku(report.skuInsights[0]?.sku || "");
+      return;
+    }
+
+    const report = buildAnalysis(workbook, systemSummary.benchmarkMargin);
+    setAnalysis({ ...report, sourceUploadId: uploadSourceId });
+    setSelectedSku(report.skuInsights[0]?.sku || "");
+  };
+
+  useEffect(() => {
+    if (!externalWorkbookRequest?.requestId || !externalWorkbookRequest.file) return;
+
+    let cancelled = false;
+
+    const reopenWorkbook = async () => {
+      setLoadingWorkbook(true);
+      setError("");
+
+      try {
+        await processWorkbookFile(externalWorkbookRequest.file, {
+          persistUpload: false,
+          sourceUploadId: externalWorkbookRequest.uploadId || null,
+        });
+      } catch (reopenError) {
+        if (!cancelled) {
+          setAnalysis(null);
+          setError(reopenError?.message || "Unable to reopen workbook");
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingWorkbook(false);
+          if (onExternalWorkbookHandled) {
+            onExternalWorkbookHandled();
+          }
+        }
+      }
+    };
+
+    reopenWorkbook();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [externalWorkbookRequest?.requestId]);
+
+  const handleFileUpload = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!user?.id) {
+      setError("You must be signed in to upload workbooks.");
+      event.target.value = "";
+      return;
+    }
+
+    setLoadingWorkbook(true);
+    setError("");
+
+    try {
+      await processWorkbookFile(file, { persistUpload: true });
     } catch (readError) {
       setAnalysis(null);
       setError(readError?.message || "Unable to read workbook");
@@ -575,6 +629,8 @@ export default function ExcelIntelligence({ onPrepareImport }) {
         {
           kind: "formulation",
           draft: selectedDrafts.formulationDraft,
+          linkedSkuDraft: selectedDrafts.skuDraft,
+          linkedSkuDrafts: allDraftBundles.map((bundle) => bundle.skuDraft),
         },
         targetTab,
       );
@@ -587,6 +643,8 @@ export default function ExcelIntelligence({ onPrepareImport }) {
           kind: "sku-batch",
           draft: selectedDrafts.skuDraft,
           drafts: allDraftBundles.map((bundle) => bundle.skuDraft),
+          linkedFormulationDraft: selectedDrafts.formulationDraft,
+          linkedFormulationDrafts: allDraftBundles.map((bundle) => bundle.formulationDraft),
         },
         targetTab,
       );
@@ -597,6 +655,7 @@ export default function ExcelIntelligence({ onPrepareImport }) {
       {
         kind: "sku",
         draft: selectedDrafts.skuDraft,
+        linkedFormulationDraft: selectedDrafts.formulationDraft,
       },
       targetTab,
     );

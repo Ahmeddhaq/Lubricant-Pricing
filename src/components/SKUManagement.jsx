@@ -72,7 +72,9 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
       ? [pendingImport.draft]
       : [];
   const importedSkuDraft = importedSkuDrafts[0] || null;
+  const linkedFormulationDrafts = pendingImport?.linkedFormulationDrafts || (pendingImport?.linkedFormulationDraft ? [pendingImport.linkedFormulationDraft] : []);
   const [importingBatch, setImportingBatch] = useState(false);
+  const [linkedMatchConfirmed, setLinkedMatchConfirmed] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -85,14 +87,23 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
       const candidateNames = [
         importedSkuDraft.recipeName,
         ...(importedSkuDraft.recipeNameCandidates || []),
+        ...linkedFormulationDrafts.flatMap((draft) => [draft?.skuName, draft?.name]),
       ].filter(Boolean).map(normalizeName);
 
-      const matchedRecipe = recipes.find((recipe) => candidateNames.includes(normalizeName(recipe.name)));
+      const matchedRecipe = recipes.find((recipe) => {
+        const recipeName = normalizeName(recipe.name);
+        return candidateNames.some((candidate) => recipeName === candidate || recipeName.includes(candidate) || candidate.includes(recipeName));
+      });
       if (matchedRecipe) {
         setSkuForm((current) => ({ ...current, recipe_id: matchedRecipe.id }));
+        setLinkedMatchConfirmed(false);
       }
     }
-  }, [importedSkuDraft, recipes, skuForm.recipe_id]);
+  }, [importedSkuDraft, linkedFormulationDrafts, recipes, skuForm.recipe_id]);
+
+  useEffect(() => {
+    setLinkedMatchConfirmed(false);
+  }, [importedSkuDraft?.name, importedSkuDraft?.recipeName, skuForm.recipe_id]);
 
   const loadData = async () => {
     setLoading(true);
@@ -138,6 +149,7 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
       draft?.formulationName,
       draft?.linkedFormulation,
       ...(draft?.recipeNameCandidates || []),
+      ...linkedFormulationDrafts.flatMap((item) => [item?.skuName, item?.name]),
     ].filter(Boolean).map(normalizeName);
     const matchedRecipe = recipes.find((recipe) => {
       const recipeName = normalizeName(recipe.name);
@@ -191,6 +203,8 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
       : selectedSku
         ? selectedSku.recipes?.name || getRecipeNameById(recipes, selectedSku.recipe_id)
         : "";
+
+  const workbookFormulationName = linkedFormulationDrafts[0]?.skuName || linkedFormulationDrafts[0]?.name || "";
 
   const summarySourceLabel = summarySource === importedSkuDraft
     ? "Imported workbook"
@@ -278,6 +292,11 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
       return;
     }
 
+    if (importedSkuDraft && !linkedMatchConfirmed) {
+      alert("Confirm the formulation match before creating the SKU.");
+      return;
+    }
+
     try {
       await skusService.create({
         name: skuForm.name,
@@ -298,6 +317,15 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
       console.error("Error creating SKU:", err);
       alert("Failed to create SKU");
     }
+  };
+
+  const handleConfirmLinkedMatch = () => {
+    if (!skuForm.recipe_id) {
+      alert("Choose a formulation first.");
+      return;
+    }
+
+    setLinkedMatchConfirmed(true);
   };
 
   const handleSelectSku = (sku) => {
@@ -357,6 +385,11 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
                 <p className="section-subtitle">
                   Excel detected a sellable SKU draft for {importedSkuDraft.name}. Nothing has been saved yet.
                 </p>
+                {!summaryLinkedFormulationName && workbookFormulationName && (
+                  <p className="mt-2 text-sm font-semibold text-amber-900">
+                    Workbook formulation draft detected: {workbookFormulationName}. Save that formulation first, then return here to confirm the SKU link.
+                  </p>
+                )}
                 {importedSkuDrafts.length > 1 && (
                   <p className="mt-2 text-sm font-semibold text-amber-900">
                     {importedSkuDrafts.length} SKUs detected in this workbook.
@@ -377,6 +410,11 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
                 ) : (
                   <button type="button" onClick={applyImportedDraft} className="btn btn-primary">
                     Load into Create Form
+                  </button>
+                )}
+                {onOpenFormulation && !summaryRecipeId && workbookFormulationName && (
+                  <button type="button" onClick={onOpenFormulation} className="btn btn-secondary">
+                    Open formulation first
                   </button>
                 )}
                 <button
@@ -433,6 +471,29 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
               {summaryLinkedFormulationName ? `Linked formulation: ${summaryLinkedFormulationName}` : "Linked formulation not selected"}
             </span>
           </div>
+
+          {importedSkuDraft && summaryRecipeId && (
+            <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-emerald-900">Suggested formulation match</p>
+                  <p className="text-sm text-emerald-800">{summaryLinkedFormulationName}. Confirm this is the right formulation before creating the SKU.</p>
+                </div>
+                <button type="button" onClick={handleConfirmLinkedMatch} className="btn btn-primary">
+                  {linkedMatchConfirmed ? "Match confirmed" : "Confirm match"}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {importedSkuDraft && !summaryRecipeId && workbookFormulationName && (
+            <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
+              <p className="text-sm font-semibold text-amber-900">This SKU still needs a saved formulation.</p>
+              <p className="text-sm text-amber-800">
+                Use the formulation draft from this workbook first, save it, then come back here and the SKU will auto-match.
+              </p>
+            </div>
+          )}
 
           {warningItems.length > 0 && (
             <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
@@ -731,7 +792,7 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
         {skus.length === 0 ? (
           <div className="table-container">
             <div className="px-6 py-12 text-center">
-              <p className="text-gray-500">No SKUs found. Create one to get started.</p>
+              <p className="text-gray-500">No saved SKUs yet. Save a formulation first, then create its SKU.</p>
             </div>
           </div>
         ) : (
