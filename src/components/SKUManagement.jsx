@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { skusService, recipesService, costingEngine } from "../services/supabaseService";
 
-export default function SKUManagement() {
+export default function SKUManagement({ pendingImport, clearPendingImport }) {
   const [skus, setSkus] = useState([]);
   const [recipes, setRecipes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -47,6 +47,8 @@ export default function SKUManagement() {
     isActive: true,
     priceOverride: false,
   });
+
+  const importedSkuDraft = pendingImport?.kind === "sku" ? pendingImport.draft : null;
 
   useEffect(() => {
     loadData();
@@ -122,10 +124,60 @@ export default function SKUManagement() {
     setActiveTab("detail");
   };
 
+  const applyImportedDraft = () => {
+    if (!importedSkuDraft) return;
+
+    setSkuForm({
+      name: importedSkuDraft.name || "",
+      category: importedSkuDraft.category || "",
+      recipe_id: importedSkuDraft.recipeId || "",
+      baseCostPerLiter: importedSkuDraft.baseCostPerLiter || 0,
+      currentSellingPrice: importedSkuDraft.currentSellingPrice || 0,
+    });
+    setActiveTab("create");
+
+    if (clearPendingImport) {
+      clearPendingImport();
+    }
+  };
+
   if (loading) return <div className="p-6 text-center">Loading...</div>;
 
   return (
     <div className="page-stack">
+      {importedSkuDraft && (
+        <section className="page-section">
+          <div className="content-card border-amber-300 bg-amber-50/70">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <h2 className="section-title">Imported SKU Draft</h2>
+                <p className="section-subtitle">
+                  Excel detected a sellable SKU draft for {importedSkuDraft.name}. Nothing has been saved yet.
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold text-amber-900">
+                  <span className="rounded-full bg-amber-100 px-3 py-1">Cost / L: ${Number(importedSkuDraft.baseCostPerLiter || 0).toFixed(2)}</span>
+                  <span className="rounded-full bg-amber-100 px-3 py-1">Excel margin: {Number(importedSkuDraft.marginPercent || 0).toFixed(1)}%</span>
+                  <span className="rounded-full bg-amber-100 px-3 py-1">Logic: {importedSkuDraft.pricingLogicType}</span>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <button type="button" onClick={applyImportedDraft} className="btn btn-primary">
+                  Load into Create Form
+                </button>
+                <button
+                  type="button"
+                  onClick={() => clearPendingImport && clearPendingImport()}
+                  className="btn btn-secondary"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* ====== SECTION 1: SKU LIST ====== */}
       <section>
         <div className="flex justify-between items-center mb-6">

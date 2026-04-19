@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { baseOilsService, additivesService, recipesService, recipeIngredientsService, costingEngine } from "../services/supabaseService";
 
-export default function FormulationEngine() {
+export default function FormulationEngine({ pendingImport, clearPendingImport }) {
   const [recipes, setRecipes] = useState([]);
   const [baseOils, setBaseOils] = useState([]);
   const [additives, setAdditives] = useState([]);
@@ -32,6 +32,8 @@ export default function FormulationEngine() {
   
   // Raw Material states
   const [materialPriceUpdates, setMaterialPriceUpdates] = useState({});
+
+  const importedFormulationDraft = pendingImport?.kind === "formulation" ? pendingImport.draft : null;
 
   useEffect(() => {
     loadData();
@@ -179,6 +181,38 @@ export default function FormulationEngine() {
     ]);
   };
 
+  const applyImportedDraft = () => {
+    if (!importedFormulationDraft) return;
+
+    setSkuForm({
+      name: importedFormulationDraft.skuName || importedFormulationDraft.name || "",
+      category: importedFormulationDraft.category || "",
+      specification: importedFormulationDraft.pricingLogicType || "",
+      version: "1.0",
+    });
+    setComponents((importedFormulationDraft.components || []).map((component, index) => ({
+      id: component.id || `${component.name || "component"}-${index}`,
+      name: component.name || component.component || "Component",
+      type: component.type || "Additive",
+      supplier: component.supplier || "Imported from Excel",
+      percentage: Number(component.percentage || component.share || 0),
+      unitCost: Number(component.unitCost || component.cost || 0),
+      lastUpdated: new Date().toLocaleDateString(),
+    })));
+    setBatchSize(importedFormulationDraft.batchSize || "100");
+    setChangeHistory([
+      {
+        timestamp: new Date().toLocaleString(),
+        change: `Imported formulation draft from ${importedFormulationDraft.workbookName || "Excel"}`,
+        user: "Current User",
+      },
+    ]);
+
+    if (clearPendingImport) {
+      clearPendingImport();
+    }
+  };
+
   if (loading) return <div className="p-6 text-center">Loading...</div>;
 
   const validation = getValidationStatus();
@@ -186,6 +220,39 @@ export default function FormulationEngine() {
 
   return (
     <div className="page-stack">
+      {importedFormulationDraft && (
+        <section className="page-section">
+          <div className="content-card border-emerald-300 bg-emerald-50/70">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <h2 className="section-title">Imported Formulation Draft</h2>
+                <p className="section-subtitle">
+                  Excel detected a formulation-style cost breakdown for {importedFormulationDraft.skuName || importedFormulationDraft.name}. The draft is not applied yet.
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold text-emerald-900">
+                  <span className="rounded-full bg-emerald-100 px-3 py-1">Cost / L: ${Number(importedFormulationDraft.estimatedCostPerLiter || 0).toFixed(2)}</span>
+                  <span className="rounded-full bg-emerald-100 px-3 py-1">Excel margin: {Number(importedFormulationDraft.marginPercent || 0).toFixed(1)}%</span>
+                  <span className="rounded-full bg-emerald-100 px-3 py-1">Rows: {(importedFormulationDraft.components || []).length}</span>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <button type="button" onClick={applyImportedDraft} className="btn btn-primary">
+                  Load into Workspace
+                </button>
+                <button
+                  type="button"
+                  onClick={() => clearPendingImport && clearPendingImport()}
+                  className="btn btn-secondary"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* ====== SECTION 1: SKU SELECTOR / CREATOR ====== */}
       <section className="page-section">
         <h2 className="section-title">Product Definition</h2>

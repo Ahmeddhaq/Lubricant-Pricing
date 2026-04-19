@@ -3,6 +3,7 @@ import React from "react";
 export default function Navigation({ activeTab, setActiveTab }) {
   const tabs = [
     { id: "dashboard", label: "Dashboard" },
+    { id: "excel", label: "Excel Intelligence" },
     { id: "formulation", label: "Formulation" },
     { id: "skus", label: "SKUs" },
     { id: "quotes", label: "Quotes" },
