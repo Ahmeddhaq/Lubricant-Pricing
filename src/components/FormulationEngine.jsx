@@ -383,7 +383,8 @@ export default function FormulationEngine({ pendingImport, clearPendingImport })
                 />
               </div>
 
-              <div className="flex items-end">
+              <div className="form-group mb-0">
+                <span className="invisible block text-sm font-semibold text-gray-900">Action</span>
                 <button
                   type="button"
                   onClick={handleAddComponent}

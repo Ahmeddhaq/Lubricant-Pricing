@@ -35,9 +35,20 @@ export const historyService = {
   },
 
   recordUpload(payload) {
-    return request("/api/history", {
+    const normalizedPayload = {
+      original_filename: payload.originalFilename,
+      storage_bucket: payload.storageBucket,
+      storage_path: payload.storagePath,
+      file_size_bytes: payload.fileSizeBytes,
+      sheet_count: payload.sheetCount,
+      row_count: payload.rowCount,
+      source_app_version: payload.sourceAppVersion,
+      notes: payload.notes,
+    };
+
+    return request("/api/history/upload", {
       method: "POST",
-      body: { type: "upload", ...payload },
+      body: normalizedPayload,
     });
   },
 

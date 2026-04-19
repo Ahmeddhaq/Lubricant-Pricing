@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 
 const capabilities = [
   {
@@ -281,15 +281,42 @@ const styles = {
 };
 
 export default function LandingPage({ onSignIn, onCreateAccount }) {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 768px)");
+    const update = () => setIsMobile(media.matches);
+
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
+
+  const shellPadding = isMobile ? "18px" : "36px";
+  const outerPadding = isMobile ? "16px" : "24px";
+  const headerDirection = isMobile ? "column" : "row";
+  const headerAlign = isMobile ? "flex-start" : "center";
+  const heroColumns = isMobile ? "1fr" : "minmax(0, 1.2fr) minmax(320px, 0.8fr)";
+  const sectionPadding = isMobile ? "18px" : "24px";
+  const titleSize = isMobile ? "clamp(2rem, 10vw, 3rem)" : "clamp(2.35rem, 4.2vw, 4.6rem)";
+  const heroPanelPadding = isMobile ? "20px" : "32px";
+  const sidePanelPadding = isMobile ? "20px" : "28px";
+  const capabilityColumns = isMobile ? "1fr" : "repeat(2, minmax(0, 1fr))";
+  const flowColumns = isMobile ? "repeat(2, minmax(0, 1fr))" : "repeat(5, minmax(0, 1fr))";
+  const footerDirection = isMobile ? "column" : "row";
+  const footerAlign = isMobile ? "flex-start" : "center";
+  const actionDirection = isMobile ? "column" : "row";
+  const actionWidth = isMobile ? "100%" : "auto";
+
   return (
-    <div style={styles.screen}>
-      <div style={styles.shell}>
-        <div style={styles.header}>
+    <div style={{ ...styles.screen, padding: outerPadding }}>
+      <div style={{ ...styles.shell, padding: shellPadding }}>
+        <div style={{ ...styles.header, flexDirection: headerDirection, alignItems: headerAlign, marginBottom: isMobile ? "24px" : "40px" }}>
           <div style={styles.brand}>
             <div style={styles.brandLabel}>Enterprise product overview</div>
             <h1 style={styles.brandName}>Lubricant Pricing</h1>
           </div>
-          <div style={styles.headerActions}>
+          <div style={{ ...styles.headerActions, flexDirection: actionDirection, width: isMobile ? "100%" : "auto" }}>
             <button type="button" onClick={onSignIn} style={styles.secondaryButton}>
               Sign in
             </button>
@@ -299,11 +326,11 @@ export default function LandingPage({ onSignIn, onCreateAccount }) {
           </div>
         </div>
 
-        <div style={styles.hero}>
-          <section style={styles.heroPanel}>
+        <div style={{ ...styles.hero, gridTemplateColumns: heroColumns, gap: isMobile ? "14px" : "0" }}>
+          <section style={{ ...styles.heroPanel, padding: heroPanelPadding }}>
             <div style={styles.eyebrow}>Product overview</div>
-            <h2 style={styles.title}>One system for formulation, pricing, quotes, and profit control.</h2>
-            <p style={styles.summary}>
+            <h2 style={{ ...styles.title, fontSize: titleSize }}>One system for formulation, pricing, quotes, and profit control.</h2>
+            <p style={{ ...styles.summary, maxWidth: isMobile ? "100%" : "46rem" }}>
               Built for enterprise teams that need a controlled workflow from product formulation through SKU management,
               pricing, quoting, and audit-ready history. It keeps the data model consistent across users, devices,
               and teams.
@@ -316,13 +343,13 @@ export default function LandingPage({ onSignIn, onCreateAccount }) {
           </section>
         </div>
 
-        <section style={styles.sidePanel}>
+        <section style={{ ...styles.sidePanel, marginTop: isMobile ? "14px" : "0", padding: sidePanelPadding }}>
           <h3 style={styles.sideTitle}>What it does in 10 seconds</h3>
           <p style={styles.sideCopy}>
             It takes formulation data, turns it into SKUs, applies pricing logic, generates quotes, and keeps a clean
             record of what changed and who changed it.
           </p>
-          <div style={styles.flow}>
+          <div style={{ ...styles.flow, gridTemplateColumns: flowColumns, marginTop: isMobile ? "16px" : "22px" }}>
             {flowSteps.map((step) => (
               <div key={step} style={styles.flowStep}>
                 {step}
@@ -331,10 +358,10 @@ export default function LandingPage({ onSignIn, onCreateAccount }) {
           </div>
         </section>
 
-        <section style={styles.section}>
+        <section style={{ ...styles.section, marginTop: isMobile ? "18px" : "28px", padding: sectionPadding }}>
           <h3 style={styles.sectionHeader}>Key capabilities</h3>
           <p style={styles.sectionText}>The product is organized around core modules, not feature clutter.</p>
-          <div style={styles.capabilityGrid}>
+          <div style={{ ...styles.capabilityGrid, gridTemplateColumns: capabilityColumns, marginTop: isMobile ? "14px" : "18px" }}>
             {capabilities.map((capability) => (
               <div key={capability.title} style={styles.capabilityCard}>
                 <h4 style={styles.capabilityTitle}>{capability.title}</h4>
@@ -344,7 +371,7 @@ export default function LandingPage({ onSignIn, onCreateAccount }) {
           </div>
         </section>
 
-        <section style={styles.section}>
+        <section style={{ ...styles.section, marginTop: isMobile ? "18px" : "28px", padding: sectionPadding }}>
           <h3 style={styles.sectionHeader}>Enterprise trust</h3>
           <p style={styles.sectionText}>
             This is built for teams that care about auditability, access control, and consistent outputs across users.
@@ -358,7 +385,7 @@ export default function LandingPage({ onSignIn, onCreateAccount }) {
           </div>
         </section>
 
-        <section style={styles.footerCta}>
+        <section style={{ ...styles.footerCta, flexDirection: footerDirection, alignItems: footerAlign, marginTop: isMobile ? "18px" : "28px", padding: sectionPadding }}>
           <div style={styles.footerCopy}>
             <h3 style={styles.footerTitle}>Ready to enter the workspace?</h3>
             <p style={styles.footerText}>
@@ -366,11 +393,11 @@ export default function LandingPage({ onSignIn, onCreateAccount }) {
               workflow.
             </p>
           </div>
-          <div style={styles.headerActions}>
-            <button type="button" onClick={onSignIn} style={styles.secondaryButton}>
+          <div style={{ ...styles.headerActions, flexDirection: actionDirection, width: isMobile ? "100%" : "auto" }}>
+            <button type="button" onClick={onSignIn} style={{ ...styles.secondaryButton, width: actionWidth }}>
               Sign in
             </button>
-            <button type="button" onClick={onCreateAccount} style={styles.primaryButton}>
+            <button type="button" onClick={onCreateAccount} style={{ ...styles.primaryButton, width: actionWidth }}>
               Create account
             </button>
           </div>

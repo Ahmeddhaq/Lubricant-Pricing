@@ -103,9 +103,22 @@ app.post("/api/history", async (req, res) => {
   const { user, supabaseAuthed } = auth;
 
   const payload = req.body || {};
+  const { type, ...payloadWithoutType } = payload;
+
+  const normalizeUploadPayload = (uploadPayload) => ({
+    original_filename: uploadPayload.original_filename ?? uploadPayload.originalFilename,
+    storage_bucket: uploadPayload.storage_bucket ?? uploadPayload.storageBucket,
+    storage_path: uploadPayload.storage_path ?? uploadPayload.storagePath,
+    file_size_bytes: uploadPayload.file_size_bytes ?? uploadPayload.fileSizeBytes,
+    sheet_count: uploadPayload.sheet_count ?? uploadPayload.sheetCount,
+    row_count: uploadPayload.row_count ?? uploadPayload.rowCount,
+    source_app_version: uploadPayload.source_app_version ?? uploadPayload.sourceAppVersion,
+    notes: uploadPayload.notes,
+  });
 
   const insertByType = async (tableName) => {
-    const { data, error } = await supabaseAuthed.from(tableName).insert([{ ...payload, user_id: user.id }]).select().single();
+    const record = type === "upload" ? normalizeUploadPayload(payloadWithoutType) : payloadWithoutType;
+    const { data, error } = await supabaseAuthed.from(tableName).insert([{ ...record, user_id: user.id }]).select().single();
     if (error) {
       res.status(500).json({ error: error.message });
       return true;
@@ -114,22 +127,49 @@ app.post("/api/history", async (req, res) => {
     return true;
   };
 
-  if (payload.type === "upload") {
+  if (type === "upload") {
     await insertByType("excel_uploads");
     return;
   }
 
-  if (payload.type === "config") {
+  if (type === "config") {
     await insertByType("config_versions");
     return;
   }
 
-  if (payload.type === "run") {
+  if (type === "run") {
     await insertByType("upload_config_runs");
     return;
   }
 
   res.status(400).json({ error: "Unknown history type." });
+});
+
+app.post("/api/history/upload", async (req, res) => {
+  const auth = await requireUser(req, res);
+  if (!auth) return;
+  const { user, supabaseAuthed } = auth;
+
+  const payload = req.body || {};
+  const record = {
+    original_filename: payload.original_filename ?? payload.originalFilename,
+    storage_bucket: payload.storage_bucket ?? payload.storageBucket,
+    storage_path: payload.storage_path ?? payload.storagePath,
+    file_size_bytes: payload.file_size_bytes ?? payload.fileSizeBytes,
+    sheet_count: payload.sheet_count ?? payload.sheetCount,
+    row_count: payload.row_count ?? payload.rowCount,
+    source_app_version: payload.source_app_version ?? payload.sourceAppVersion,
+    notes: payload.notes,
+    user_id: user.id,
+  };
+
+  const { data, error } = await supabaseAuthed.from("excel_uploads").insert([record]).select().single();
+  if (error) {
+    res.status(500).json({ error: error.message });
+    return;
+  }
+
+  res.json(data);
 });
 
 app.post("/api/auth/signup", async (req, res) => {

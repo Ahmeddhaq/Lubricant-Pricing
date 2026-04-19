@@ -197,6 +197,7 @@ const styles = {
 export default function AuthScreen({ initialMode = "signin", onBackToLanding }) {
   const { signIn, signUp, error } = useAuth();
   const [mode, setMode] = useState(initialMode);
+  const [isMobile, setIsMobile] = useState(false);
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -206,6 +207,16 @@ export default function AuthScreen({ initialMode = "signin", onBackToLanding }) 
   useEffect(() => {
     setMode(initialMode);
   }, [initialMode]);
+
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 768px)");
+
+    const update = () => setIsMobile(media.matches);
+    update();
+
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -227,12 +238,12 @@ export default function AuthScreen({ initialMode = "signin", onBackToLanding }) 
   };
 
   return (
-    <div style={styles.screen}>
-      <div style={styles.shell}>
-        <div style={styles.grid}>
-          <section style={styles.story}>
+    <div style={{ ...styles.screen, padding: isMobile ? "14px" : "24px" }}>
+      <div style={{ ...styles.shell, minHeight: isMobile ? "auto" : "calc(100vh - 48px)", padding: isMobile ? "14px" : "20px" }}>
+        <div style={{ ...styles.grid, gridTemplateColumns: isMobile ? "1fr" : styles.grid.gridTemplateColumns, gap: isMobile ? "14px" : "24px" }}>
+          <section style={{ ...styles.story, padding: isMobile ? "20px" : "32px" }}>
             <div style={styles.eyebrow}>Multi-user pricing workspace</div>
-            <h1 style={styles.title}>
+            <h1 style={{ ...styles.title, fontSize: isMobile ? "clamp(1.8rem, 8vw, 2.6rem)" : styles.title.fontSize }}>
               Centralized control for formulation, pricing, and generating quotes
             </h1>
             <div style={styles.pills}>
@@ -242,7 +253,7 @@ export default function AuthScreen({ initialMode = "signin", onBackToLanding }) 
             </div>
           </section>
 
-          <form onSubmit={handleSubmit} style={styles.form}>
+          <form onSubmit={handleSubmit} style={{ ...styles.form, padding: isMobile ? "20px" : "28px" }}>
             {onBackToLanding && (
               <button type="button" onClick={onBackToLanding} style={styles.backButton}>
                 ← Back to overview
@@ -265,10 +276,10 @@ export default function AuthScreen({ initialMode = "signin", onBackToLanding }) 
               </button>
             </div>
 
-            <h2 style={styles.formTitle}>Access your workspace</h2>
+            <h2 style={{ ...styles.formTitle, fontSize: isMobile ? "1.45rem" : styles.formTitle.fontSize }}>Access your workspace</h2>
             <p style={styles.formCopy}>Use the same email for all devices if you want shared history.</p>
 
-            <div style={styles.fields}>
+            <div style={{ ...styles.fields, gap: isMobile ? "12px" : "16px", marginTop: isMobile ? "18px" : "22px" }}>
               {mode === "signup" && (
                 <label style={styles.field}>
                   <span style={styles.label}>Full name</span>
@@ -315,11 +326,7 @@ export default function AuthScreen({ initialMode = "signin", onBackToLanding }) 
               </div>
             )}
 
-            <button
-              type="submit"
-              disabled={busy}
-              style={styles.submit}
-            >
+            <button type="submit" disabled={busy} style={styles.submit}>
               {busy ? "Working..." : mode === "signin" ? "Sign in" : "Create account"}
             </button>
           </form>
