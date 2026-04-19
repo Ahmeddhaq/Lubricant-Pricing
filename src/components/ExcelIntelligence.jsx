@@ -736,6 +736,22 @@ export default function ExcelIntelligence({ onPrepareImport, externalWorkbookReq
     );
   };
 
+  // Auto-import batch SKUs when analysis is ready
+  useEffect(() => {
+    if (!analysis || !selectedDrafts || allDraftBundles.length < 2 || !onPrepareImport) {
+      return;
+    }
+
+    console.log("🚀 Auto-triggering batch SKU import for", allDraftBundles.length, "SKUs");
+
+    // Small delay to ensure UI state is settled
+    const timer = setTimeout(() => {
+      handlePrepare("skus");
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [analysis, selectedDrafts, allDraftBundles.length, onPrepareImport]);
+
   return (
     <div className="page-stack">
       <section className="page-section">
