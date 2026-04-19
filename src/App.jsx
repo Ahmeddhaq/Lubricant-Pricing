@@ -79,7 +79,7 @@ function AppShell() {
           </div>
         )}
 
-        <HistoryPanel />
+        {activeTab === "dashboard" && <HistoryPanel />}
 
         <div className="page-header">
           {activeTab === "dashboard" && <h1>Dashboard</h1>}
