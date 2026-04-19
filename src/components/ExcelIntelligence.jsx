@@ -15,6 +15,25 @@ const COST_KEYWORDS = ["sku", "component", "%", "percent", "percentage", "cost",
 const PRICING_KEYWORDS = ["market", "sku", "price", "currency", "margin", "markup", "sell"];
 const FORMULATION_KEYWORDS = ["base oil", "additive", "ingredient", "recipe", "formulation", "component", "blend"];
 
+const UPLOAD_CHECKLIST = [
+  {
+    title: "SKU import",
+    text: "Use one row per SKU with a product name, category, and at least a selling price or margin column.",
+  },
+  {
+    title: "Formulation import",
+    text: "Include a formulation or recipe name plus base oil, component/additive, percentage, and unit cost columns.",
+  },
+  {
+    title: "Paired workbook",
+    text: "If SKU rows and formulation rows are in the same workbook, keep them on separate sheets or clearly named sections.",
+  },
+  {
+    title: "Avoid for best results",
+    text: "Merged headers, blank title rows, or several unrelated tables on the same sheet make auto-detection less reliable.",
+  },
+];
+
 function normalize(value) {
   return String(value ?? "")
     .trim()
@@ -424,6 +443,7 @@ export default function ExcelIntelligence({ onPrepareImport, externalWorkbookReq
   const [loadingWorkbook, setLoadingWorkbook] = useState(false);
   const [error, setError] = useState("");
   const [selectedSku, setSelectedSku] = useState("");
+  const [showUploadHelp, setShowUploadHelp] = useState(false);
   const [systemSummary, setSystemSummary] = useState({
     loaded: false,
     averageMargin: null,
@@ -673,11 +693,54 @@ export default function ExcelIntelligence({ onPrepareImport, externalWorkbookReq
               </p>
             </div>
 
-            <label className="choose-file-button">
-              <span>{loadingWorkbook ? "Analyzing workbook..." : "Choose Excel file"}</span>
-              <input type="file" accept=".xlsx,.xls" onChange={handleFileUpload} className="hidden" />
-            </label>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-300 bg-white text-sm font-black text-slate-700 shadow-sm transition hover:bg-slate-100"
+                aria-label="Check workbook format before uploading"
+                aria-expanded={showUploadHelp}
+                aria-controls="upload-format-help"
+                onClick={() => setShowUploadHelp((value) => !value)}
+                title="Check workbook format before uploading"
+              >
+                i
+              </button>
+
+              <label className="choose-file-button">
+                <span>{loadingWorkbook ? "Analyzing workbook..." : "Choose Excel file"}</span>
+                <input type="file" accept=".xlsx,.xls" onChange={handleFileUpload} className="hidden" />
+              </label>
+            </div>
           </div>
+
+          {showUploadHelp && (
+            <div id="upload-format-help" className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                <div>
+                  <h3 className="text-base font-semibold text-slate-900">Check this before uploading</h3>
+                  <p className="text-sm text-slate-600">
+                    The app works with a normal workbook, but it auto-detects better when the file follows one of these patterns.
+                  </p>
+                </div>
+                <button type="button" className="text-sm font-semibold text-slate-500 hover:text-slate-900" onClick={() => setShowUploadHelp(false)}>
+                  Close
+                </button>
+              </div>
+
+              <div className="mt-4 grid gap-3 md:grid-cols-2">
+                {UPLOAD_CHECKLIST.map((item) => (
+                  <div key={item.title} className="rounded-xl bg-slate-50 p-3">
+                    <p className="text-sm font-semibold text-slate-900">{item.title}</p>
+                    <p className="mt-1 text-sm text-slate-600">{item.text}</p>
+                  </div>
+                ))}
+              </div>
+
+              <p className="mt-4 text-sm text-slate-600">
+                If the workbook has only SKU names and prices, the SKU import can still work, but a formulation can only be auto-created when the workbook gives enough recipe or base-oil detail.
+              </p>
+            </div>
+          )}
 
           {error && <p className="mt-4 text-sm font-semibold text-red-700">{error}</p>}
           {!analysis && !error && <p className="mt-4 text-sm text-slate-600">The app will not auto-fill your system. It only reads the workbook and prepares a draft when you explicitly ask for it.</p>}
