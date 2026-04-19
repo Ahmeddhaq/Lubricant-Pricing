@@ -452,11 +452,12 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
         await skusService.create(buildSkuCreatePayload({ draft, recipeId }));
       }
 
-      await loadData();
-      setActiveTab("list");
+      // CLEAR imported SKU drafts FIRST to prevent re-import loop and duplicates
       if (clearPendingImport) clearPendingImport();
 
-      // Show success toast
+      await loadData();
+
+      // Show success toast (DO NOT auto-navigate)
       const message = `✓ Dashboard Ready for Analysis! ${resolvedDrafts.length} SKU${resolvedDrafts.length === 1 ? "" : "s"} imported.`;
       setToastMessage(message);
       setToastType("success");
