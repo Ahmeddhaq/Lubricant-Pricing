@@ -82,6 +82,7 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
   const [toastType, setToastType] = useState("success"); // success, info, error
+  const [lastImportTime, setLastImportTime] = useState(0); // Prevent auto-import loop
 
   useEffect(() => {
     loadData();
@@ -144,6 +145,12 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
       return;
     }
 
+    // Prevent re-triggering within 2 seconds of last import (anti-loop guard)
+    const now = Date.now();
+    if (now - lastImportTime < 2000) {
+      return;
+    }
+
     console.log("🔍 Checking if auto-import should trigger...");
     console.log("importedSkuDrafts:", importedSkuDrafts.length);
     console.log("recipes:", recipes.length);
@@ -155,6 +162,9 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
       .join("\n");
     console.log("📊 Ready to auto-import SKUs:\n" + skuSummary);
     
+    // Mark import time immediately to prevent loop
+    setLastImportTime(now);
+    
     // Auto-trigger import with a small delay to ensure state is settled
     const timer = setTimeout(() => {
       console.log("🚀 Triggering auto-import...");
@@ -162,7 +172,7 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
     }, 500);
 
     return () => clearTimeout(timer);
-  }, [importedSkuDrafts, hasAccessibleBaseOils, creatingLinkedRecipe, importingBatch]);
+  }, [importedSkuDrafts, hasAccessibleBaseOils, creatingLinkedRecipe, importingBatch, lastImportTime]);
 
   const loadData = async () => {
     setLoading(true);
