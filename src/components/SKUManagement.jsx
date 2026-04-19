@@ -651,9 +651,18 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
 
               <div className="flex flex-wrap gap-2">
                 {!hasAccessibleBaseOils && (
-                  <p className="mt-2 text-sm font-semibold text-amber-900">
-                    No base oils are accessible yet, so import is blocked until at least one base_oils row exists in Supabase.
-                  </p>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                    <p className="text-sm font-semibold text-amber-900">
+                      No base oils are accessible yet. Import is blocked until base_oils rows exist in Supabase.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={loadData}
+                      className="btn btn-secondary whitespace-nowrap"
+                    >
+                      🔄 Refresh Data
+                    </button>
+                  </div>
                 )}
                 {importedSkuDrafts.length > 1 ? (
                   <button type="button" onClick={handleImportDrafts} disabled={importingBatch || !hasAccessibleBaseOils} className="btn btn-primary">
