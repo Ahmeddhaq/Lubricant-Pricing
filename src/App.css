@@ -30,6 +30,11 @@ body {
   animation: slideInUp 0.55s ease-out;
 }
 
+.page-transition {
+  animation: fadeLiftIn 240ms ease-out;
+  transform-origin: center top;
+}
+
 @keyframes spin {
   from {
     transform: rotate(0deg);
@@ -52,6 +57,20 @@ body {
   }
 }
 
+@keyframes fadeLiftIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.992);
+    filter: blur(2px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
 .animate-spin {
   animation: spin 1s linear infinite;
 }
@@ -63,6 +82,16 @@ body {
 .hover-lift:hover {
   transform: translateY(-2px);
   box-shadow: var(--shadow-md);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-container,
+  .page-transition,
+  .hover-lift,
+  .auth-submit {
+    animation: none !important;
+    transition: none !important;
+  }
 }
 
 /* Auth screen */

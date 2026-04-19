@@ -39,7 +39,7 @@ const styles = {
     maxWidth: "1280px",
     minHeight: "calc(100vh - 48px)",
     margin: "0 auto",
-    padding: "28px",
+    padding: "36px",
     borderRadius: "32px",
     border: "1px solid rgba(255,255,255,0.09)",
     background: "rgba(15, 23, 42, 0.72)",
@@ -51,7 +51,7 @@ const styles = {
     justifyContent: "space-between",
     alignItems: "center",
     gap: "16px",
-    marginBottom: "32px",
+    marginBottom: "40px",
   },
   brand: {
     display: "grid",
@@ -100,9 +100,7 @@ const styles = {
   },
   hero: {
     display: "grid",
-    gridTemplateColumns: "minmax(0, 1.2fr) minmax(320px, 0.8fr)",
-    gap: "24px",
-    alignItems: "stretch",
+    gap: "0",
   },
   heroPanel: {
     padding: "32px",
@@ -194,7 +192,7 @@ const styles = {
     textAlign: "center",
   },
   section: {
-    marginTop: "24px",
+    marginTop: "28px",
     padding: "24px",
     borderRadius: "24px",
     border: "1px solid rgba(255,255,255,0.08)",
@@ -253,7 +251,7 @@ const styles = {
     fontWeight: 700,
   },
   footerCta: {
-    marginTop: "24px",
+    marginTop: "28px",
     padding: "24px",
     borderRadius: "24px",
     border: "1px solid rgba(255,255,255,0.08)",
@@ -282,7 +280,7 @@ const styles = {
   },
 };
 
-export default function LandingPage({ onSignIn, onRequestAccess }) {
+export default function LandingPage({ onSignIn, onCreateAccount }) {
   return (
     <div style={styles.screen}>
       <div style={styles.shell}>
@@ -295,8 +293,8 @@ export default function LandingPage({ onSignIn, onRequestAccess }) {
             <button type="button" onClick={onSignIn} style={styles.secondaryButton}>
               Sign in
             </button>
-            <button type="button" onClick={onRequestAccess} style={styles.primaryButton}>
-              Request access
+            <button type="button" onClick={onCreateAccount} style={styles.primaryButton}>
+              Create account
             </button>
           </div>
         </div>
@@ -316,22 +314,22 @@ export default function LandingPage({ onSignIn, onRequestAccess }) {
               <div style={styles.chip}>Traceable by design</div>
             </div>
           </section>
-
-          <section style={styles.sidePanel}>
-            <h3 style={styles.sideTitle}>What it does in 10 seconds</h3>
-            <p style={styles.sideCopy}>
-              It takes formulation data, turns it into SKUs, applies pricing logic, generates quotes, and keeps a
-              clean record of what changed and who changed it.
-            </p>
-            <div style={styles.flow}>
-              {flowSteps.map((step) => (
-                <div key={step} style={styles.flowStep}>
-                  {step}
-                </div>
-              ))}
-            </div>
-          </section>
         </div>
+
+        <section style={styles.sidePanel}>
+          <h3 style={styles.sideTitle}>What it does in 10 seconds</h3>
+          <p style={styles.sideCopy}>
+            It takes formulation data, turns it into SKUs, applies pricing logic, generates quotes, and keeps a clean
+            record of what changed and who changed it.
+          </p>
+          <div style={styles.flow}>
+            {flowSteps.map((step) => (
+              <div key={step} style={styles.flowStep}>
+                {step}
+              </div>
+            ))}
+          </div>
+        </section>
 
         <section style={styles.section}>
           <h3 style={styles.sectionHeader}>Key capabilities</h3>
@@ -364,7 +362,7 @@ export default function LandingPage({ onSignIn, onRequestAccess }) {
           <div style={styles.footerCopy}>
             <h3 style={styles.footerTitle}>Ready to enter the workspace?</h3>
             <p style={styles.footerText}>
-              Existing users can sign in. New users can request access and start from the controlled enterprise
+              Existing users can sign in. New users can create an account and start from the controlled enterprise
               workflow.
             </p>
           </div>
@@ -372,8 +370,8 @@ export default function LandingPage({ onSignIn, onRequestAccess }) {
             <button type="button" onClick={onSignIn} style={styles.secondaryButton}>
               Sign in
             </button>
-            <button type="button" onClick={onRequestAccess} style={styles.primaryButton}>
-              Request access
+            <button type="button" onClick={onCreateAccount} style={styles.primaryButton}>
+              Create account
             </button>
           </div>
         </section>

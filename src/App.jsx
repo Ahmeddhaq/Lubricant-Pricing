@@ -58,10 +58,18 @@ function AppShell() {
 
   if (!session) {
     if (authView === "landing") {
-      return <LandingPage onSignIn={() => setAuthView("signin")} onRequestAccess={() => setAuthView("signup")} />;
+      return (
+        <div key="landing" className="page-transition">
+          <LandingPage onSignIn={() => setAuthView("signin")} onCreateAccount={() => setAuthView("signup")} />
+        </div>
+      );
     }
 
-    return <AuthScreen initialMode={authView} onBackToLanding={() => setAuthView("landing")} />;
+    return (
+      <div key={authView} className="page-transition">
+        <AuthScreen initialMode={authView} onBackToLanding={() => setAuthView("landing")} />
+      </div>
+    );
   }
 
   return (
@@ -94,7 +102,7 @@ function AppShell() {
           {activeTab === "skus" && <h1>SKU Management</h1>}
           {activeTab === "quotes" && <h1>Quote Builder</h1>}
         </div>
-        <div className="page-frame">
+        <div key={activeTab} className="page-frame page-transition">
           {activeTab === "dashboard" && <Dashboard />}
           {activeTab === "excel" && <ExcelIntelligence onPrepareImport={handlePrepareImport} />}
           {activeTab === "formulation" && (
