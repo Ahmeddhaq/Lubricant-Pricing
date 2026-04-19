@@ -265,6 +265,98 @@ function mergeSkuInsight(primary, secondary) {
   };
 }
 
+function inferFormulationComponentType(componentName, explicitType = "") {
+  const explicitValue = String(explicitType ?? "").trim();
+  if (explicitValue) return explicitValue;
+
+  const normalized = normalize(componentName);
+  if (/base oil/i.test(normalized)) return "Base Oil";
+  if (/vi improver|modifier/i.test(normalized)) return "Modifier";
+  if (/additive/i.test(normalized)) return "Additive";
+  return "Additive";
+}
+
+function buildFormulationSheetInsights(sheetReport, systemBenchmarkMargin) {
+  const headers = sheetReport.headers || [];
+  const skuIndex = findHeaderIndex(headers, ["sku", "product", "name"]);
+  const componentIndex = findHeaderIndex(headers, ["component", "ingredient", "material"]);
+  const typeIndex = findHeaderIndex(headers, ["type", "component type", "ingredient type"]);
+  const percentIndex = findHeaderIndex(headers, ["percentage", "%", "percent"]);
+  const unitCostIndex = findHeaderIndex(headers, ["unit cost", "cost/l", "cost per liter", "cost per unit"]);
+  const contributionIndex = findHeaderIndex(headers, ["cost contribution", "contribution"]);
+  const fallbackBenchmark = Number.isFinite(systemBenchmarkMargin) ? systemBenchmarkMargin : 25;
+  const groupedInsights = new Map();
+
+  sheetReport.rows.slice(1).forEach((row, rowIndex) => {
+    const rawSku = skuIndex >= 0 ? row[skuIndex] : "";
+    const sku = normalize(rawSku);
+    if (!sku) return;
+
+    const displayName = String(rawSku || `SKU ${rowIndex + 2}`).trim();
+    const rawComponent = componentIndex >= 0 ? row[componentIndex] : "";
+    const rawType = typeIndex >= 0 ? row[typeIndex] : "";
+    const percentage = percentIndex >= 0 ? toNumber(row[percentIndex]) : null;
+    const unitCost = unitCostIndex >= 0 ? toNumber(row[unitCostIndex]) : null;
+    const contributionValue = contributionIndex >= 0 ? toNumber(row[contributionIndex]) : null;
+    const contribution = contributionValue ?? (percentage !== null && unitCost !== null ? (percentage * unitCost) / 100 : null);
+
+    if (!groupedInsights.has(sku)) {
+      groupedInsights.set(sku, {
+        sku,
+        displayName,
+        components: [],
+        totalCostPerLiter: 0,
+        missingComponents: [],
+      });
+    }
+
+    const group = groupedInsights.get(sku);
+    if (!group.displayName) {
+      group.displayName = displayName;
+    }
+
+    group.components.push({
+      component: String(rawComponent || `Row ${rowIndex + 2}`),
+      type: inferFormulationComponentType(rawComponent, rawType),
+      percentage,
+      unitCost,
+      contribution,
+    });
+
+    if (contribution !== null) {
+      group.totalCostPerLiter += contribution;
+    }
+
+    if (!rawComponent || percentage === null || unitCost === null || contribution === null) {
+      group.missingComponents.push(`${displayName.toUpperCase()}: ${rawComponent || `Row ${rowIndex + 2}`}`);
+    }
+  });
+
+  return Array.from(groupedInsights.values()).map((group) => {
+    const formulationCostPerLiter = Number(group.totalCostPerLiter.toFixed(2));
+
+    return {
+      sku: group.sku,
+      displayName: group.displayName,
+      category: inferCategory(group.displayName),
+      costPerLiter: formulationCostPerLiter,
+      formulationCostPerLiter,
+      formulationComponents: group.components,
+      formulationPricingLogicType: "Formulation sheet",
+      formulationPricingLogicDetail: `${sheetReport.sheetName} parsed into ${group.components.length} component${group.components.length === 1 ? "" : "s"}.`,
+      formulationSheetName: sheetReport.sheetName,
+      missingCostComponents: group.missingComponents,
+      systemBenchmarkMargin: fallbackBenchmark,
+      systemBenchmarkPrice: Number(costingEngine.calculateSellingPrice(formulationCostPerLiter, fallbackBenchmark).toFixed(2)),
+      recipeNameCandidates: Array.from(new Set([
+        group.displayName,
+        `${group.displayName} Formulation`,
+        sheetReport.sheetName,
+      ])),
+    };
+  });
+}
+
 function buildAnalysis(workbook, systemBenchmarkMargin) {
   const sheetReports = workbook.SheetNames.map((sheetName) => {
     const worksheet = workbook.Sheets[sheetName];
@@ -284,7 +376,8 @@ function buildAnalysis(workbook, systemBenchmarkMargin) {
 
   const costSheet = sheetReports.find((sheet) => sheet.role === "costing" || /cost/i.test(sheet.sheetName)) || null;
   const pricingSheet = sheetReports.find((sheet) => sheet.role === "pricing" || /price/i.test(sheet.sheetName)) || null;
-  const formulationSheet = sheetReports.find((sheet) => sheet.role === "formulation" || /formulation|recipe|blend/i.test(sheet.sheetName)) || null;
+  const formulationSheets = sheetReports.filter((sheet) => sheet.role === "formulation" || /formulation|recipe|blend/i.test(sheet.sheetName));
+  const formulationSheet = formulationSheets[0] || null;
 
   const costBySku = new Map();
   const pricingBySku = new Map();
@@ -403,6 +496,7 @@ function buildAnalysis(workbook, systemBenchmarkMargin) {
   });
 
   const genericSkuInsights = sheetReports.flatMap((sheet) => buildGenericSkuInsights(sheet, fallbackBenchmark));
+  const formulationSheetInsights = formulationSheets.flatMap((sheet) => buildFormulationSheetInsights(sheet, fallbackBenchmark));
   const skuInsightMap = new Map();
 
   structuredSkuInsights.forEach((insight) => {
@@ -424,6 +518,30 @@ function buildAnalysis(workbook, systemBenchmarkMargin) {
     skuInsightMap.set(key, insight);
   });
 
+  formulationSheetInsights.forEach((insight) => {
+    const key = normalize(insight.sku || insight.displayName);
+    if (!key) return;
+
+    if (skuInsightMap.has(key)) {
+      const current = skuInsightMap.get(key);
+      skuInsightMap.set(key, {
+        ...current,
+        costPerLiter: insight.formulationCostPerLiter ?? current.costPerLiter,
+        formulationCostPerLiter: insight.formulationCostPerLiter,
+        formulationComponents: insight.formulationComponents,
+        formulationPricingLogicType: insight.formulationPricingLogicType,
+        formulationPricingLogicDetail: insight.formulationPricingLogicDetail,
+        formulationSheetName: insight.formulationSheetName,
+        formulationRecipeNameCandidates: insight.recipeNameCandidates,
+        missingCostComponents: Array.from(new Set([...(current.missingCostComponents || []), ...(insight.missingCostComponents || [])])),
+        recipeNameCandidates: Array.from(new Set([...(current.recipeNameCandidates || []), ...(insight.recipeNameCandidates || [])])),
+      });
+      return;
+    }
+
+    skuInsightMap.set(key, insight);
+  });
+
   const skuInsights = Array.from(skuInsightMap.values());
 
   return {
@@ -432,6 +550,7 @@ function buildAnalysis(workbook, systemBenchmarkMargin) {
     costSheet,
     pricingSheet,
     formulationSheet,
+    formulationInsights: formulationSheetInsights,
     skuInsights,
     missingCostComponents: Array.from(new Set(missingCostComponents)),
   };
@@ -447,13 +566,16 @@ function buildDraftBundle(report, selectedInsight) {
     `${selectedInsight.displayName} Formulation`,
     `${selectedInsight.displayName} Blend`,
     ...(selectedInsight.recipeNameCandidates || []),
+    ...(selectedInsight.formulationRecipeNameCandidates || []),
     report.formulationSheet?.sheetName,
+    selectedInsight.formulationSheetName,
   ].filter(Boolean);
 
-  const componentDrafts = selectedInsight.components.map((component, index) => ({
+  const sourceComponents = selectedInsight.formulationComponents || selectedInsight.components || [];
+  const componentDrafts = sourceComponents.map((component, index) => ({
     id: `${selectedInsight.sku}-${index}`,
     name: component.component,
-    type: /base oil/i.test(component.component) ? "Base Oil" : "Additive",
+    type: component.type || (/base oil/i.test(component.component) ? "Base Oil" : "Additive"),
     supplier: "Imported from Excel",
     percentage: component.percentage ?? 0,
     unitCost: component.unitCost ?? 0,
@@ -464,8 +586,8 @@ function buildDraftBundle(report, selectedInsight) {
     workbookName: report.workbookName,
     skuName: selectedInsight.displayName,
     category: selectedInsight.category,
-    pricingLogicType: selectedInsight.pricingLogicType,
-    estimatedCostPerLiter: selectedInsight.costPerLiter,
+    pricingLogicType: selectedInsight.formulationPricingLogicType || selectedInsight.pricingLogicType,
+    estimatedCostPerLiter: selectedInsight.formulationCostPerLiter ?? selectedInsight.costPerLiter,
     marginPercent: selectedInsight.averageMargin,
     batchSize: 100,
     components: componentDrafts,
@@ -492,7 +614,7 @@ function buildDraftBundle(report, selectedInsight) {
   return { formulationDraft, skuDraft };
 }
 
-export default function ExcelIntelligence({ onPrepareImport, externalWorkbookRequest, onExternalWorkbookHandled }) {
+export default function ExcelIntelligence({ onPrepareImport, onPrepareFormulationImport, externalWorkbookRequest, onExternalWorkbookHandled }) {
   const { user } = useAuth();
   const [analysis, setAnalysis] = useState(null);
   const [loadingWorkbook, setLoadingWorkbook] = useState(false);
@@ -505,6 +627,7 @@ export default function ExcelIntelligence({ onPrepareImport, externalWorkbookReq
     benchmarkMargin: 25,
   });
   const autoImportTriggeredRef = useRef("");
+  const autoFormulationTriggeredRef = useRef("");
 
   useEffect(() => {
     let cancelled = false;
@@ -703,21 +826,33 @@ export default function ExcelIntelligence({ onPrepareImport, externalWorkbookReq
         : "Aligned"
     : "No data";
 
-  const handlePrepare = (targetTab) => {
-    if (!selectedDrafts || !onPrepareImport) return;
+  const handlePrepareFormulation = () => {
+    if (!selectedDrafts) return;
 
-    if (targetTab === "formulation") {
-      onPrepareImport(
-        {
-          kind: "formulation",
-          draft: selectedDrafts.formulationDraft,
-          linkedSkuDraft: selectedDrafts.skuDraft,
-          linkedSkuDrafts: allDraftBundles.map((bundle) => bundle.skuDraft),
-        },
-        targetTab,
-      );
+    const payload = {
+      kind: "formulation",
+      draft: selectedDrafts.formulationDraft,
+      linkedSkuDraft: selectedDrafts.skuDraft,
+      linkedSkuDrafts: allDraftBundles.map((bundle) => bundle.skuDraft),
+    };
+
+    if (onPrepareFormulationImport) {
+      onPrepareFormulationImport(payload);
       return;
     }
+
+    if (onPrepareImport) {
+      onPrepareImport(payload, "formulation");
+    }
+  };
+
+  const handlePrepare = (targetTab) => {
+    if (targetTab === "formulation") {
+      handlePrepareFormulation();
+      return;
+    }
+
+    if (!selectedDrafts || !onPrepareImport) return;
 
     if (allDraftBundles.length > 1) {
       onPrepareImport(
@@ -778,6 +913,38 @@ export default function ExcelIntelligence({ onPrepareImport, externalWorkbookReq
 
     return () => window.clearTimeout(timer);
   }, [autoImportKey, allDraftBundles.length, analysis]);
+
+  const autoFormulationKey = useMemo(() => {
+    if (!analysis || !selectedDrafts || !selectedDrafts.formulationDraft?.components?.length || !onPrepareFormulationImport) {
+      return "";
+    }
+
+    return [
+      analysis.sourceUploadId || analysis.workbookName || "workbook",
+      selectedDrafts.formulationDraft.skuName || selectedDrafts.formulationDraft.name || "formulation",
+      selectedDrafts.formulationDraft.components.length,
+    ].join("|");
+  }, [analysis, selectedDrafts, onPrepareFormulationImport]);
+
+  useEffect(() => {
+    if (!autoFormulationKey) {
+      if (!analysis) {
+        autoFormulationTriggeredRef.current = "";
+      }
+      return;
+    }
+
+    if (autoFormulationTriggeredRef.current === autoFormulationKey) {
+      return;
+    }
+
+    autoFormulationTriggeredRef.current = autoFormulationKey;
+    const timer = window.setTimeout(() => {
+      handlePrepareFormulation();
+    }, 500);
+
+    return () => window.clearTimeout(timer);
+  }, [autoFormulationKey, analysis, selectedDrafts, allDraftBundles.length]);
 
   return (
     <div className="page-stack">

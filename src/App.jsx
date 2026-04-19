@@ -18,6 +18,7 @@ function AppShell() {
   const [pendingImport, setPendingImport] = useState(null);
   const [reopenedWorkbookRequest, setReopenedWorkbookRequest] = useState(null);
   const [readySkuImport, setReadySkuImport] = useState(null);
+  const [readyFormulationImport, setReadyFormulationImport] = useState(null);
   const [workspaceNotice, setWorkspaceNotice] = useState(null);
   const [workspaceDataVersion, setWorkspaceDataVersion] = useState(0);
   const [supabaseStatus, setSupabaseStatus] = useState({ state: "checking" });
@@ -47,6 +48,16 @@ function AppShell() {
   const handlePrepareImport = (payload, targetTab) => {
     setPendingImport({ ...payload, targetTab });
     setSidebarOpen(false);
+  };
+
+  const handleFormulationImportReady = (payload) => {
+    setReadyFormulationImport(payload);
+    setWorkspaceNotice({
+      title: "Formulation draft ready",
+      message: "Open the Formulation page to review the imported workbook sheet.",
+      action: "formulation",
+      actionLabel: "Open Formulation page",
+    });
   };
 
   const clearPendingImport = () => {
@@ -126,6 +137,8 @@ function AppShell() {
     setWorkspaceNotice({
       title: "Formulation created",
       message: "Ready for SKU creation. Open the SKU page to continue.",
+      action: "sku",
+      actionLabel: "Open SKU page",
     });
 
     setReadySkuImport(buildSkuImportFromLinkedDrafts(recipe, linkedSkuDrafts, sourceUploadId, snapshot));
@@ -142,18 +155,24 @@ function AppShell() {
         importedCount > 0
           ? `${importedCount} SKU${importedCount === 1 ? "" : "s"} imported and ready for analysis.`
           : "All imported SKUs already exist, so no new records were created.",
+      action: importedCount > 0 ? "dashboard" : null,
+      actionLabel: importedCount > 0 ? "Open Dashboard" : null,
     });
   };
 
   const openSkuCreation = () => {
-    if (readySkuImport) {
-      setPendingImport(readySkuImport);
-      setReadySkuImport(null);
-    }
-
     setWorkspaceNotice(null);
-    setActiveTab("skus");
-    setSidebarOpen(false);
+    handleTabChange("skus");
+  };
+
+  const openFormulationCreation = () => {
+    setWorkspaceNotice(null);
+    handleTabChange("formulation");
+  };
+
+  const openDashboard = () => {
+    setWorkspaceNotice(null);
+    handleTabChange("dashboard");
   };
 
   useEffect(() => {
@@ -200,6 +219,16 @@ function AppShell() {
   };
 
   const handleTabChange = (tab) => {
+    if (tab === "skus" && readySkuImport) {
+      setPendingImport(readySkuImport);
+      setReadySkuImport(null);
+    }
+
+    if (tab === "formulation" && readyFormulationImport) {
+      setPendingImport(readyFormulationImport);
+      setReadyFormulationImport(null);
+    }
+
     setActiveTab(tab);
     setSidebarOpen(false);
   };
@@ -286,6 +315,7 @@ function AppShell() {
           <div className={activeTab === "excel" ? "page-transition" : ""} hidden={activeTab !== "excel"}>
             <ExcelIntelligence
               onPrepareImport={handlePrepareImport}
+              onPrepareFormulationImport={handleFormulationImportReady}
               externalWorkbookRequest={reopenedWorkbookRequest}
               onExternalWorkbookHandled={clearReopenedWorkbookRequest}
             />
@@ -317,9 +347,15 @@ function AppShell() {
             <h3 className="mt-1 text-base font-semibold text-slate-900">{workspaceNotice.title}</h3>
             <p className="mt-2 text-sm leading-6 text-slate-600">{workspaceNotice.message}</p>
             <div className="mt-4 flex flex-wrap gap-2">
-              <button type="button" onClick={openSkuCreation} className="btn btn-primary btn-sm">
-                Open SKU page
-              </button>
+              {workspaceNotice.action && (
+                <button
+                  type="button"
+                  onClick={workspaceNotice.action === "formulation" ? openFormulationCreation : workspaceNotice.action === "dashboard" ? openDashboard : openSkuCreation}
+                  className="btn btn-primary btn-sm"
+                >
+                  {workspaceNotice.actionLabel || (workspaceNotice.action === "formulation" ? "Open Formulation page" : workspaceNotice.action === "dashboard" ? "Open Dashboard" : "Open SKU page")}
+                </button>
+              )}
               <button type="button" onClick={() => setWorkspaceNotice(null)} className="btn btn-secondary btn-sm">
                 Dismiss
               </button>
