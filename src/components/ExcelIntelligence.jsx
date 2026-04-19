@@ -112,6 +112,105 @@ function inferCategory(skuName) {
   return "Lubricants";
 }
 
+function buildGenericSkuInsights(sheetReport, systemBenchmarkMargin) {
+  const headers = sheetReport.headers || [];
+  const fallbackBenchmark = Number.isFinite(systemBenchmarkMargin) ? systemBenchmarkMargin : 25;
+
+  const skuIndex = findHeaderIndex(headers, ["sku name", "product name", "item name", "sku", "product", "item", "name"]);
+  const formulationIndex = findHeaderIndex(headers, ["linked formulation", "formulation", "recipe name", "recipe", "blend", "formula"]);
+  const categoryIndex = findHeaderIndex(headers, ["category", "product category", "type", "group"]);
+  const costIndex = findHeaderIndex(headers, ["cost per liter", "base cost", "cost/l", "cost per unit", "unit cost", "blend cost", "cost"]);
+  const priceIndex = findHeaderIndex(headers, ["selling price", "sale price", "unit price", "list price", "price"]);
+  const marginIndex = findHeaderIndex(headers, ["margin %", "gross margin", "margin"]);
+
+  const marketColumnIndexes = headers
+    .map((header, index) => ({ header, index, normalized: normalize(header) }))
+    .filter(({ index, normalized }) => {
+      if ([skuIndex, formulationIndex, categoryIndex, costIndex, priceIndex, marginIndex].includes(index)) return false;
+      return /(gcc|africa|asia|europe|america|middle east|uae|ksa|gulf|domestic|export|market|region|channel|customer|distributor|bulk|retail)/i.test(normalized);
+    })
+    .map(({ index }) => index);
+
+  const hasEssentialColumns = skuIndex >= 0 && (costIndex >= 0 || priceIndex >= 0 || marginIndex >= 0);
+  const hasContextColumns = priceIndex >= 0 || formulationIndex >= 0 || categoryIndex >= 0 || marketColumnIndexes.length > 0;
+  if (!hasEssentialColumns || !hasContextColumns) return [];
+
+  return sheetReport.rows.slice(1).map((row, rowIndex) => {
+    const rawSku = skuIndex >= 0 ? row[skuIndex] : "";
+    const rawFormulation = formulationIndex >= 0 ? row[formulationIndex] : "";
+    const rawCategory = categoryIndex >= 0 ? row[categoryIndex] : "";
+    const costPerLiter = costIndex >= 0 ? toNumber(row[costIndex]) : null;
+    const directPrice = priceIndex >= 0 ? toNumber(row[priceIndex]) : null;
+    const directMargin = marginIndex >= 0 ? toNumber(row[marginIndex]) : null;
+
+    const marketPrices = [];
+    if (directPrice !== null) {
+      marketPrices.push({ market: headers[priceIndex] || "Selling Price", price: directPrice });
+    }
+
+    marketColumnIndexes.forEach((index) => {
+      const marketPrice = toNumber(row[index]);
+      if (marketPrice !== null) {
+        marketPrices.push({ market: headers[index] || `Column ${index + 1}`, price: marketPrice });
+      }
+    });
+
+    const displayName = String(rawSku || rawFormulation || `SKU ${rowIndex + 2}`).trim();
+    if (!displayName && costPerLiter === null && directPrice === null && directMargin === null) {
+      return null;
+    }
+
+    const derivedAveragePrice = marketPrices.length
+      ? mean(marketPrices.map((entry) => entry.price))
+      : directPrice;
+    const priceForMargin = derivedAveragePrice ?? (costPerLiter !== null && directMargin !== null && directMargin < 100
+      ? costPerLiter / (1 - directMargin / 100)
+      : 0);
+    const derivedAverageMargin = directMargin !== null
+      ? directMargin
+      : costPerLiter !== null && priceForMargin > 0
+        ? ((priceForMargin - costPerLiter) / priceForMargin) * 100
+        : 0;
+    const recipeNameCandidates = Array.from(new Set([
+      rawFormulation,
+      displayName,
+      `${displayName} Formulation`,
+      `${displayName} Blend`,
+      sheetReport.sheetName,
+    ].filter(Boolean)));
+    const pricingLogicType = marketPrices.length > 1
+      ? "Market-based pricing"
+      : directMargin !== null
+        ? "Margin-based pricing"
+        : "Cost-plus pricing";
+    const pricingLogicDetail = marketPrices.length > 1
+      ? "Workbook stores price across market or customer columns."
+      : directMargin !== null
+        ? "Workbook provides an explicit margin column."
+        : "Workbook provides cost and price inputs only.";
+
+    return {
+      sku: normalize(displayName) || `row-${sheetReport.sheetName}-${rowIndex + 2}`,
+      displayName,
+      category: rawCategory || inferCategory(displayName),
+      costPerLiter: Number((costPerLiter ?? 0).toFixed(2)),
+      averagePrice: Number(((derivedAveragePrice ?? 0)).toFixed(2)),
+      averageMargin: Number((derivedAverageMargin ?? 0).toFixed(2)),
+      profitPerUnit: Number((((derivedAveragePrice ?? 0) - (costPerLiter ?? 0))).toFixed(2)),
+      pricingLogicType,
+      pricingLogicDetail,
+      marketPrices,
+      components: [],
+      missingCostComponents: costPerLiter === null ? [`${displayName}: missing cost`] : [],
+      systemBenchmarkMargin: fallbackBenchmark,
+      systemBenchmarkPrice: Number(costingEngine.calculateSellingPrice(costPerLiter ?? 0, fallbackBenchmark).toFixed(2)),
+      marginDelta: Number(((derivedAverageMargin ?? 0) - fallbackBenchmark).toFixed(2)),
+      recipeName: rawFormulation ? String(rawFormulation).trim() : "",
+      recipeNameCandidates,
+    };
+  }).filter(Boolean);
+}
+
 function buildAnalysis(workbook, systemBenchmarkMargin) {
   const sheetReports = workbook.SheetNames.map((sheetName) => {
     const worksheet = workbook.Sheets[sheetName];
@@ -212,7 +311,7 @@ function buildAnalysis(workbook, systemBenchmarkMargin) {
   const detectedSkus = Array.from(new Set([...costBySku.keys(), ...pricingBySku.keys()]));
   const fallbackBenchmark = Number.isFinite(systemBenchmarkMargin) ? systemBenchmarkMargin : 25;
 
-  const skuInsights = detectedSkus.map((sku) => {
+  let skuInsights = detectedSkus.map((sku) => {
     const costEntry = costBySku.get(sku) || { components: [], totalCostPerLiter: 0, missingComponents: [] };
     const pricingEntry = pricingBySku.get(sku) || { marketPrices: [] };
     const priceValues = pricingEntry.marketPrices.map((entry) => entry.price);
@@ -249,6 +348,10 @@ function buildAnalysis(workbook, systemBenchmarkMargin) {
     };
   });
 
+  if (skuInsights.length === 0) {
+    skuInsights = sheetReports.flatMap((sheet) => buildGenericSkuInsights(sheet, fallbackBenchmark));
+  }
+
   return {
     workbookName: workbook.Props?.Title || workbook.SheetNames[0] || "Uploaded workbook",
     sheetReports,
@@ -264,9 +367,12 @@ function buildDraftBundle(report, selectedInsight) {
   if (!selectedInsight) return null;
 
   const recipeNameCandidates = [
+    selectedInsight.recipeName,
+    selectedInsight.formulationName,
     selectedInsight.displayName,
     `${selectedInsight.displayName} Formulation`,
     `${selectedInsight.displayName} Blend`,
+    ...(selectedInsight.recipeNameCandidates || []),
     report.formulationSheet?.sheetName,
   ].filter(Boolean);
 
@@ -480,7 +586,7 @@ export default function ExcelIntelligence({ onPrepareImport }) {
         {
           kind: "sku-batch",
           draft: selectedDrafts.skuDraft,
-          drafts: allDraftBundles,
+          drafts: allDraftBundles.map((bundle) => bundle.skuDraft),
         },
         targetTab,
       );

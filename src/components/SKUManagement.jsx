@@ -67,7 +67,7 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
   const marginThreshold = DEFAULT_MARGIN_THRESHOLD;
 
   const importedSkuDrafts = pendingImport?.kind === "sku-batch"
-    ? pendingImport.drafts || []
+    ? (pendingImport.drafts || []).map((draft) => draft?.skuDraft || draft).filter(Boolean)
     : pendingImport?.kind === "sku"
       ? [pendingImport.draft]
       : [];
@@ -133,8 +133,16 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
   const getSummarySource = () => importedSkuDraft || selectedSku || null;
 
   const resolveRecipeIdForDraft = (draft) => {
-    const candidateNames = [draft?.recipeName, ...(draft?.recipeNameCandidates || [])].filter(Boolean).map(normalizeName);
-    const matchedRecipe = recipes.find((recipe) => candidateNames.includes(normalizeName(recipe.name)));
+    const candidateNames = [
+      draft?.recipeName,
+      draft?.formulationName,
+      draft?.linkedFormulation,
+      ...(draft?.recipeNameCandidates || []),
+    ].filter(Boolean).map(normalizeName);
+    const matchedRecipe = recipes.find((recipe) => {
+      const recipeName = normalizeName(recipe.name);
+      return candidateNames.some((candidate) => recipeName === candidate || recipeName.includes(candidate) || candidate.includes(recipeName));
+    });
     return matchedRecipe?.id || "";
   };
 
@@ -209,16 +217,29 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
   const handleImportDrafts = async () => {
     if (!importedSkuDrafts.length) return;
 
-    const unresolved = importedSkuDrafts.filter((draft) => !resolveRecipeIdForDraft(draft));
-    if (unresolved.length > 0) {
-      alert(`These SKUs still need a matching formulation in the system: ${unresolved.map((draft) => draft.name).join(", ")}`);
+    const resolvedDrafts = [];
+    const unresolvedDrafts = [];
+
+    importedSkuDrafts.forEach((draft) => {
+      const recipeId = resolveRecipeIdForDraft(draft);
+      if (recipeId) {
+        resolvedDrafts.push({ draft, recipeId });
+      } else {
+        unresolvedDrafts.push(draft);
+      }
+    });
+
+    if (resolvedDrafts.length === 0) {
+      const unresolvedNames = unresolvedDrafts
+        .map((draft) => draft.name || draft.recipeName || draft.formulationName || draft.recipeNameCandidates?.[0] || "Unnamed SKU")
+        .join(", ");
+      alert(`I found SKU rows, but none of them matched a saved formulation yet: ${unresolvedNames}`);
       return;
     }
 
     setImportingBatch(true);
     try {
-      for (const draft of importedSkuDrafts) {
-        const recipeId = resolveRecipeIdForDraft(draft);
+      for (const { draft, recipeId } of resolvedDrafts) {
         await skusService.create({
           name: draft.name || "Imported SKU",
           category: draft.category || "",
@@ -234,7 +255,14 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
       await loadData();
       setActiveTab("list");
       if (clearPendingImport) clearPendingImport();
-      alert(`Imported ${importedSkuDrafts.length} SKU${importedSkuDrafts.length === 1 ? "" : "s"} successfully!`);
+      if (unresolvedDrafts.length > 0) {
+        const unresolvedNames = unresolvedDrafts
+          .map((draft) => draft.name || draft.recipeName || draft.formulationName || draft.recipeNameCandidates?.[0] || "Unnamed SKU")
+          .join(", ");
+        alert(`Imported ${resolvedDrafts.length} SKU${resolvedDrafts.length === 1 ? "" : "s"}. These still need a formulation match: ${unresolvedNames}`);
+      } else {
+        alert(`Imported ${resolvedDrafts.length} SKU${resolvedDrafts.length === 1 ? "" : "s"} successfully!`);
+      }
     } catch (err) {
       console.error("Error bulk importing SKUs:", err);
       alert(err?.message || "Failed to import SKUs");
