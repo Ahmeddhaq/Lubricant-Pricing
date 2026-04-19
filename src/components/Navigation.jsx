@@ -3,9 +3,21 @@ import React from "react";
 export default function Navigation({ activeTab, setActiveTab, user, onSignOut }) {
   const tabs = [
     { id: "dashboard", label: "Dashboard" },
-    { id: "excel", label: "Excel Intelligence" },
-    { id: "formulation", label: "Formulation" },
-    { id: "skus", label: "SKUs" },
+    {
+      id: "excel",
+      label: "Excel Intelligence",
+      info: "Upload an Excel workbook to detect pricing, cost, and formulation structure. The app reads the file and prepares a draft; it does not overwrite your data automatically.",
+    },
+    {
+      id: "formulation",
+      label: "Formulation",
+      info: "Use this to build or review a formulation from ingredients, base oils, and additives. You should verify component percentages, costs, and batch size before saving.",
+    },
+    {
+      id: "skus",
+      label: "SKUs",
+      info: "Create and manage sellable SKU records from a formulation or imported draft. Check the pack size, pricing, and margin before you finalize anything.",
+    },
     { id: "quotes", label: "Quotes" },
   ];
 
@@ -16,15 +28,34 @@ export default function Navigation({ activeTab, setActiveTab, user, onSignOut })
       </div>
       <div className="sidebar-menu">
         {tabs.map((tab) => (
-          <button
+          <div
             key={tab.id}
+            role="button"
+            tabIndex={0}
             onClick={() => setActiveTab(tab.id)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                setActiveTab(tab.id);
+              }
+            }}
             className={`sidebar-menu-item ${
               activeTab === tab.id ? "active" : ""
             }`}
           >
-            {tab.label}
-          </button>
+            <span className="sidebar-menu-item-label">{tab.label}</span>
+            {tab.info && (
+              <button
+                type="button"
+                className="sidebar-info-button"
+                title={tab.info}
+                aria-label={`What ${tab.label} does`}
+                onClick={(event) => event.stopPropagation()}
+              >
+                i
+              </button>
+            )}
+          </div>
         ))}
       </div>
       <div className="sidebar-footer">

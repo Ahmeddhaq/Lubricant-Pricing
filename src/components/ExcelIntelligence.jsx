@@ -475,7 +475,7 @@ export default function ExcelIntelligence({ onPrepareImport }) {
               </p>
             </div>
 
-            <label className="inline-flex cursor-pointer items-center gap-3 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-900 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+            <label className="choose-file-button">
               <span>{loadingWorkbook ? "Analyzing workbook..." : "Choose Excel file"}</span>
               <input type="file" accept=".xlsx,.xls" onChange={handleFileUpload} className="hidden" />
             </label>

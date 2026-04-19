@@ -208,7 +208,7 @@ export default function SKUManagement({ pendingImport, clearPendingImport }) {
           <h2 className="text-2xl font-semibold text-gray-900">SKU Catalog</h2>
           <button
             onClick={() => setActiveTab("create")}
-            className="btn btn-primary"
+            className="btn btn-primary sku-add-button"
           >
             + Add New SKU
           </button>
@@ -269,15 +269,15 @@ export default function SKUManagement({ pendingImport, clearPendingImport }) {
       {/* ====== SECTION 2: PACK CONFIGURATION ====== */}
       <section className="page-section">
         <h2 className="section-title">Pack Configuration</h2>
-        <div className="section-grid" style={{ gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}>
+        <div className="section-grid sku-pack-grid" style={{ gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}>
           {Object.entries(packConfigs).map(([packName, config], idx) => {
             const totalCost = calculateTotalCostPerPack(packName);
             const margin = calculateMargin(totalCost, config.sellingPrice || 0);
             return (
-              <div key={idx} className="content-card">
+              <div key={idx} className="content-card sku-pack-card">
                 <div className="content-row-stack">
                   <h3 className="text-lg font-semibold text-gray-900">{packName} Configuration</h3>
-                  <div className="space-y-4">
+                  <div className="space-y-5">
                     <div className="compact-item">
                       <div className="flex justify-between items-center">
                         <span className="text-gray-600">Pack Size</span>
