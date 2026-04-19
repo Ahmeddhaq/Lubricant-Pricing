@@ -171,6 +171,33 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
     return calculateMargin(totalCost, config.sellingPrice || 0);
   };
 
+  const getDefaultPackConfig = () => {
+    const [packName, config] = Object.entries(packConfigs)[0] || ["1L", { size: 1, packagingCost: 0 }];
+    return {
+      packName,
+      config: config || { size: 1, packagingCost: 0 },
+    };
+  };
+
+  const buildSkuCreatePayload = ({ draft = {}, recipeId = "" } = {}) => {
+    const { packName, config } = getDefaultPackConfig();
+    const packSizeLiters = Number(config.size || 1) || 1;
+
+    return {
+      name: draft.name || skuForm.name || "Imported SKU",
+      category: draft.category || skuForm.category || "",
+      recipe_id: recipeId || skuForm.recipe_id || draft.recipeId || "",
+      pack_size_liters: packSizeLiters,
+      pack_description: draft.packDescription || `${packName} pack`,
+      packaging_cost_per_unit: Number(config.packagingCost || 0),
+      base_cost_per_liter: parseFloat(draft.baseCostPerLiter ?? skuForm.baseCostPerLiter) || 0,
+      current_selling_price: parseFloat(draft.currentSellingPrice ?? skuForm.currentSellingPrice) || 0,
+      margin_threshold: marginThreshold,
+      is_active: DEFAULT_SKU_FLAGS.isActive,
+      price_override: DEFAULT_SKU_FLAGS.priceOverride,
+    };
+  };
+
   const buildRecipeCandidateNames = (draft, linkedDraft) => [
     draft?.recipeName,
     draft?.formulationName,
@@ -377,16 +404,7 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
     setImportingBatch(true);
     try {
       for (const { draft, recipeId } of resolvedDrafts) {
-        await skusService.create({
-          name: draft.name || "Imported SKU",
-          category: draft.category || "",
-          recipe_id: recipeId,
-          base_cost_per_liter: parseFloat(draft.baseCostPerLiter) || 0,
-          current_selling_price: parseFloat(draft.currentSellingPrice) || 0,
-          margin_threshold: marginThreshold,
-          is_active: DEFAULT_SKU_FLAGS.isActive,
-          price_override: DEFAULT_SKU_FLAGS.priceOverride,
-        });
+        await skusService.create(buildSkuCreatePayload({ draft, recipeId }));
       }
 
       await loadData();
@@ -421,16 +439,15 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
     }
 
     try {
-      await skusService.create({
-        name: skuForm.name,
-        category: skuForm.category,
-        recipe_id: skuForm.recipe_id,
-        base_cost_per_liter: parseFloat(skuForm.baseCostPerLiter) || 0,
-        current_selling_price: parseFloat(skuForm.currentSellingPrice) || 0,
-        margin_threshold: marginThreshold,
-        is_active: DEFAULT_SKU_FLAGS.isActive,
-        price_override: DEFAULT_SKU_FLAGS.priceOverride,
-      });
+      await skusService.create(buildSkuCreatePayload({
+        draft: {
+          name: skuForm.name,
+          category: skuForm.category,
+          baseCostPerLiter: skuForm.baseCostPerLiter,
+          currentSellingPrice: skuForm.currentSellingPrice,
+        },
+        recipeId: skuForm.recipe_id,
+      }));
 
       setSkuForm({ name: "", category: "", recipe_id: "", baseCostPerLiter: 0, currentSellingPrice: 0 });
       setActiveTab("list");
