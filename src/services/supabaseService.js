@@ -2,16 +2,60 @@ import { createClient } from "@supabase/supabase-js";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const hasSupabaseConfig = Boolean(supabaseUrl && supabaseKey);
 
-export const supabase = supabaseUrl && supabaseKey 
+function createMissingSupabaseClient() {
+  const missingConfigError = new Error(
+    "Supabase env vars are missing from the frontend build. Restart Vite after setting VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env.local."
+  );
+
+  const queryResult = {
+    then(resolve) {
+      return Promise.resolve(resolve({ data: [], error: missingConfigError }));
+    },
+    catch() {
+      return Promise.resolve({ data: [], error: missingConfigError });
+    },
+  };
+
+  const queryBuilder = new Proxy(
+    {},
+    {
+      get(target, prop) {
+        if (prop === "then") return queryResult.then;
+        if (prop === "catch") return queryResult.catch;
+        if (prop === "select" || prop === "insert" || prop === "update" || prop === "delete" || prop === "order" || prop === "eq" || prop === "limit" || prop === "single" || prop === "match" || prop === "in" || prop === "gt" || prop === "gte" || prop === "lt" || prop === "lte" || prop === "ilike" || prop === "neq" || prop === "contains" || prop === "range") {
+          return () => queryBuilder;
+        }
+        return undefined;
+      },
+    }
+  );
+
+  return new Proxy(
+    {},
+    {
+      get(target, prop) {
+        if (prop === "from") {
+          return () => queryBuilder;
+        }
+        if (prop === "then") return queryResult.then;
+        if (prop === "catch") return queryResult.catch;
+        return undefined;
+      },
+    }
+  );
+}
+
+export const supabase = hasSupabaseConfig
   ? createClient(supabaseUrl, supabaseKey)
-  : null;
+  : createMissingSupabaseClient();
 
 // Helper to check if Supabase is configured
-export const isSupabaseConfigured = () => !!supabase;
+export const isSupabaseConfigured = () => hasSupabaseConfig;
 
 export async function checkSupabaseConnection() {
-  if (!supabase) {
+  if (!hasSupabaseConfig) {
     return {
       ok: false,
       reason: "missing-config",
