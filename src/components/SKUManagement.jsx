@@ -79,6 +79,9 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
   const [importingBatch, setImportingBatch] = useState(false);
   const [linkedMatchConfirmed, setLinkedMatchConfirmed] = useState(false);
   const [creatingLinkedRecipe, setCreatingLinkedRecipe] = useState(false);
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState("");
+  const [toastType, setToastType] = useState("success"); // success, info, error
 
   useEffect(() => {
     loadData();
@@ -128,6 +131,42 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
   useEffect(() => {
     setLinkedMatchConfirmed(false);
   }, [importedSkuDraft?.name, importedSkuDraft?.recipeName, skuForm.recipe_id]);
+
+  // Auto-import when all recipes are ready for batch imports
+  useEffect(() => {
+    if (
+      !importedSkuDrafts.length ||
+      !hasAccessibleBaseOils ||
+      creatingLinkedRecipe ||
+      importingBatch ||
+      importedSkuDrafts.length === 1 // Only auto-import batch (2+)
+    ) {
+      return;
+    }
+
+    // Check if all drafts have recipes resolved
+    let allRecipesReady = true;
+    for (const draft of importedSkuDrafts) {
+      const resolved = resolveRecipeIdForDraft(draft);
+      if (!resolved) {
+        allRecipesReady = false;
+        break;
+      }
+    }
+
+    if (allRecipesReady && skuForm.recipe_id) {
+      // Show summary in console
+      const skuSummary = importedSkuDrafts
+        .map((d) => `• ${d.name} (${Number(d.baseCostPerLiter || 0).toFixed(2)} AED/L)`)
+        .join("\n");
+      console.log("Auto-importing SKUs:\n" + skuSummary);
+      
+      // Auto-trigger import with a small delay to ensure state is settled
+      setTimeout(() => {
+        handleImportDrafts();
+      }, 300);
+    }
+  }, [importedSkuDrafts, hasAccessibleBaseOils, creatingLinkedRecipe, importingBatch, skuForm.recipe_id]);
 
   const loadData = async () => {
     setLoading(true);
@@ -364,7 +403,10 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
   const handleImportDrafts = async () => {
     if (!importedSkuDrafts.length) return;
     if (!hasAccessibleBaseOils) {
-      alert("No base oils are available in Supabase. Add at least one base_oils row before importing SKUs.");
+      setToastMessage("No base oils available yet. Add at least one base_oils row to Supabase before importing.");
+      setToastType("error");
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 5000);
       return;
     }
 
@@ -391,7 +433,10 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
       const unresolvedNames = unresolvedDrafts
         .map((draft) => draft.name || draft.recipeName || draft.formulationName || draft.recipeNameCandidates?.[0] || "Unnamed SKU")
         .join(", ");
-      alert(`I found SKU rows, but I could not create the fallback formulation for: ${unresolvedNames}`);
+      setToastMessage(`Could not create formulations for: ${unresolvedNames}`);
+      setToastType("error");
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 5000);
       return;
     }
 
@@ -404,17 +449,26 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
       await loadData();
       setActiveTab("list");
       if (clearPendingImport) clearPendingImport();
+
+      // Show success toast
+      const message = `✓ Dashboard Ready for Analysis! ${resolvedDrafts.length} SKU${resolvedDrafts.length === 1 ? "" : "s"} imported.`;
+      setToastMessage(message);
+      setToastType("success");
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 5000);
+
       if (unresolvedDrafts.length > 0) {
         const unresolvedNames = unresolvedDrafts
           .map((draft) => draft.name || draft.recipeName || draft.formulationName || draft.recipeNameCandidates?.[0] || "Unnamed SKU")
           .join(", ");
-        alert(`Imported ${resolvedDrafts.length} SKU${resolvedDrafts.length === 1 ? "" : "s"}. These still need a formulation match: ${unresolvedNames}`);
-      } else {
-        alert(`Imported ${resolvedDrafts.length} SKU${resolvedDrafts.length === 1 ? "" : "s"} successfully!`);
+        console.warn(`These still need a formulation match: ${unresolvedNames}`);
       }
     } catch (err) {
       console.error("Error bulk importing SKUs:", err);
-      alert(err?.message || "Failed to import SKUs");
+      setToastMessage(`Import failed: ${err?.message || "Unknown error"}`);
+      setToastType("error");
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 5000);
     } finally {
       setImportingBatch(false);
     }
@@ -510,6 +564,31 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
 
   return (
     <div className="page-stack">
+      {/* Toast Notification */}
+      {showToast && (
+        <div
+          className={`fixed top-4 right-4 z-50 rounded-lg px-6 py-4 shadow-lg transition-all duration-300 ${
+            toastType === "success"
+              ? "bg-green-50 border border-green-200"
+              : toastType === "error"
+              ? "bg-red-50 border border-red-200"
+              : "bg-blue-50 border border-blue-200"
+          }`}
+        >
+          <p
+            className={`text-sm font-semibold ${
+              toastType === "success"
+                ? "text-green-900"
+                : toastType === "error"
+                ? "text-red-900"
+                : "text-blue-900"
+            }`}
+          >
+            {toastMessage}
+          </p>
+        </div>
+      )}
+
       <section className="page-section">
         <div className="content-card border-slate-200 bg-slate-50/80">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
