@@ -26,7 +26,7 @@ const DEFAULT_SKU_FLAGS = {
   priceOverride: false,
 };
 
-export default function SKUManagement({ pendingImport, clearPendingImport, onOpenFormulation, dataRefreshToken }) {
+export default function SKUManagement({ pendingImport, clearPendingImport, onOpenFormulation, onOpenSkuCreation, readySkuImport, dataRefreshToken }) {
   const [skus, setSkus] = useState([]);
   const [recipes, setRecipes] = useState([]);
   const [baseOils, setBaseOils] = useState([]);
@@ -568,6 +568,36 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
         </section>
       )}
 
+      {!importedSkuDraft && readySkuImport && (
+        <section className="page-section">
+          <div className="content-card border-emerald-300 bg-emerald-50/70">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <h2 className="section-title">Formulation created</h2>
+                <p className="section-subtitle">
+                  The formulation is saved and ready to become a SKU. Load it into the create form to finish the setup.
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold text-emerald-900">
+                  <span className="rounded-full bg-emerald-100 px-3 py-1">Name: {readySkuImport.draft?.name || readySkuImport.draft?.recipeName || readySkuImport.linkedFormulationDraft?.name || "Imported SKU"}</span>
+                  <span className="rounded-full bg-emerald-100 px-3 py-1">Recipe: {readySkuImport.linkedFormulationDraft?.recipeName || readySkuImport.draft?.recipeName || "Ready"}</span>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <button type="button" onClick={onOpenSkuCreation} className="btn btn-primary">
+                  Create SKU now
+                </button>
+                {onOpenFormulation && (
+                  <button type="button" onClick={onOpenFormulation} className="btn btn-secondary">
+                    Review formulation
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
       <section className="page-section">
         <div className="content-card border-slate-200 bg-slate-50/80">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -931,7 +961,7 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
           <div className="table-container">
             <div className="px-6 py-12 text-center">
               <p className="text-gray-500">
-                {recipes.length > 0
+                {recipes.length > 0 || readySkuImport
                   ? "No saved SKUs yet. A formulation is already available, so click Add New SKU to create the first one."
                   : "No saved SKUs yet. Save a formulation first, then create its SKU."}
               </p>

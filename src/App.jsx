@@ -58,8 +58,10 @@ function AppShell() {
     setReopenedWorkbookRequest(null);
   };
 
-  const buildSkuImportFromLinkedDrafts = (recipeName, linkedSkuDrafts, sourceUploadId = null) => {
-    const sourceDraft = linkedSkuDrafts[0] || {};
+  const buildSkuImportFromLinkedDrafts = (recipe, linkedSkuDrafts, sourceUploadId = null, fallbackSnapshot = null) => {
+    const recipeName = recipe?.name || recipe || fallbackSnapshot?.skuForm?.name || fallbackSnapshot?.draft?.skuName || fallbackSnapshot?.draft?.name || "";
+    const sourceDraft = linkedSkuDrafts[0] || fallbackSnapshot?.draft || fallbackSnapshot?.skuForm || {};
+
     const linkedFormulationDraft = {
       skuName: recipeName || sourceDraft.recipeName || sourceDraft.name || sourceDraft.skuName || "",
       name: recipeName || sourceDraft.recipeName || sourceDraft.name || sourceDraft.skuName || "",
@@ -71,23 +73,37 @@ function AppShell() {
         sourceDraft.name,
         sourceDraft.skuName,
       ].filter(Boolean))),
-      pricingLogicType: sourceDraft.pricingLogicType || "",
+      pricingLogicType: sourceDraft.pricingLogicType || fallbackSnapshot?.draft?.pricingLogicType || "",
       sourceUploadId,
-      workbookName: sourceDraft.workbookName || "Imported workbook",
-      baseCostPerLiter: sourceDraft.baseCostPerLiter || 0,
+      workbookName: sourceDraft.workbookName || fallbackSnapshot?.draft?.workbookName || "Imported workbook",
+      baseCostPerLiter: sourceDraft.baseCostPerLiter || fallbackSnapshot?.draft?.estimatedCostPerLiter || 0,
       currentSellingPrice: sourceDraft.currentSellingPrice || 0,
     };
 
-    const normalizedSkuDrafts = linkedSkuDrafts.map((skuDraft) => ({
-      ...skuDraft,
-      recipeName: recipeName || skuDraft.recipeName || linkedFormulationDraft.recipeName,
-      recipeNameCandidates: Array.from(new Set([
-        recipeName,
-        skuDraft.recipeName,
-        ...(skuDraft.recipeNameCandidates || []),
-        linkedFormulationDraft.recipeName,
-      ].filter(Boolean))),
-    }));
+    const normalizedSkuDrafts = linkedSkuDrafts.length > 0
+      ? linkedSkuDrafts.map((skuDraft) => ({
+        ...skuDraft,
+        recipeName: recipeName || skuDraft.recipeName || linkedFormulationDraft.recipeName,
+        recipeNameCandidates: Array.from(new Set([
+          recipeName,
+          skuDraft.recipeName,
+          ...(skuDraft.recipeNameCandidates || []),
+          linkedFormulationDraft.recipeName,
+        ].filter(Boolean))),
+      }))
+      : [{
+        name: sourceDraft.name || recipeName || "Imported SKU",
+        category: sourceDraft.category || fallbackSnapshot?.skuForm?.category || "",
+        recipeName: linkedFormulationDraft.recipeName,
+        recipeNameCandidates: linkedFormulationDraft.recipeNameCandidates,
+        recipeId: recipe?.id || sourceDraft.recipeId || "",
+        baseCostPerLiter: sourceDraft.baseCostPerLiter || fallbackSnapshot?.draft?.estimatedCostPerLiter || 0,
+        currentSellingPrice: sourceDraft.currentSellingPrice || 0,
+        marginPercent: sourceDraft.marginPercent || fallbackSnapshot?.draft?.marginPercent || 0,
+        pricingLogicType: sourceDraft.pricingLogicType || fallbackSnapshot?.draft?.pricingLogicType || "",
+        workbookName: sourceDraft.workbookName || fallbackSnapshot?.draft?.workbookName || "Imported workbook",
+        sourceUploadId,
+      }];
 
     if (normalizedSkuDrafts.length > 1) {
       return {
@@ -113,12 +129,7 @@ function AppShell() {
       message: "Ready for SKU creation. Open the SKU page to continue.",
     });
 
-    if (recipe?.name && linkedSkuDrafts.length > 0) {
-      setReadySkuImport(buildSkuImportFromLinkedDrafts(recipe.name, linkedSkuDrafts, sourceUploadId));
-      return;
-    }
-
-    setReadySkuImport(null);
+    setReadySkuImport(buildSkuImportFromLinkedDrafts(recipe, linkedSkuDrafts, sourceUploadId, snapshot));
   };
 
   const openSkuCreation = () => {
@@ -278,6 +289,8 @@ function AppShell() {
               pendingImport={pendingImport}
               clearPendingImport={clearPendingImport}
               onOpenFormulation={() => handleTabChange("formulation")}
+              onOpenSkuCreation={openSkuCreation}
+              readySkuImport={readySkuImport}
               dataRefreshToken={workspaceDataVersion}
             />
           </div>
