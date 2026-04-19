@@ -189,6 +189,11 @@ export default function FormulationEngine({ pendingImport, clearPendingImport })
     return matchedBaseOil?.id || selectedBaseOilId || baseOils[0]?.id || "";
   };
 
+  const findRecipeByName = (recipeName) => {
+    const normalizedRecipeName = normalizeName(recipeName);
+    return recipes.find((recipe) => normalizeName(recipe.name) === normalizedRecipeName) || null;
+  };
+
   const normalizeComponentForSave = (component, index) => ({
     id: component.id || `${component.name || component.component || "component"}-${index}`,
     name: component.name || component.component || "Component",
@@ -230,32 +235,39 @@ export default function FormulationEngine({ pendingImport, clearPendingImport })
 
     setSavingRecipe(true);
     try {
-      const createdRecipe = await recipesService.create({
+      const existingRecipe = findRecipeByName(snapshot.skuForm.name);
+      const recipePayload = {
         name: snapshot.skuForm.name,
         description: snapshot.skuForm.specification || snapshot.draft?.pricingLogicType || "",
         status: "active",
         base_oil_id: snapshot.selectedBaseOilId,
         blending_cost_per_liter: 0,
-      });
+      };
+
+      const createdRecipe = existingRecipe
+        ? await recipesService.update(existingRecipe.id, recipePayload)
+        : await recipesService.create(recipePayload);
 
       const baseOilName = normalizeName(baseOils.find((entry) => entry.id === snapshot.selectedBaseOilId)?.name);
-      for (const component of snapshot.components) {
-        if (/base oil/i.test(component.type) || (baseOilName && normalizeName(component.name) === baseOilName)) {
-          continue;
+      if (!existingRecipe?.recipe_ingredients?.length) {
+        for (const component of snapshot.components) {
+          if (/base oil/i.test(component.type) || (baseOilName && normalizeName(component.name) === baseOilName)) {
+            continue;
+          }
+
+          const matchedAdditive = additives.find((entry) => {
+            const additiveName = normalizeName(entry.name);
+            const componentName = normalizeName(component.name);
+            return additiveName === componentName || additiveName.includes(componentName) || componentName.includes(additiveName);
+          });
+
+          if (!matchedAdditive) continue;
+
+          const quantityPerLiter = Number(component.percentage || 0) / 100;
+          if (quantityPerLiter <= 0) continue;
+
+          await recipeIngredientsService.addIngredient(createdRecipe.id, matchedAdditive.id, quantityPerLiter);
         }
-
-        const matchedAdditive = additives.find((entry) => {
-          const additiveName = normalizeName(entry.name);
-          const componentName = normalizeName(component.name);
-          return additiveName === componentName || additiveName.includes(componentName) || componentName.includes(additiveName);
-        });
-
-        if (!matchedAdditive) continue;
-
-        const quantityPerLiter = Number(component.percentage || 0) / 100;
-        if (quantityPerLiter <= 0) continue;
-
-        await recipeIngredientsService.addIngredient(createdRecipe.id, matchedAdditive.id, quantityPerLiter);
       }
 
       setChangeHistory((current) => [

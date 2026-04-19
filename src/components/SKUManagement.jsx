@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { skusService, recipesService, costingEngine } from "../services/supabaseService";
+import { skusService, recipesService, recipeIngredientsService, baseOilsService, additivesService, costingEngine } from "../services/supabaseService";
 import { historyService } from "../services/historyService";
 
 function normalizeName(value) {
@@ -29,6 +29,8 @@ const DEFAULT_SKU_FLAGS = {
 export default function SKUManagement({ pendingImport, clearPendingImport, onOpenFormulation }) {
   const [skus, setSkus] = useState([]);
   const [recipes, setRecipes] = useState([]);
+  const [baseOils, setBaseOils] = useState([]);
+  const [additives, setAdditives] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("list");
   const [selectedSku, setSelectedSku] = useState(null);
@@ -75,6 +77,7 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
   const linkedFormulationDrafts = pendingImport?.linkedFormulationDrafts || (pendingImport?.linkedFormulationDraft ? [pendingImport.linkedFormulationDraft] : []);
   const [importingBatch, setImportingBatch] = useState(false);
   const [linkedMatchConfirmed, setLinkedMatchConfirmed] = useState(false);
+  const [creatingLinkedRecipe, setCreatingLinkedRecipe] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -84,22 +87,42 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
     if (!importedSkuDraft || !recipes.length) return;
 
     if (!skuForm.recipe_id) {
-      const candidateNames = [
-        importedSkuDraft.recipeName,
-        ...(importedSkuDraft.recipeNameCandidates || []),
-        ...linkedFormulationDrafts.flatMap((draft) => [draft?.skuName, draft?.name]),
-      ].filter(Boolean).map(normalizeName);
-
-      const matchedRecipe = recipes.find((recipe) => {
-        const recipeName = normalizeName(recipe.name);
-        return candidateNames.some((candidate) => recipeName === candidate || recipeName.includes(candidate) || candidate.includes(recipeName));
-      });
+      const matchedRecipe = findMatchingRecipe(importedSkuDraft, linkedFormulationDrafts[0]);
       if (matchedRecipe) {
         setSkuForm((current) => ({ ...current, recipe_id: matchedRecipe.id }));
         setLinkedMatchConfirmed(false);
+        return;
       }
+
+      if (creatingLinkedRecipe) {
+        return;
+      }
+
+      let cancelled = false;
+      const autoCreateRecipe = async () => {
+        try {
+          setCreatingLinkedRecipe(true);
+          const createdRecipe = await createRecipeFromDraft(importedSkuDraft, linkedFormulationDrafts[0]);
+          if (!cancelled && createdRecipe) {
+            setSkuForm((current) => ({ ...current, recipe_id: createdRecipe.id }));
+            setLinkedMatchConfirmed(false);
+          }
+        } catch (err) {
+          console.error("Failed to auto-create formulation from workbook:", err);
+        } finally {
+          if (!cancelled) {
+            setCreatingLinkedRecipe(false);
+          }
+        }
+      };
+
+      autoCreateRecipe();
+
+      return () => {
+        cancelled = true;
+      };
     }
-  }, [importedSkuDraft, linkedFormulationDrafts, recipes, skuForm.recipe_id]);
+  }, [importedSkuDraft, linkedFormulationDrafts, recipes, skuForm.recipe_id, creatingLinkedRecipe]);
 
   useEffect(() => {
     setLinkedMatchConfirmed(false);
@@ -108,9 +131,16 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
   const loadData = async () => {
     setLoading(true);
     try {
-      const [skusData, recipesData] = await Promise.all([skusService.getAll(), recipesService.getAll()]);
+      const [skusData, recipesData, baseOilsData, additivesData] = await Promise.all([
+        skusService.getAll(),
+        recipesService.getAll(),
+        baseOilsService.getAll(),
+        additivesService.getAll(),
+      ]);
       setSkus(skusData);
       setRecipes(recipesData);
+      setBaseOils(baseOilsData);
+      setAdditives(additivesData);
     } catch (err) {
       console.error("Error loading data:", err);
       alert("Failed to load SKU data. Check that Supabase is configured and that skus and recipes tables exist.");
@@ -142,6 +172,83 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
   };
 
   const getSummarySource = () => importedSkuDraft || selectedSku || null;
+
+  const buildRecipeCandidateNames = (draft, linkedDraft) => [
+    draft?.recipeName,
+    draft?.formulationName,
+    draft?.linkedFormulation,
+    draft?.name,
+    ...(draft?.recipeNameCandidates || []),
+    linkedDraft?.skuName,
+    linkedDraft?.name,
+    ...(linkedDraft?.recipeNameCandidates || []),
+  ].filter(Boolean).map(normalizeName);
+
+  const findMatchingRecipe = (draft, linkedDraft) => {
+    const candidateNames = buildRecipeCandidateNames(draft, linkedDraft);
+    return recipes.find((recipe) => {
+      const recipeName = normalizeName(recipe.name);
+      return candidateNames.some((candidate) => recipeName === candidate || recipeName.includes(candidate) || candidate.includes(recipeName));
+    }) || null;
+  };
+
+  const pickBaseOilId = (linkedDraft) => {
+    if (!baseOils.length) return "";
+
+    const candidateNames = [
+      linkedDraft?.baseOilName,
+      linkedDraft?.baseOil,
+      linkedDraft?.baseOilCandidate,
+      linkedDraft?.baseOilType,
+    ].filter(Boolean).map(normalizeName);
+
+    const matchedBaseOil = baseOils.find((entry) => {
+      const baseOilName = normalizeName(entry.name);
+      return candidateNames.some((candidate) => baseOilName === candidate || baseOilName.includes(candidate) || candidate.includes(baseOilName));
+    });
+
+    return matchedBaseOil?.id || baseOils[0]?.id || "";
+  };
+
+  const createRecipeFromDraft = async (draft, linkedDraft) => {
+    const existingRecipe = findMatchingRecipe(draft, linkedDraft);
+    if (existingRecipe) return existingRecipe;
+
+    const recipeName = [draft?.recipeName, draft?.name, linkedDraft?.skuName, linkedDraft?.name, ...(draft?.recipeNameCandidates || []), ...(linkedDraft?.recipeNameCandidates || [])]
+      .filter(Boolean)[0];
+    const baseOilId = pickBaseOilId(linkedDraft);
+
+    if (!recipeName || !baseOilId) return null;
+
+    const createdRecipe = await recipesService.create({
+      name: recipeName,
+      description: linkedDraft?.pricingLogicType || draft?.pricingLogicType || "Imported from Excel",
+      status: "active",
+      base_oil_id: baseOilId,
+      blending_cost_per_liter: Number(linkedDraft?.estimatedCostPerLiter || draft?.baseCostPerLiter || 0) || 0,
+    });
+
+    const sourceComponents = (linkedDraft?.components && linkedDraft.components.length > 0) ? linkedDraft.components : (draft?.components || []);
+    for (const component of sourceComponents) {
+      const componentName = normalizeName(component.name || component.component || "");
+      if (!componentName || /base oil/i.test(component.type || "") || /base oil/i.test(componentName)) {
+        continue;
+      }
+
+      const matchedAdditive = additives.find((entry) => {
+        const additiveName = normalizeName(entry.name);
+        return additiveName === componentName || additiveName.includes(componentName) || componentName.includes(additiveName);
+      });
+
+      const quantityPerLiter = Number(component.percentage ?? component.share ?? 0) / 100;
+      if (!matchedAdditive || quantityPerLiter <= 0) continue;
+
+      await recipeIngredientsService.addIngredient(createdRecipe.id, matchedAdditive.id, quantityPerLiter);
+    }
+
+    await loadData();
+    return createdRecipe;
+  };
 
   const resolveRecipeIdForDraft = (draft) => {
     const candidateNames = [
@@ -234,20 +341,27 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
     const resolvedDrafts = [];
     const unresolvedDrafts = [];
 
-    importedSkuDrafts.forEach((draft) => {
-      const recipeId = resolveRecipeIdForDraft(draft);
+    for (const [index, draft] of importedSkuDrafts.entries()) {
+      const linkedDraft = linkedFormulationDrafts[index] || linkedFormulationDrafts[0] || null;
+      let recipeId = resolveRecipeIdForDraft(draft);
+
+      if (!recipeId) {
+        const createdRecipe = await createRecipeFromDraft(draft, linkedDraft);
+        recipeId = createdRecipe?.id || "";
+      }
+
       if (recipeId) {
         resolvedDrafts.push({ draft, recipeId });
       } else {
         unresolvedDrafts.push(draft);
       }
-    });
+    }
 
     if (resolvedDrafts.length === 0) {
       const unresolvedNames = unresolvedDrafts
         .map((draft) => draft.name || draft.recipeName || draft.formulationName || draft.recipeNameCandidates?.[0] || "Unnamed SKU")
         .join(", ");
-      alert(`I found SKU rows, but none of them matched a saved formulation yet: ${unresolvedNames}`);
+      alert(`I found SKU rows, but the workbook did not provide enough information to create a formulation for: ${unresolvedNames}`);
       return;
     }
 
