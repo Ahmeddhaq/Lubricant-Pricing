@@ -52,7 +52,7 @@ export default function FormulationEngine({ pendingImport, clearPendingImport })
       setAdditives(additivesData);
     } catch (err) {
       console.error("Error loading data:", err);
-      alert("Failed to load data");
+      alert("Failed to load formulation data. Check that Supabase is configured and that base_oils, additives, and recipes tables exist.");
     } finally {
       setLoading(false);
     }

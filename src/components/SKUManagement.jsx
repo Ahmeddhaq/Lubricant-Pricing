@@ -62,7 +62,7 @@ export default function SKUManagement({ pendingImport, clearPendingImport }) {
       setRecipes(recipesData);
     } catch (err) {
       console.error("Error loading data:", err);
-      alert("Failed to load data");
+      alert("Failed to load SKU data. Check that Supabase is configured and that skus and recipes tables exist.");
     } finally {
       setLoading(false);
     }

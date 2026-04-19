@@ -5,11 +5,17 @@ import FormulationEngine from "./components/FormulationEngine";
 import SKUManagement from "./components/SKUManagement";
 import QuoteBuilder from "./components/QuoteBuilder";
 import ExcelIntelligence from "./components/ExcelIntelligence";
+import SetupRequired from "./components/SetupRequired";
+import { isSupabaseConfigured } from "./services/supabaseService";
 import "./App.css";
 
 export default function PricingApp() {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [pendingImport, setPendingImport] = useState(null);
+
+  if (!isSupabaseConfigured()) {
+    return <SetupRequired />;
+  }
 
   const handlePrepareImport = (payload, targetTab) => {
     setPendingImport({ ...payload, targetTab });
