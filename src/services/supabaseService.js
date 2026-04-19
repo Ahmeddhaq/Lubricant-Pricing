@@ -214,6 +214,15 @@ export const recipesService = {
 
 // ============= RECIPE INGREDIENTS =============
 export const recipeIngredientsService = {
+  async getAll() {
+    const { data, error } = await supabase
+      .from("recipe_ingredients")
+      .select("*")
+      .order("created_at", { ascending: true });
+    if (error) throw error;
+    return data;
+  },
+
   async addIngredient(recipeId, additiveId, quantityPerLiter) {
     const { data, error } = await supabase
       .from("recipe_ingredients")
@@ -469,6 +478,15 @@ export const quotesService = {
 
 // ============= QUOTE ITEMS =============
 export const quoteItemsService = {
+  async getAll() {
+    const { data, error } = await supabase
+      .from("quote_items")
+      .select("*")
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+    return data;
+  },
+
   async addItem(quoteId, skuId, quantity, unitPrice, marginPercent) {
     const lineTotal = quantity * unitPrice;
     const { data, error } = await supabase

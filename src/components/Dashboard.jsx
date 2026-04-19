@@ -1,5 +1,15 @@
 import React, { useState, useEffect } from "react";
-import { quotesService, skusService, recipesService, costSnapshotsService, costingEngine } from "../services/supabaseService";
+import {
+  quotesService,
+  quoteItemsService,
+  skusService,
+  recipesService,
+  recipeIngredientsService,
+  baseOilsService,
+  additivesService,
+  costSnapshotsService,
+  costingEngine,
+} from "../services/supabaseService";
 
 function normalizeName(value) {
   return String(value ?? "")
@@ -40,6 +50,10 @@ function sortByDateDesc(left, right, field = "updated_at") {
   return new Date(right?.[field] || right?.created_at || 0) - new Date(left?.[field] || left?.created_at || 0);
 }
 
+function sum(values) {
+  return values.reduce((total, value) => total + Number(value || 0), 0);
+}
+
 export default function Dashboard({ dataRefreshToken = 0 }) {
   const [quotes, setQuotes] = useState([]);
   const [skus, setSkus] = useState([]);
@@ -51,9 +65,16 @@ export default function Dashboard({ dataRefreshToken = 0 }) {
     profitMargin: 0,
     activeDeals: 0,
     containersShipped: { teu20: 0, teu40: 0 },
+    totalSkus: 0,
     totalFormulations: 0,
+    totalSnapshots: 0,
     averageMaterialCostPerLiter: 0,
     averageFormulaCostPerLiter: 0,
+    averageSkuCostPerUnit: 0,
+    estimatedPortfolioRevenue: 0,
+    estimatedPortfolioCost: 0,
+    estimatedPortfolioProfit: 0,
+    estimatedPortfolioMargin: 0,
     averagePackagingCost: 0,
     averageOverheadCost: 0,
     averageAdditiveCostPercentage: 0,
@@ -98,10 +119,22 @@ export default function Dashboard({ dataRefreshToken = 0 }) {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [quotesData, skusData, recipesData] = await Promise.all([
+      const [
+        quotesData,
+        quoteItemsData,
+        skusData,
+        recipesData,
+        recipeIngredientsData,
+        baseOilsData,
+        additivesData,
+      ] = await Promise.all([
         quotesService.getAll(),
+        quoteItemsService.getAll(),
         skusService.getAll(),
         recipesService.getAll(),
+        recipeIngredientsService.getAll(),
+        baseOilsService.getAll(),
+        additivesService.getAll(),
       ]);
 
       const uniqueSkus = dedupeLatestSkus(skusData);
@@ -116,7 +149,16 @@ export default function Dashboard({ dataRefreshToken = 0 }) {
       setSkus(uniqueSkus);
 
       // Calculate statistics
-      calculateStats(quotesData, uniqueSkus, recipesData, latestSnapshots.filter(Boolean));
+      calculateStats(
+        quotesData,
+        quoteItemsData,
+        uniqueSkus,
+        recipesData,
+        recipeIngredientsData,
+        baseOilsData,
+        additivesData,
+        latestSnapshots.filter(Boolean)
+      );
     } catch (err) {
       console.error("Error loading data:", err);
     } finally {
@@ -124,9 +166,9 @@ export default function Dashboard({ dataRefreshToken = 0 }) {
     }
   };
 
-  const calculateStats = (quotesData, skusData, recipesData, latestSnapshots) => {
-    let totalRevenue = 0;
-    let totalCost = 0;
+  const calculateStats = (quotesData, quoteItemsData, skusData, recipesData, recipeIngredientsData, baseOilsData, additivesData, latestSnapshots) => {
+    let quotedRevenue = 0;
+    let quotedCost = 0;
     const skuProfits = {};
     const marketProfits = {};
     const dealStages = { open: 0, negotiation: 0, won: 0, lost: 0 };
@@ -134,16 +176,51 @@ export default function Dashboard({ dataRefreshToken = 0 }) {
     let containersShipped = { teu20: 0, teu40: 0 };
     const recipeById = new Map((recipesData || []).map((recipe) => [recipe.id, recipe]));
     const skusByRecipeId = new Map();
+    const skusById = new Map();
     skusData.forEach((sku) => {
+      skusById.set(sku.id, sku);
       if (!sku.recipe_id) return;
       if (!skusByRecipeId.has(sku.recipe_id)) {
         skusByRecipeId.set(sku.recipe_id, []);
       }
       skusByRecipeId.get(sku.recipe_id).push(sku);
     });
-    const latestSnapshotBySkuId = new Map((latestSnapshots || []).map((snapshot) => [snapshot.sku_id, snapshot]));
 
-    const getCostDataForSku = (sku) => {
+    const quoteItemsByQuoteId = new Map();
+    (quoteItemsData || []).forEach((item) => {
+      if (!quoteItemsByQuoteId.has(item.quote_id)) {
+        quoteItemsByQuoteId.set(item.quote_id, []);
+      }
+      quoteItemsByQuoteId.get(item.quote_id).push(item);
+    });
+
+    const baseOilById = new Map((baseOilsData || []).map((baseOil) => [baseOil.id, baseOil]));
+    const additiveById = new Map((additivesData || []).map((additive) => [additive.id, additive]));
+    const recipeIngredientsByRecipeId = new Map();
+    (recipeIngredientsData || []).forEach((ingredient) => {
+      if (!recipeIngredientsByRecipeId.has(ingredient.recipe_id)) {
+        recipeIngredientsByRecipeId.set(ingredient.recipe_id, []);
+      }
+      recipeIngredientsByRecipeId.get(ingredient.recipe_id).push(ingredient);
+    });
+
+    const normalizeRecipe = (recipe) => {
+      const rawBaseOil = baseOilById.get(recipe.base_oil_id) || recipe.base_oils || { name: "-", cost_per_liter: 0 };
+      const rawIngredients = recipeIngredientsByRecipeId.get(recipe.id) || recipe.recipe_ingredients || [];
+
+      return {
+        ...recipe,
+        base_oils: rawBaseOil,
+        recipe_ingredients: rawIngredients.map((ingredient) => ({
+          ...ingredient,
+          additives: additiveById.get(ingredient.additive_id) || ingredient.additives || { name: "-", cost_per_unit: 0, unit: "" },
+        })),
+      };
+    };
+
+    const latestSnapshotBySkuId = new Map((latestSnapshots || []).map((snapshot) => [snapshot.sku_id, snapshot]));
+    const skuCostDataById = new Map();
+    const calculateSkuCost = (sku) => {
       const snapshot = latestSnapshotBySkuId.get(sku.id);
       if (snapshot) {
         return {
@@ -156,8 +233,8 @@ export default function Dashboard({ dataRefreshToken = 0 }) {
         };
       }
 
-      const recipe = recipeById.get(sku.recipe_id) || sku.recipes || null;
-      if (!recipe) {
+      const recipe = normalizeRecipe(recipeById.get(sku.recipe_id) || sku.recipes || {});
+      if (!recipe || !recipe.base_oils) {
         return null;
       }
 
@@ -166,6 +243,13 @@ export default function Dashboard({ dataRefreshToken = 0 }) {
         source: "calculated",
       };
     };
+
+    skusData.forEach((sku) => {
+      const costData = calculateSkuCost(sku);
+      if (costData) {
+        skuCostDataById.set(sku.id, costData);
+      }
+    });
 
     quotesData.forEach((quote) => {
       // Track deal pipeline
@@ -182,23 +266,23 @@ export default function Dashboard({ dataRefreshToken = 0 }) {
         if (quote.shipment_details.container_type === "40FT") containersShipped.teu40++;
       }
 
-      if (quote.quote_items && Array.isArray(quote.quote_items)) {
-        quote.quote_items.forEach((item) => {
-          totalRevenue += item.line_total || 0;
+      const quoteItems = quoteItemsByQuoteId.get(quote.id) || quote.quote_items || [];
+      if (quoteItems && Array.isArray(quoteItems) && quoteItems.length > 0) {
+        quoteItems.forEach((item) => {
+          quotedRevenue += item.line_total || item.quantity * item.unit_price || 0;
 
-          // Calculate cost
-          const sku = skusData.find((s) => s.id === item.sku_id);
+          const sku = skusById.get(item.sku_id);
           if (sku) {
-            const costData = getCostDataForSku(sku);
+            const costData = skuCostDataById.get(sku.id) || calculateSkuCost(sku);
             const itemCost = (costData?.totalCost || 0) * item.quantity;
-            totalCost += itemCost;
+            quotedCost += itemCost;
 
             // Track by SKU
             const skuId = item.sku_id;
             if (!skuProfits[skuId]) {
               skuProfits[skuId] = { profit: 0, revenue: 0, cost: 0, count: 0, name: sku.name, margin: 0 };
             }
-            skuProfits[skuId].revenue += item.line_total || 0;
+            skuProfits[skuId].revenue += item.line_total || item.quantity * item.unit_price || 0;
             skuProfits[skuId].cost += itemCost;
             skuProfits[skuId].profit = skuProfits[skuId].revenue - skuProfits[skuId].cost;
             skuProfits[skuId].count += item.quantity;
@@ -209,52 +293,25 @@ export default function Dashboard({ dataRefreshToken = 0 }) {
             if (!marketProfits[market]) {
               marketProfits[market] = { revenue: 0, cost: 0, profit: 0 };
             }
-            marketProfits[market].revenue += item.line_total || 0;
+            marketProfits[market].revenue += item.line_total || item.quantity * item.unit_price || 0;
             marketProfits[market].cost += itemCost;
             marketProfits[market].profit = marketProfits[market].revenue - marketProfits[market].cost;
           }
         });
+      } else if (quote.total_amount) {
+        quotedRevenue += Number(quote.total_amount) || 0;
       }
     });
 
-    const grossProfit = totalRevenue - totalCost;
-    const profitMargin = totalRevenue > 0 ? (grossProfit / totalRevenue) * 100 : 0;
-
-    // Get top and bottom SKUs
-    const sortedSkus = Object.values(skuProfits).sort((a, b) => b.profit - a.profit);
-    const topSkus = sortedSkus.slice(0, 5);
-    const bottomSkus = sortedSkus.slice(-5).reverse();
-
-    // Identify low margin SKUs (< 15%)
-    const lowMarginSkus = Object.values(skuProfits).filter((s) => s.margin < 15);
-
-    // Identify losing quotes
-    const losingQuotes = quotesData
-      .filter((q) => q.quote_items && q.quote_items.length > 0)
-      .map((q) => {
-        let qRevenue = 0;
-        let qCost = 0;
-        q.quote_items.forEach((item) => {
-          qRevenue += item.line_total || 0;
-          const sku = skusData.find((s) => s.id === item.sku_id);
-          if (sku) {
-            const costData = getCostDataForSku(sku);
-            qCost += (costData?.totalCost || 0) * item.quantity;
-          }
-        });
-        return { ...q, qProfit: qRevenue - qCost };
-      })
-      .filter((q) => q.qProfit < 0)
-      .slice(0, 5);
-
     const recipeMetrics = (recipesData || []).map((recipe) => {
-      const baseOilCost = toNumber(recipe.base_oils?.cost_per_liter);
-      const additiveCost = (recipe.recipe_ingredients || []).reduce(
-        (sum, ingredient) => sum + toNumber(ingredient.quantity_per_liter) * toNumber(ingredient.additives?.cost_per_unit),
+      const normalizedRecipe = normalizeRecipe(recipe);
+      const baseOilCost = toNumber(normalizedRecipe.base_oils?.cost_per_liter);
+      const additiveCost = (normalizedRecipe.recipe_ingredients || []).reduce(
+        (sumValue, ingredient) => sumValue + toNumber(ingredient.quantity_per_liter) * toNumber(ingredient.additives?.cost_per_unit),
         0
       );
-      const materialCostPerLiter = costingEngine.calculateMaterialCostPerLiter(recipe);
-      const blendingCostPerLiter = toNumber(recipe.blending_cost_per_liter);
+      const materialCostPerLiter = costingEngine.calculateMaterialCostPerLiter(normalizedRecipe);
+      const blendingCostPerLiter = toNumber(normalizedRecipe.blending_cost_per_liter);
       const totalFormulaCostPerLiter = materialCostPerLiter + blendingCostPerLiter;
       const additiveShare = materialCostPerLiter > 0 ? (additiveCost / materialCostPerLiter) * 100 : 0;
       const linkedSkus = skusByRecipeId.get(recipe.id) || [];
@@ -266,14 +323,14 @@ export default function Dashboard({ dataRefreshToken = 0 }) {
       return {
         id: recipe.id,
         name: recipe.name,
-        baseOilName: recipe.base_oils?.name || "-",
+        baseOilName: normalizedRecipe.base_oils?.name || "-",
         baseOilCost,
         additiveCost,
         materialCostPerLiter,
         blendingCostPerLiter,
         totalFormulaCostPerLiter,
         additiveShare,
-        ingredientCount: (recipe.recipe_ingredients || []).length,
+        ingredientCount: (normalizedRecipe.recipe_ingredients || []).length,
         linkedSkuCount: linkedSkus.length,
         latestSnapshot,
         latestSnapshotCostPerUnit: toNumber(latestSnapshot?.total_cost || latestSnapshot?.cost_per_unit),
@@ -282,11 +339,74 @@ export default function Dashboard({ dataRefreshToken = 0 }) {
     });
 
     const totalFormulations = recipeMetrics.length;
+    const totalSkus = skusData.length;
+    const totalSnapshots = latestSnapshots.length;
     const averageMaterialCostPerLiter = average(recipeMetrics.map((metric) => metric.materialCostPerLiter));
     const averageFormulaCostPerLiter = average(recipeMetrics.map((metric) => metric.totalFormulaCostPerLiter));
     const averageAdditiveCostPercentage = average(recipeMetrics.map((metric) => metric.additiveShare));
-    const averagePackagingCost = average((latestSnapshots || []).map((snapshot) => toNumber(snapshot.packaging_cost)));
-    const averageOverheadCost = average((latestSnapshots || []).map((snapshot) => toNumber(snapshot.overhead_cost)));
+    const averagePackagingCost = average(
+      latestSnapshots.length > 0
+        ? latestSnapshots.map((snapshot) => toNumber(snapshot.packaging_cost))
+        : skusData.map((sku) => toNumber(sku.packaging_cost_per_unit))
+    );
+    const averageOverheadCost = average(
+      latestSnapshots.length > 0
+        ? latestSnapshots.map((snapshot) => toNumber(snapshot.overhead_cost))
+        : skusData.map((sku) => {
+            const costData = skuCostDataById.get(sku.id) || calculateSkuCost(sku);
+            return costData?.overheadCost || 0;
+          })
+    );
+
+    const averageSkuCostPerUnit = average(
+      skusData.map((sku) => {
+        const costData = skuCostDataById.get(sku.id) || calculateSkuCost(sku);
+        return costData?.totalCost || 0;
+      })
+    );
+
+    const estimatedPortfolioRevenue = sum(
+      skusData.map((sku) => toNumber(sku.current_selling_price ?? sku.selling_price ?? 0))
+    );
+    const estimatedPortfolioCost = sum(
+      skusData.map((sku) => {
+        const costData = skuCostDataById.get(sku.id) || calculateSkuCost(sku);
+        return costData?.totalCost || 0;
+      })
+    );
+
+    const actualRevenue = quotedRevenue > 0 ? quotedRevenue : estimatedPortfolioRevenue;
+    const actualCost = quotedCost > 0 ? quotedCost : estimatedPortfolioCost;
+    const grossProfit = actualRevenue - actualCost;
+    const profitMargin = actualRevenue > 0 ? (grossProfit / actualRevenue) * 100 : 0;
+
+    // Get top and bottom SKUs
+    const sortedSkus = Object.values(skuProfits).sort((a, b) => b.profit - a.profit);
+    const topSkus = sortedSkus.slice(0, 5);
+    const bottomSkus = sortedSkus.slice(-5).reverse();
+
+    // Identify low margin SKUs (< 15%)
+    const lowMarginSkus = Object.values(skuProfits).filter((s) => s.margin < 15);
+
+    // Identify losing quotes
+    const losingQuotes = quotesData
+      .filter((q) => (quoteItemsByQuoteId.get(q.id) || q.quote_items || []).length > 0)
+      .map((q) => {
+        let qRevenue = 0;
+        let qCost = 0;
+        const quoteItems = quoteItemsByQuoteId.get(q.id) || q.quote_items || [];
+        quoteItems.forEach((item) => {
+          qRevenue += item.line_total || item.quantity * item.unit_price || 0;
+          const sku = skusById.get(item.sku_id);
+          if (sku) {
+            const costData = skuCostDataById.get(sku.id) || calculateSkuCost(sku);
+            qCost += (costData?.totalCost || 0) * item.quantity;
+          }
+        });
+        return { ...q, qProfit: qRevenue - qCost };
+      })
+      .filter((q) => q.qProfit < 0)
+      .slice(0, 5);
 
     const baseOilMap = new Map();
     recipeMetrics.forEach((metric) => {
@@ -359,15 +479,22 @@ export default function Dashboard({ dataRefreshToken = 0 }) {
 
     setStats({
       // KPI Summary
-      totalRevenue: parseFloat(totalRevenue.toFixed(2)),
-      totalCost: parseFloat(totalCost.toFixed(2)),
+      totalRevenue: parseFloat(actualRevenue.toFixed(2)),
+      totalCost: parseFloat(actualCost.toFixed(2)),
       grossProfit: parseFloat(grossProfit.toFixed(2)),
       profitMargin: parseFloat(profitMargin.toFixed(2)),
       activeDeals: dealStages.open + dealStages.negotiation,
       containersShipped,
+      totalSkus,
       totalFormulations,
+      totalSnapshots,
       averageMaterialCostPerLiter: parseFloat(averageMaterialCostPerLiter.toFixed(2)),
       averageFormulaCostPerLiter: parseFloat(averageFormulaCostPerLiter.toFixed(2)),
+      averageSkuCostPerUnit: parseFloat(averageSkuCostPerUnit.toFixed(2)),
+      estimatedPortfolioRevenue: parseFloat(actualRevenue.toFixed(2)),
+      estimatedPortfolioCost: parseFloat(actualCost.toFixed(2)),
+      estimatedPortfolioProfit: parseFloat(grossProfit.toFixed(2)),
+      estimatedPortfolioMargin: parseFloat(profitMargin.toFixed(2)),
       averagePackagingCost: parseFloat(averagePackagingCost.toFixed(2)),
       averageOverheadCost: parseFloat(averageOverheadCost.toFixed(2)),
       averageAdditiveCostPercentage: parseFloat(averageAdditiveCostPercentage.toFixed(2)),
@@ -435,7 +562,8 @@ export default function Dashboard({ dataRefreshToken = 0 }) {
           <div className="metric-card">
             <div className="content-row-stack">
               <p className="metric-label">Total Revenue</p>
-              <p className="metric-value">${stats.totalRevenue.toLocaleString()}</p>
+              <p className="metric-value">${stats.estimatedPortfolioRevenue.toLocaleString()}</p>
+              <p className="metric-caption">Quotes total or estimated pricebook value</p>
             </div>
           </div>
 
@@ -443,7 +571,8 @@ export default function Dashboard({ dataRefreshToken = 0 }) {
           <div className="metric-card">
             <div className="content-row-stack">
               <p className="metric-label">Total Cost</p>
-              <p className="metric-value">${stats.totalCost.toLocaleString()}</p>
+              <p className="metric-value">${stats.estimatedPortfolioCost.toLocaleString()}</p>
+              <p className="metric-caption">Latest snapshot or calculated SKU cost</p>
             </div>
           </div>
 
@@ -451,7 +580,8 @@ export default function Dashboard({ dataRefreshToken = 0 }) {
           <div className="metric-card">
             <div className="content-row-stack">
               <p className="metric-label">Gross Profit</p>
-              <p className="metric-value">${stats.grossProfit.toLocaleString()}</p>
+              <p className="metric-value">${stats.estimatedPortfolioProfit.toLocaleString()}</p>
+              <p className="metric-caption">Revenue minus cost</p>
             </div>
           </div>
 
@@ -459,7 +589,8 @@ export default function Dashboard({ dataRefreshToken = 0 }) {
           <div className="metric-card">
             <div className="content-row-stack">
               <p className="metric-label">Profit Margin %</p>
-              <p className="metric-value">{stats.profitMargin.toFixed(1)}%</p>
+              <p className="metric-value">{stats.estimatedPortfolioMargin.toFixed(1)}%</p>
+              <p className="metric-caption">Estimated from persisted pricing data</p>
             </div>
           </div>
 
@@ -474,24 +605,31 @@ export default function Dashboard({ dataRefreshToken = 0 }) {
           {/* Containers - 20FT */}
           <div className="metric-card">
             <div className="content-row-stack">
-              <p className="metric-label">Containers Shipped (20FT)</p>
-              <p className="metric-value">{stats.containersShipped.teu20}</p>
+              <p className="metric-label">Formulations</p>
+              <p className="metric-value">{stats.totalFormulations}</p>
             </div>
           </div>
 
           {/* Containers - 40FT */}
           <div className="metric-card">
             <div className="content-row-stack">
-              <p className="metric-label">Containers Shipped (40FT)</p>
-              <p className="metric-value">{stats.containersShipped.teu40}</p>
+              <p className="metric-label">SKUs</p>
+              <p className="metric-value">{stats.totalSkus}</p>
             </div>
           </div>
 
           {/* Avg Profit per Container */}
           <div className="metric-card">
             <div className="content-row-stack">
-              <p className="metric-label">Avg Profit/Container</p>
-              <p className="metric-value">${stats.avgProfitPerContainer.toLocaleString()}</p>
+              <p className="metric-label">Avg Cost / Unit</p>
+              <p className="metric-value">${stats.averageSkuCostPerUnit.toLocaleString()}</p>
+            </div>
+          </div>
+
+          <div className="metric-card">
+            <div className="content-row-stack">
+              <p className="metric-label">Avg Formula Cost / L</p>
+              <p className="metric-value">${stats.averageFormulaCostPerLiter.toLocaleString()}</p>
             </div>
           </div>
         </div>
