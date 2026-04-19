@@ -30,79 +30,79 @@ export default function AuthScreen() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 px-4 py-8 text-slate-50">
-      <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-6xl items-center justify-center rounded-[2rem] border border-white/10 bg-white/5 p-6 shadow-2xl backdrop-blur">
-        <div className="grid w-full gap-8 lg:grid-cols-[1.1fr_0.9fr]">
-          <div className="rounded-[1.5rem] border border-white/10 bg-gradient-to-br from-slate-900 via-slate-900 to-emerald-950 p-8">
-            <p className="mb-4 text-xs font-semibold uppercase tracking-[0.3em] text-emerald-300">Multi-user pricing workspace</p>
-            <h1 className="max-w-xl text-4xl font-black tracking-tight text-white md:text-5xl">
+    <div className="auth-screen">
+      <div className="auth-shell">
+        <div className="auth-grid">
+          <section className="auth-story">
+            <div className="auth-eyebrow">Multi-user pricing workspace</div>
+            <h1 className="auth-title">
               Sign in to track Excel uploads, config history, and pricing changes per user.
             </h1>
-            <p className="mt-4 max-w-xl text-sm leading-6 text-slate-300">
+            <p className="auth-copy">
               Each upload and each saved configuration can be tied back to the account that used it. That gives you a real audit trail across teams and devices.
             </p>
-            <div className="mt-8 grid gap-3 text-sm text-slate-200">
-              <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">Per-user upload history</div>
-              <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">Saved formulation and SKU snapshots</div>
-              <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">Vercel + Supabase Auth ready</div>
+            <div className="auth-pills">
+              <div className="auth-pill">Per-user upload history</div>
+              <div className="auth-pill">Saved formulation and SKU snapshots</div>
+              <div className="auth-pill">Vercel + Supabase Auth ready</div>
             </div>
-          </div>
+          </section>
 
-          <form onSubmit={handleSubmit} className="rounded-[1.5rem] border border-slate-200 bg-white p-8 text-slate-900 shadow-xl">
-            <div className="mb-6 flex rounded-2xl bg-slate-100 p-1 text-sm font-semibold">
+          <form onSubmit={handleSubmit} className="auth-form-card">
+            <div className="auth-toggle">
               <button
                 type="button"
                 onClick={() => setMode("signin")}
-                className={`flex-1 rounded-xl px-4 py-2 transition ${mode === "signin" ? "bg-slate-950 text-white" : "text-slate-600"}`}
+                className={mode === "signin" ? "auth-toggle-button active" : "auth-toggle-button"}
               >
                 Sign in
               </button>
               <button
                 type="button"
                 onClick={() => setMode("signup")}
-                className={`flex-1 rounded-xl px-4 py-2 transition ${mode === "signup" ? "bg-slate-950 text-white" : "text-slate-600"}`}
+                className={mode === "signup" ? "auth-toggle-button active" : "auth-toggle-button"}
               >
                 Create account
               </button>
             </div>
 
-            <h2 className="text-2xl font-bold tracking-tight">Access your workspace</h2>
-            <p className="mt-2 text-sm text-slate-500">Use the same email for all devices if you want shared history.</p>
+            <h2 className="auth-form-title">Access your workspace</h2>
+            <p className="auth-form-copy">Use the same email for all devices if you want shared history.</p>
 
-            <div className="mt-6 space-y-4">
+            <div className="auth-fields">
               {mode === "signup" && (
-                <label className="block">
-                  <span className="mb-2 block text-sm font-semibold text-slate-700">Full name</span>
+                <label className="auth-field">
+                  <span className="auth-label">Full name</span>
                   <input
                     value={fullName}
                     onChange={(event) => setFullName(event.target.value)}
-                    className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none ring-0 focus:border-slate-950"
+                    className="auth-input"
                     placeholder="Jane Operator"
                     autoComplete="name"
                   />
                 </label>
               )}
 
-              <label className="block">
-                <span className="mb-2 block text-sm font-semibold text-slate-700">Email</span>
+              <label className="auth-field">
+                <span className="auth-label">Email</span>
                 <input
                   type="email"
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
-                  className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none ring-0 focus:border-slate-950"
+                  className="auth-input"
                   placeholder="you@company.com"
                   autoComplete="email"
                   required
                 />
               </label>
 
-              <label className="block">
-                <span className="mb-2 block text-sm font-semibold text-slate-700">Password</span>
+              <label className="auth-field">
+                <span className="auth-label">Password</span>
                 <input
                   type="password"
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
-                  className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none ring-0 focus:border-slate-950"
+                  className="auth-input"
                   placeholder="••••••••"
                   autoComplete={mode === "signin" ? "current-password" : "new-password"}
                   required
@@ -111,7 +111,7 @@ export default function AuthScreen() {
             </div>
 
             {(message || error) && (
-              <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              <div className="auth-alert">
                 {message || error}
               </div>
             )}
@@ -119,7 +119,7 @@ export default function AuthScreen() {
             <button
               type="submit"
               disabled={busy}
-              className="mt-6 inline-flex w-full items-center justify-center rounded-xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+              className="auth-submit"
             >
               {busy ? "Working..." : mode === "signin" ? "Sign in" : "Create account"}
             </button>
