@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 
 const styles = {
@@ -182,16 +182,30 @@ const styles = {
     cursor: "pointer",
     boxShadow: "0 14px 30px rgba(15, 23, 42, 0.22)",
   },
+  backButton: {
+    marginBottom: "14px",
+    padding: 0,
+    border: 0,
+    background: "transparent",
+    color: "#64748b",
+    fontSize: "0.92rem",
+    fontWeight: 800,
+    cursor: "pointer",
+  },
 };
 
-export default function AuthScreen() {
+export default function AuthScreen({ initialMode = "signin", onBackToLanding }) {
   const { signIn, signUp, error } = useAuth();
-  const [mode, setMode] = useState("signin");
+  const [mode, setMode] = useState(initialMode);
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    setMode(initialMode);
+  }, [initialMode]);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -221,9 +235,6 @@ export default function AuthScreen() {
             <h1 style={styles.title}>
               Centralized control for formulation, pricing, and generating quotes
             </h1>
-            <p style={styles.copy}>
-              Per-user activity tracking
-            </p>
             <div style={styles.pills}>
               <div style={styles.pill}>• Per-user activity tracking</div>
               <div style={styles.pill}>• Version history for formulations and SKUs</div>
@@ -232,6 +243,11 @@ export default function AuthScreen() {
           </section>
 
           <form onSubmit={handleSubmit} style={styles.form}>
+            {onBackToLanding && (
+              <button type="button" onClick={onBackToLanding} style={styles.backButton}>
+                ← Back to overview
+              </button>
+            )}
             <div style={styles.toggle}>
               <button
                 type="button"

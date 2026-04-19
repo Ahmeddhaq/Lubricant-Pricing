@@ -7,6 +7,7 @@ import QuoteBuilder from "./components/QuoteBuilder";
 import ExcelIntelligence from "./components/ExcelIntelligence";
 import SetupRequired from "./components/SetupRequired";
 import AuthScreen from "./components/AuthScreen";
+import LandingPage from "./components/LandingPage";
 import HistoryPanel from "./components/HistoryPanel";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { checkSupabaseConnection, isSupabaseConfigured } from "./services/supabaseService";
@@ -16,6 +17,7 @@ function AppShell() {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [pendingImport, setPendingImport] = useState(null);
   const [supabaseStatus, setSupabaseStatus] = useState({ state: "checking" });
+  const [authView, setAuthView] = useState("landing");
   const { session, loading: authLoading, user, signOut } = useAuth();
   const supabaseConfigured = isSupabaseConfigured();
 
@@ -55,7 +57,11 @@ function AppShell() {
   }
 
   if (!session) {
-    return <AuthScreen />;
+    if (authView === "landing") {
+      return <LandingPage onSignIn={() => setAuthView("signin")} onRequestAccess={() => setAuthView("signup")} />;
+    }
+
+    return <AuthScreen initialMode={authView} onBackToLanding={() => setAuthView("landing")} />;
   }
 
   return (
