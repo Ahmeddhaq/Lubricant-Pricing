@@ -59,25 +59,6 @@ export default function FormulationEngine({ pendingImport, clearPendingImport })
     }
   };
 
-  // Validation logic
-  const getTotalComposition = () => {
-    return components.reduce((sum, comp) => sum + (parseFloat(comp.percentage) || 0), 0);
-  };
-
-  const getValidationStatus = () => {
-    const total = getTotalComposition();
-    const missingCosts = components.some((c) => !c.unitCost || parseFloat(c.unitCost) === 0);
-    return {
-      isValid: Math.abs(total - 100) < 0.01,
-      total,
-      missingCosts,
-      warnings: [
-        ...(Math.abs(total - 100) > 0.01 ? [`Composition total is ${total.toFixed(2)}%, must be 100%`] : []),
-        ...(missingCosts ? ["Some components missing unit costs"] : []),
-      ],
-    };
-  };
-
   // Cost calculations
   const calculateCostContribution = (component) => {
     if (!component.unitCost || !component.percentage) return 0;
@@ -238,7 +219,6 @@ export default function FormulationEngine({ pendingImport, clearPendingImport })
 
   if (loading) return <div className="p-6 text-center">Loading...</div>;
 
-  const validation = getValidationStatus();
   const costBreakdown = getCostBreakdownByType();
 
   return (
@@ -439,45 +419,6 @@ export default function FormulationEngine({ pendingImport, clearPendingImport })
             </div>
           </div>
         )}
-      </section>
-
-      {/* ====== SECTION 3: VALIDATION LOGIC ====== */}
-      <section className="page-section">
-        <h2 className="section-title">Validation Status</h2>
-        <div className="metric-grid metric-grid-3">
-          <div className="metric-card">
-            <div className="content-row-stack">
-              <p className="metric-label">Total Composition</p>
-              <p className={`metric-value ${validation.isValid ? "text-gray-900" : "text-red-600"}`}>
-                {validation.total.toFixed(2)}%
-              </p>
-              <p className="metric-caption">Must equal 100%</p>
-            </div>
-          </div>
-
-          <div className="metric-card">
-            <div className="content-row-stack">
-              <p className="metric-label">Components</p>
-              <p className="metric-value">{components.length}</p>
-              <p className="metric-caption">Total components added</p>
-            </div>
-          </div>
-
-          <div className="metric-card">
-            <div className="content-row-stack">
-              <p className="metric-label">Status</p>
-              {validation.warnings.length === 0 ? (
-                <p className="content-value">✓ Valid</p>
-              ) : (
-                <div className="space-y-2">
-                  {validation.warnings.map((warning, idx) => (
-                    <p key={idx} className="text-sm text-red-600">⚠ {warning}</p>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
       </section>
 
       {/* ====== SECTION 4: COST SUMMARY ====== */}

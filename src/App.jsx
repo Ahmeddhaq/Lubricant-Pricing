@@ -128,16 +128,22 @@ function AppShell() {
           {activeTab === "skus" && <h1>SKU Management</h1>}
           {activeTab === "quotes" && <h1>Quote Builder</h1>}
         </div>
-        <div key={activeTab} className="page-frame page-transition">
-          {activeTab === "dashboard" && <Dashboard />}
-          {activeTab === "excel" && <ExcelIntelligence onPrepareImport={handlePrepareImport} />}
-          {activeTab === "formulation" && (
+        <div className="page-frame">
+          <div className={activeTab === "dashboard" ? "page-transition" : ""} hidden={activeTab !== "dashboard"}>
+            <Dashboard />
+          </div>
+          <div className={activeTab === "excel" ? "page-transition" : ""} hidden={activeTab !== "excel"}>
+            <ExcelIntelligence onPrepareImport={handlePrepareImport} />
+          </div>
+          <div className={activeTab === "formulation" ? "page-transition" : ""} hidden={activeTab !== "formulation"}>
             <FormulationEngine pendingImport={pendingImport} clearPendingImport={clearPendingImport} />
-          )}
-          {activeTab === "skus" && (
+          </div>
+          <div className={activeTab === "skus" ? "page-transition" : ""} hidden={activeTab !== "skus"}>
             <SKUManagement pendingImport={pendingImport} clearPendingImport={clearPendingImport} />
-          )}
-          {activeTab === "quotes" && <QuoteBuilder />}
+          </div>
+          <div className={activeTab === "quotes" ? "page-transition" : ""} hidden={activeTab !== "quotes"}>
+            <QuoteBuilder />
+          </div>
         </div>
       </main>
     </div>
