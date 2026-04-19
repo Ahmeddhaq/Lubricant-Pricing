@@ -50,18 +50,22 @@ export function AuthProvider({ children }) {
   };
 
   const signUp = async ({ email, password, fullName }) => {
-    const { data, error: signUpError } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          full_name: fullName,
-          name: fullName,
-        },
-      },
+    const response = await fetch("/api/auth/signup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password, fullName }),
     });
-    if (signUpError) throw signUpError;
-    return data;
+
+    if (!response.ok) {
+      const message = await response.text();
+      throw new Error(message || "Failed to create account.");
+    }
+
+    const createdUser = await response.json();
+    const { data, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+    if (signInError) throw signInError;
+
+    return { createdUser, session: data.session };
   };
 
   const signOut = async () => {

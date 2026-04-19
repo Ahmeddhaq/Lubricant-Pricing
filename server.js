@@ -33,6 +33,7 @@ loadLocalEnv();
 
 const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE || process.env.SUPABASE_SECRET_KEY;
 
 function createAuthedClient(token) {
   if (!supabaseUrl || !supabaseAnonKey) return null;
@@ -125,6 +126,37 @@ app.post("/api/history", async (req, res) => {
   }
 
   res.status(400).json({ error: "Unknown history type." });
+});
+
+app.post("/api/auth/signup", async (req, res) => {
+  if (!supabaseUrl || !supabaseServiceRoleKey) {
+    res.status(500).json({ error: "Server auth signup requires SUPABASE_SERVICE_ROLE_KEY." });
+    return;
+  }
+
+  const { email, password, fullName } = req.body || {};
+  if (!email || !password) {
+    res.status(400).json({ error: "Email and password are required." });
+    return;
+  }
+
+  const adminClient = createClient(supabaseUrl, supabaseServiceRoleKey);
+  const { data, error } = await adminClient.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+    user_metadata: {
+      full_name: fullName || "",
+      name: fullName || "",
+    },
+  });
+
+  if (error) {
+    res.status(500).json({ error: error.message });
+    return;
+  }
+
+  res.json({ user: data.user });
 });
 
 // Load Excel
