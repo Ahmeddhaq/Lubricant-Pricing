@@ -75,6 +75,7 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
       : [];
   const importedSkuDraft = importedSkuDrafts[0] || null;
   const linkedFormulationDrafts = pendingImport?.linkedFormulationDrafts || (pendingImport?.linkedFormulationDraft ? [pendingImport.linkedFormulationDraft] : []);
+  const hasAccessibleBaseOils = baseOils.length > 0;
   const [importingBatch, setImportingBatch] = useState(false);
   const [linkedMatchConfirmed, setLinkedMatchConfirmed] = useState(false);
   const [creatingLinkedRecipe, setCreatingLinkedRecipe] = useState(false);
@@ -84,7 +85,7 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
   }, [dataRefreshToken]);
 
   useEffect(() => {
-    if (!importedSkuDraft || !recipes.length) return;
+    if (!importedSkuDraft || !recipes.length || !hasAccessibleBaseOils) return;
 
     if (!skuForm.recipe_id) {
       const matchedRecipe = findMatchingRecipe(importedSkuDraft, linkedFormulationDrafts[0]);
@@ -237,18 +238,7 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
 
   const ensureBaseOilId = async (linkedDraft) => {
     const pickedBaseOilId = pickBaseOilId(linkedDraft);
-    if (pickedBaseOilId) return pickedBaseOilId;
-
-    const fallbackName = linkedDraft?.baseOilName || linkedDraft?.baseOil || "Imported Base Oil";
-    const createdBaseOil = await baseOilsService.create({
-      name: fallbackName,
-      cost_per_liter: 0,
-      unit: "Liter",
-      description: "Auto-created fallback base oil for workbook import",
-    });
-
-    await loadData();
-    return createdBaseOil?.id || "";
+    return pickedBaseOilId || "";
   };
 
   const createRecipeFromDraft = async (draft, linkedDraft) => {
@@ -373,6 +363,10 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
 
   const handleImportDrafts = async () => {
     if (!importedSkuDrafts.length) return;
+    if (!hasAccessibleBaseOils) {
+      alert("No base oils are available in Supabase. Add at least one base_oils row before importing SKUs.");
+      return;
+    }
 
     const resolvedDrafts = [];
     const unresolvedDrafts = [];
@@ -581,12 +575,17 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
               </div>
 
               <div className="flex flex-wrap gap-2">
+                {!hasAccessibleBaseOils && (
+                  <p className="mt-2 text-sm font-semibold text-amber-900">
+                    No base oils are accessible yet, so import is blocked until at least one base_oils row exists in Supabase.
+                  </p>
+                )}
                 {importedSkuDrafts.length > 1 ? (
-                  <button type="button" onClick={handleImportDrafts} disabled={importingBatch} className="btn btn-primary">
+                  <button type="button" onClick={handleImportDrafts} disabled={importingBatch || !hasAccessibleBaseOils} className="btn btn-primary">
                     {importingBatch ? "Importing..." : `Import All ${importedSkuDrafts.length} SKUs`}
                   </button>
                 ) : (
-                  <button type="button" onClick={applyImportedDraft} className="btn btn-primary">
+                  <button type="button" onClick={applyImportedDraft} disabled={!hasAccessibleBaseOils} className="btn btn-primary">
                     Load into Create Form
                   </button>
                 )}
