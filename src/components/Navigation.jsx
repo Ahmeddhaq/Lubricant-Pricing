@@ -1,22 +1,30 @@
-import React from "react";
+import React, { useState } from "react";
 
 export default function Navigation({ activeTab, setActiveTab, user, onSignOut }) {
+  const [openInfoTab, setOpenInfoTab] = useState(null);
+
   const tabs = [
     { id: "dashboard", label: "Dashboard" },
     {
       id: "excel",
       label: "Excel Intelligence",
-      info: "Upload an Excel workbook to detect pricing, cost, and formulation structure. The app reads the file and prepares a draft; it does not overwrite your data automatically.",
+      summary: "Upload an Excel workbook so the app can detect pricing rows, cost rows, and formulation structure.",
+      whatItDoes: "Reads the workbook, detects sheets and formulas, extracts cost and pricing patterns, and prepares a draft without changing your system data.",
+      whatYouDo: "Choose the workbook you want to analyze, review the detected sheets, then convert the result to a SKU draft or a formulation draft only if the extraction looks correct.",
     },
     {
       id: "formulation",
       label: "Formulation",
-      info: "Use this to build or review a formulation from ingredients, base oils, and additives. You should verify component percentages, costs, and batch size before saving.",
+      summary: "Build or review a formulation from ingredients, base oils, and additives.",
+      whatItDoes: "Lets you create the blend structure, calculate cost contribution, and track changes to your formulation setup.",
+      whatYouDo: "Check each component, confirm the percentages add to 100%, verify unit costs, and only then save the formulation.",
     },
     {
       id: "skus",
       label: "SKUs",
-      info: "Create and manage sellable SKU records from a formulation or imported draft. Check the pack size, pricing, and margin before you finalize anything.",
+      summary: "Create and manage sellable SKU records from a formulation or imported draft.",
+      whatItDoes: "Stores the finished product record, pack sizes, pricing fields, and margin checks for items you plan to sell.",
+      whatYouDo: "Review the imported draft or create a new SKU, set the pack sizes and selling prices, then confirm the margin is acceptable.",
     },
     { id: "quotes", label: "Quotes" },
   ];
@@ -44,13 +52,16 @@ export default function Navigation({ activeTab, setActiveTab, user, onSignOut })
             }`}
           >
             <span className="sidebar-menu-item-label">{tab.label}</span>
-            {tab.info && (
+            {tab.summary && (
               <button
                 type="button"
                 className="sidebar-info-button"
-                title={tab.info}
-                aria-label={`What ${tab.label} does`}
-                onClick={(event) => event.stopPropagation()}
+                aria-label={`Open help for ${tab.label}`}
+                aria-expanded={openInfoTab === tab.id}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setOpenInfoTab(openInfoTab === tab.id ? null : tab.id);
+                }}
               >
                 i
               </button>
@@ -58,6 +69,23 @@ export default function Navigation({ activeTab, setActiveTab, user, onSignOut })
           </div>
         ))}
       </div>
+
+      {tabs.map((tab) =>
+        tab.summary && openInfoTab === tab.id ? (
+          <div key={`${tab.id}-help`} className="sidebar-help-panel">
+            <div className="sidebar-help-title">{tab.label}</div>
+            <div className="sidebar-help-summary">{tab.summary}</div>
+            <div className="sidebar-help-section">
+              <span>What it does</span>
+              <p>{tab.whatItDoes}</p>
+            </div>
+            <div className="sidebar-help-section">
+              <span>What you need to do</span>
+              <p>{tab.whatYouDo}</p>
+            </div>
+          </div>
+        ) : null
+      )}
       <div className="sidebar-footer">
         <div className="sidebar-user-card">
           <div className="sidebar-user-label">Signed in</div>
