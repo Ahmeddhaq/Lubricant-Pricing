@@ -10,7 +10,7 @@ function normalizeName(value) {
     .replace(/\s+/g, " ");
 }
 
-export default function FormulationEngine({ pendingImport, clearPendingImport }) {
+export default function FormulationEngine({ pendingImport, clearPendingImport, onFormulationSaved }) {
   const [recipes, setRecipes] = useState([]);
   const [baseOils, setBaseOils] = useState([]);
   const [additives, setAdditives] = useState([]);
@@ -222,7 +222,7 @@ export default function FormulationEngine({ pendingImport, clearPendingImport })
     };
   };
 
-  const saveFormulationSnapshot = async (snapshot) => {
+  const saveFormulationSnapshot = async (snapshot, { linkedSkuDrafts = [] } = {}) => {
     if (!snapshot.skuForm.name) {
       alert("Please enter a formulation name.");
       return false;
@@ -284,6 +284,15 @@ export default function FormulationEngine({ pendingImport, clearPendingImport })
       setEditingRecipe(createdRecipe);
       setActiveTab("list");
 
+      if (onFormulationSaved) {
+        onFormulationSaved({
+          recipe: createdRecipe,
+          linkedSkuDrafts,
+          sourceUploadId: snapshot.sourceUploadId,
+          snapshot,
+        });
+      }
+
       try {
         await historyService.recordConfigVersion({
           configName: `${createdRecipe.name} formulation`,
@@ -322,7 +331,7 @@ export default function FormulationEngine({ pendingImport, clearPendingImport })
     })));
     setBatchSize(snapshot.batchSize);
     setSelectedBaseOilId(snapshot.selectedBaseOilId);
-    const saved = await saveFormulationSnapshot(snapshot);
+    const saved = await saveFormulationSnapshot(snapshot, { linkedSkuDrafts });
     if (saved && clearPendingImport) {
       clearPendingImport();
     }

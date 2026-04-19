@@ -17,6 +17,9 @@ function AppShell() {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [pendingImport, setPendingImport] = useState(null);
   const [reopenedWorkbookRequest, setReopenedWorkbookRequest] = useState(null);
+  const [readySkuImport, setReadySkuImport] = useState(null);
+  const [workspaceNotice, setWorkspaceNotice] = useState(null);
+  const [workspaceDataVersion, setWorkspaceDataVersion] = useState(0);
   const [supabaseStatus, setSupabaseStatus] = useState({ state: "checking" });
   const [authView, setAuthView] = useState("landing");
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -54,6 +57,90 @@ function AppShell() {
   const clearReopenedWorkbookRequest = () => {
     setReopenedWorkbookRequest(null);
   };
+
+  const buildSkuImportFromLinkedDrafts = (recipeName, linkedSkuDrafts, sourceUploadId = null) => {
+    const sourceDraft = linkedSkuDrafts[0] || {};
+    const linkedFormulationDraft = {
+      skuName: recipeName || sourceDraft.recipeName || sourceDraft.name || sourceDraft.skuName || "",
+      name: recipeName || sourceDraft.recipeName || sourceDraft.name || sourceDraft.skuName || "",
+      recipeName: recipeName || sourceDraft.recipeName || sourceDraft.name || sourceDraft.skuName || "",
+      recipeNameCandidates: Array.from(new Set([
+        recipeName,
+        sourceDraft.recipeName,
+        sourceDraft.recipeNameCandidates?.[0],
+        sourceDraft.name,
+        sourceDraft.skuName,
+      ].filter(Boolean))),
+      pricingLogicType: sourceDraft.pricingLogicType || "",
+      sourceUploadId,
+      workbookName: sourceDraft.workbookName || "Imported workbook",
+      baseCostPerLiter: sourceDraft.baseCostPerLiter || 0,
+      currentSellingPrice: sourceDraft.currentSellingPrice || 0,
+    };
+
+    const normalizedSkuDrafts = linkedSkuDrafts.map((skuDraft) => ({
+      ...skuDraft,
+      recipeName: recipeName || skuDraft.recipeName || linkedFormulationDraft.recipeName,
+      recipeNameCandidates: Array.from(new Set([
+        recipeName,
+        skuDraft.recipeName,
+        ...(skuDraft.recipeNameCandidates || []),
+        linkedFormulationDraft.recipeName,
+      ].filter(Boolean))),
+    }));
+
+    if (normalizedSkuDrafts.length > 1) {
+      return {
+        kind: "sku-batch",
+        draft: normalizedSkuDrafts[0],
+        drafts: normalizedSkuDrafts.map((skuDraft) => ({ skuDraft })),
+        linkedFormulationDraft,
+        linkedFormulationDrafts: normalizedSkuDrafts.map(() => linkedFormulationDraft),
+      };
+    }
+
+    return {
+      kind: "sku",
+      draft: normalizedSkuDrafts[0],
+      linkedFormulationDraft,
+    };
+  };
+
+  const handleFormulationSaved = ({ recipe, linkedSkuDrafts = [], sourceUploadId = null }) => {
+    setWorkspaceDataVersion((value) => value + 1);
+    setWorkspaceNotice({
+      title: "Formulation created",
+      message: "Ready for SKU creation. Open the SKU page to continue.",
+    });
+
+    if (recipe?.name && linkedSkuDrafts.length > 0) {
+      setReadySkuImport(buildSkuImportFromLinkedDrafts(recipe.name, linkedSkuDrafts, sourceUploadId));
+      return;
+    }
+
+    setReadySkuImport(null);
+  };
+
+  const openSkuCreation = () => {
+    if (readySkuImport) {
+      setPendingImport(readySkuImport);
+      setReadySkuImport(null);
+    }
+
+    setWorkspaceNotice(null);
+    setActiveTab("skus");
+    setSidebarOpen(false);
+  };
+
+  useEffect(() => {
+    if (!workspaceNotice) return undefined;
+
+    const timer = window.setTimeout(() => {
+      setWorkspaceNotice(null);
+    }, 6000);
+
+    return () => window.clearTimeout(timer);
+  }, [workspaceNotice]);
 
   const handleReuseUpload = async (upload) => {
     if (!upload?.storage_bucket || !upload?.storage_path) {
@@ -180,19 +267,40 @@ function AppShell() {
             />
           </div>
           <div className={activeTab === "formulation" ? "page-transition" : ""} hidden={activeTab !== "formulation"}>
-            <FormulationEngine pendingImport={pendingImport} clearPendingImport={clearPendingImport} />
+            <FormulationEngine
+              pendingImport={pendingImport}
+              clearPendingImport={clearPendingImport}
+              onFormulationSaved={handleFormulationSaved}
+            />
           </div>
           <div className={activeTab === "skus" ? "page-transition" : ""} hidden={activeTab !== "skus"}>
             <SKUManagement
               pendingImport={pendingImport}
               clearPendingImport={clearPendingImport}
               onOpenFormulation={() => handleTabChange("formulation")}
+              dataRefreshToken={workspaceDataVersion}
             />
           </div>
           <div className={activeTab === "quotes" ? "page-transition" : ""} hidden={activeTab !== "quotes"}>
             <QuoteBuilder />
           </div>
         </div>
+
+        {workspaceNotice && (
+          <div className="fixed bottom-5 right-5 z-50 w-[calc(100vw-2rem)] max-w-sm rounded-2xl border border-emerald-200 bg-white/95 p-4 shadow-2xl backdrop-blur md:w-full">
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-emerald-700">Success</p>
+            <h3 className="mt-1 text-base font-semibold text-slate-900">{workspaceNotice.title}</h3>
+            <p className="mt-2 text-sm leading-6 text-slate-600">{workspaceNotice.message}</p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button type="button" onClick={openSkuCreation} className="btn btn-primary btn-sm">
+                Open SKU page
+              </button>
+              <button type="button" onClick={() => setWorkspaceNotice(null)} className="btn btn-secondary btn-sm">
+                Dismiss
+              </button>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );

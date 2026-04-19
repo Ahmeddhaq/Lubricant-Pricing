@@ -26,7 +26,7 @@ const DEFAULT_SKU_FLAGS = {
   priceOverride: false,
 };
 
-export default function SKUManagement({ pendingImport, clearPendingImport, onOpenFormulation }) {
+export default function SKUManagement({ pendingImport, clearPendingImport, onOpenFormulation, dataRefreshToken }) {
   const [skus, setSkus] = useState([]);
   const [recipes, setRecipes] = useState([]);
   const [baseOils, setBaseOils] = useState([]);
@@ -81,7 +81,7 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [dataRefreshToken]);
 
   useEffect(() => {
     if (!importedSkuDraft || !recipes.length) return;
@@ -930,7 +930,11 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
         {skus.length === 0 ? (
           <div className="table-container">
             <div className="px-6 py-12 text-center">
-              <p className="text-gray-500">No saved SKUs yet. Save a formulation first, then create its SKU.</p>
+              <p className="text-gray-500">
+                {recipes.length > 0
+                  ? "No saved SKUs yet. A formulation is already available, so click Add New SKU to create the first one."
+                  : "No saved SKUs yet. Save a formulation first, then create its SKU."}
+              </p>
             </div>
           </div>
         ) : (
