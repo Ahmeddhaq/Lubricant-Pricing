@@ -728,6 +728,33 @@ export default function ExcelIntelligence({ onPrepareImport, onPrepareFormulatio
       });
 
       uploadSourceId = uploadRecord.id;
+
+      const averageCostPerLiter = mean(report.skuInsights.map((entry) => toNumber(entry.costPerLiter)));
+      const averagePrice = mean(report.skuInsights.map((entry) => toNumber(entry.averagePrice ?? entry.currentSellingPrice)));
+      const averageMargin = mean(report.skuInsights.map((entry) => toNumber(entry.averageMargin)));
+      const workbookSessionSummary = {
+        workbookName: report.workbookName,
+        sheetCount: report.sheetReports.length,
+        formulationCount: report.formulationInsights.length,
+        skuCount: report.skuInsights.length,
+        averageCostPerLiter: Number.isFinite(averageCostPerLiter) ? Number(averageCostPerLiter.toFixed(2)) : 0,
+        averagePrice: Number.isFinite(averagePrice) ? Number(averagePrice.toFixed(2)) : 0,
+        averageMargin: Number.isFinite(averageMargin) ? Number(averageMargin.toFixed(2)) : 0,
+      };
+      workbookSessionSummary.averageProfitPerUnit = Number((workbookSessionSummary.averagePrice - workbookSessionSummary.averageCostPerLiter).toFixed(2));
+
+      try {
+        await historyService.recordRun({
+          runLabel: `${report.workbookName} session`,
+          runType: "workbook-analysis",
+          runData: workbookSessionSummary,
+          sourceUploadId: uploadSourceId,
+          notes: report.workbookName,
+        });
+      } catch (sessionError) {
+        console.error("Failed to save workbook session history:", sessionError);
+      }
+
       setAnalysis({ ...report, sourceUploadId: uploadSourceId });
       setSelectedSku(report.skuInsights[0]?.sku || "");
       return;

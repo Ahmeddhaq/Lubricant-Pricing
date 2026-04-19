@@ -6,13 +6,6 @@ export default function Navigation({ activeTab, setActiveTab, user, onSignOut, s
   const tabs = [
     { id: "dashboard", label: "Dashboard" },
     {
-      id: "history",
-      label: "History",
-      summary: "Review workbook uploads, saved versions, and prior runs in one place.",
-      whatItDoes: "Shows your previous workbook uploads and lets you reopen them in Excel Intelligence without rebuilding the file from scratch.",
-      whatYouDo: "Open a workbook entry, choose Reuse workbook, then review the workbook again or convert it into new drafts.",
-    },
-    {
       id: "excel",
       label: "Excel Intelligence",
       summary: "Upload an Excel workbook so the app can detect pricing rows, cost rows, and formulation structure.",
@@ -34,6 +27,13 @@ export default function Navigation({ activeTab, setActiveTab, user, onSignOut, s
       whatYouDo: "Review the imported draft or create a new SKU, set the pack sizes and selling prices, then confirm the margin is acceptable.",
     },
     { id: "quotes", label: "Quotes" },
+    {
+      id: "history",
+      label: "History",
+      summary: "Review workbook sessions, saved versions, and prior runs in one place.",
+      whatItDoes: "Shows each workbook session with the saved formulation and SKU configuration created from it so you can compare pricing outcomes over time.",
+      whatYouDo: "Open a workbook session, reuse the original file if needed, then compare the configuration, cost, price, and profit numbers from that upload.",
+    },
   ];
 
   return (
