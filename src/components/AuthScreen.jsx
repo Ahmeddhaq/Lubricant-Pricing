@@ -30,9 +30,11 @@ const styles = {
     width: "100%",
     display: "grid",
     gridTemplateColumns: "minmax(0, 1.08fr) minmax(0, 0.92fr)",
+    alignItems: "start",
     gap: "24px",
   },
   story: {
+    alignSelf: "start",
     padding: "32px",
     borderRadius: "28px",
     border: "1px solid rgba(255,255,255,0.08)",
@@ -84,6 +86,7 @@ const styles = {
     fontWeight: 600,
   },
   form: {
+    alignSelf: "start",
     padding: "28px",
     borderRadius: "28px",
     border: "1px solid rgba(148,163,184,0.26)",
