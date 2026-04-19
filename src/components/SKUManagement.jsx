@@ -144,29 +144,25 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
       return;
     }
 
-    // Check if all drafts have recipes resolved
-    let allRecipesReady = true;
-    for (const draft of importedSkuDrafts) {
-      const resolved = resolveRecipeIdForDraft(draft);
-      if (!resolved) {
-        allRecipesReady = false;
-        break;
-      }
-    }
+    console.log("🔍 Checking if auto-import should trigger...");
+    console.log("importedSkuDrafts:", importedSkuDrafts.length);
+    console.log("recipes:", recipes.length);
+    console.log("creatingLinkedRecipe:", creatingLinkedRecipe);
 
-    if (allRecipesReady && skuForm.recipe_id) {
-      // Show summary in console
-      const skuSummary = importedSkuDrafts
-        .map((d) => `• ${d.name} (${Number(d.baseCostPerLiter || 0).toFixed(2)} AED/L)`)
-        .join("\n");
-      console.log("Auto-importing SKUs:\n" + skuSummary);
-      
-      // Auto-trigger import with a small delay to ensure state is settled
-      setTimeout(() => {
-        handleImportDrafts();
-      }, 300);
-    }
-  }, [importedSkuDrafts, hasAccessibleBaseOils, creatingLinkedRecipe, importingBatch, skuForm.recipe_id]);
+    // Show summary in console
+    const skuSummary = importedSkuDrafts
+      .map((d) => `• ${d.name} (${Number(d.baseCostPerLiter || 0).toFixed(2)} AED/L)`)
+      .join("\n");
+    console.log("📊 Ready to auto-import SKUs:\n" + skuSummary);
+    
+    // Auto-trigger import with a small delay to ensure state is settled
+    const timer = setTimeout(() => {
+      console.log("🚀 Triggering auto-import...");
+      handleImportDrafts();
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [importedSkuDrafts, hasAccessibleBaseOils, creatingLinkedRecipe, importingBatch]);
 
   const loadData = async () => {
     setLoading(true);
