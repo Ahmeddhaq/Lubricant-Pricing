@@ -1,7 +1,11 @@
 import { createClient } from "@supabase/supabase-js";
 
 const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE || process.env.SUPABASE_SECRET_KEY;
+const supabaseServiceRoleKey =
+  process.env.SUPABASE_SERVICE_ROLE_KEY ||
+  process.env.VITE_SUPABASE_SERVICE_ROLE_KEY ||
+  process.env.SUPABASE_SERVICE_ROLE ||
+  process.env.SUPABASE_SECRET_KEY;
 
 export default async function handler(request, response) {
   if (request.method !== "POST") {
@@ -11,7 +15,7 @@ export default async function handler(request, response) {
   }
 
   if (!supabaseUrl || !supabaseServiceRoleKey) {
-    response.status(500).json({ error: "Server auth signup requires SUPABASE_SERVICE_ROLE_KEY." });
+    response.status(500).json({ error: "Server auth signup requires SUPABASE_SERVICE_ROLE_KEY or VITE_SUPABASE_SERVICE_ROLE_KEY." });
     return;
   }
 

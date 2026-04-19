@@ -33,7 +33,11 @@ loadLocalEnv();
 
 const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE || process.env.SUPABASE_SECRET_KEY;
+const supabaseServiceRoleKey =
+  process.env.SUPABASE_SERVICE_ROLE_KEY ||
+  process.env.VITE_SUPABASE_SERVICE_ROLE_KEY ||
+  process.env.SUPABASE_SERVICE_ROLE ||
+  process.env.SUPABASE_SECRET_KEY;
 
 function createAuthedClient(token) {
   if (!supabaseUrl || !supabaseAnonKey) return null;
@@ -130,7 +134,7 @@ app.post("/api/history", async (req, res) => {
 
 app.post("/api/auth/signup", async (req, res) => {
   if (!supabaseUrl || !supabaseServiceRoleKey) {
-    res.status(500).json({ error: "Server auth signup requires SUPABASE_SERVICE_ROLE_KEY." });
+    res.status(500).json({ error: "Server auth signup requires SUPABASE_SERVICE_ROLE_KEY or VITE_SUPABASE_SERVICE_ROLE_KEY." });
     return;
   }
 
