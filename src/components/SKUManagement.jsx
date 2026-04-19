@@ -171,8 +171,6 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
     return calculateMargin(totalCost, config.sellingPrice || 0);
   };
 
-  const getSummarySource = () => importedSkuDraft || selectedSku || null;
-
   const buildRecipeCandidateNames = (draft, linkedDraft) => [
     draft?.recipeName,
     draft?.formulationName,
@@ -289,7 +287,6 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
     return matchedRecipe?.id || "";
   };
 
-  const summarySource = getSummarySource();
   const useFormSummary = Boolean(importedSkuDraft) ? false : activeTab === "create" || !selectedSku;
   const totalCostPerLiter = costBreakup.blendCost + costBreakup.packagingCost + costBreakup.logisticsCost + costBreakup.overheadAllocation;
   const packEntries = Object.entries(packConfigs);
@@ -336,27 +333,16 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
 
   const workbookFormulationName = linkedFormulationDrafts[0]?.skuName || linkedFormulationDrafts[0]?.name || "";
 
-  const summarySourceLabel = summarySource === importedSkuDraft
-    ? "Imported workbook"
-    : useFormSummary
-      ? "Current draft"
-      : summarySource === selectedSku
-        ? "Selected SKU"
-        : "Current draft";
-
-  const warningItems = [];
   const lowMarginPacks = packEntries
     .filter(([packName, config]) => Number(config.sellingPrice || 0) > 0 && calculatePackMargin(packName) < marginThreshold)
     .map(([packName]) => packName);
-  if (lowMarginPacks.length > 0) {
-    warningItems.push(`Margin below ${marginThreshold}% on ${lowMarginPacks.join(", ")}`);
-  }
-  if (!costBreakup.logisticsCost) {
-    warningItems.push("Missing logistics cost");
-  }
-  if (!summaryLinkedFormulationName) {
-    warningItems.push("Linked formulation not selected");
-  }
+  const packWarningMessage = lowMarginPacks.length > 0 ? `Margin below ${marginThreshold}% on ${lowMarginPacks.join(", ")}` : "";
+  const costWarningItems = [
+    !costBreakup.blendCost ? "Blend cost missing" : null,
+    !costBreakup.packagingCost ? "Packaging cost missing" : null,
+    !costBreakup.logisticsCost ? "Logistics cost missing" : null,
+    !costBreakup.overheadAllocation ? "Overhead missing" : null,
+  ].filter(Boolean);
 
   const handleImportDrafts = async () => {
     if (!importedSkuDrafts.length) return;
@@ -513,6 +499,44 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
 
   return (
     <div className="page-stack">
+      <section className="page-section">
+        <div className="content-card border-slate-200 bg-slate-50/80">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <h2 className="section-title">SKU Summary</h2>
+              <p className="section-subtitle">
+                Compact context for the product you are configuring.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => onOpenFormulation && summaryRecipeId && onOpenFormulation()}
+              disabled={!summaryRecipeId || !onOpenFormulation}
+              className="btn btn-secondary"
+            >
+              View formulation
+            </button>
+          </div>
+
+          <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-6">
+            {[
+              { label: "SKU Name", value: summaryName },
+              { label: "Category", value: summaryCategory },
+              { label: "Linked Formulation", value: summaryLinkedFormulationName || "Not selected" },
+              { label: "Base Cost/L", value: `$${summaryBaseCost.toFixed(2)}` },
+              { label: "Avg Selling Price", value: `$${summaryAveragePrice.toFixed(2)}` },
+              { label: "Avg Margin", value: `${summaryAverageMargin.toFixed(1)}%` },
+            ].map((item) => (
+              <div key={item.label} className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{item.label}</p>
+                <p className="mt-2 text-base font-semibold text-slate-900">{item.value}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {importedSkuDraft && (
         <section className="page-section">
           <div className="content-card border-amber-300 bg-amber-50/70">
@@ -568,84 +592,14 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
       )}
 
       <section className="page-section">
-        <div className="content-card border-slate-200 bg-slate-50/80">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-            <div>
-              <h2 className="section-title">SKU Header</h2>
-              <p className="section-subtitle">
-                Configuration summary for the SKU you are building or reviewing.
-              </p>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => onOpenFormulation && summaryRecipeId && onOpenFormulation()}
-              disabled={!summaryRecipeId || !onOpenFormulation}
-              className="btn btn-secondary"
-            >
-              View formulation
-            </button>
-          </div>
-
-          <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-            {[
-              { label: "SKU Name", value: summaryName },
-              { label: "Category", value: summaryCategory },
-              { label: "Base Cost/L", value: `$${summaryBaseCost.toFixed(2)}` },
-              { label: "Avg Selling Price", value: `$${summaryAveragePrice.toFixed(2)}` },
-              { label: "Avg Margin", value: `${summaryAverageMargin.toFixed(1)}%` },
-            ].map((item) => (
-              <div key={item.label} className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{item.label}</p>
-                <p className="mt-2 text-lg font-semibold text-slate-900">{item.value}</p>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-4 flex flex-wrap gap-2 text-xs font-semibold">
-            <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-700">{summarySourceLabel}</span>
-            <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-700">
-              {summaryLinkedFormulationName ? `Linked formulation: ${summaryLinkedFormulationName}` : "Linked formulation not selected"}
+        <h2 className="section-title">Pack Configuration</h2>
+        {packWarningMessage && (
+          <div className="mt-2 flex flex-wrap gap-2">
+            <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-900">
+              {packWarningMessage}
             </span>
           </div>
-
-          {importedSkuDraft && summaryRecipeId && (
-            <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3">
-              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                <div>
-                  <p className="text-sm font-semibold text-emerald-900">Suggested formulation match</p>
-                  <p className="text-sm text-emerald-800">{summaryLinkedFormulationName}. Confirm this is the right formulation before creating the SKU.</p>
-                </div>
-                <button type="button" onClick={handleConfirmLinkedMatch} className="btn btn-primary">
-                  {linkedMatchConfirmed ? "Match confirmed" : "Confirm match"}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {importedSkuDraft && !summaryRecipeId && workbookFormulationName && (
-            <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
-              <p className="text-sm font-semibold text-amber-900">This SKU still needs a saved formulation.</p>
-              <p className="text-sm text-amber-800">
-                Use the formulation draft from this workbook first, save it, then come back here and the SKU will auto-match.
-              </p>
-            </div>
-          )}
-
-          {warningItems.length > 0 && (
-            <div className="mt-4 flex flex-wrap gap-2">
-              {warningItems.map((warning) => (
-                <span key={warning} className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-900">
-                  {warning}
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
-      </section>
-
-      <section className="page-section">
-        <h2 className="section-title">Pack Configuration</h2>
+        )}
         <div className="content-card overflow-x-auto">
           <table className="min-w-full sku-compact-table sku-pack-table">
             <thead>
@@ -653,18 +607,21 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
                 <th>Pack</th>
                 <th>Units / Carton</th>
                 <th>Packaging Cost</th>
-                <th>Total Cost</th>
+                <th>Final Cost / Pack</th>
                 <th>Selling Price</th>
+                <th>Margin</th>
               </tr>
             </thead>
             <tbody>
               {packEntries.map(([packName, config]) => {
                 const totalCost = calculateTotalCostPerPack(packName);
                 const margin = calculatePackMargin(packName);
-                const marginHealthy = Number(config.sellingPrice || 0) > 0 && margin >= marginThreshold;
+                const hasSellingPrice = Number(config.sellingPrice || 0) > 0;
+                const marginHealthy = hasSellingPrice && margin >= marginThreshold;
+                const marginLabel = hasSellingPrice ? `${margin.toFixed(1)}%` : "—";
 
                 return (
-                  <tr key={packName} className={!marginHealthy && Number(config.sellingPrice || 0) > 0 ? "bg-red-50" : ""}>
+                  <tr key={packName} className={!marginHealthy && hasSellingPrice ? "bg-red-50" : ""}>
                     <td>
                       <div className="flex flex-col">
                         <span className="font-semibold text-gray-900">{packName}</span>
@@ -708,10 +665,15 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
                           })}
                           className="w-32 px-2 py-1 border border-gray-300 rounded text-right font-semibold"
                         />
-                        <span className={`rounded-full px-2 py-1 text-xs font-bold ${marginHealthy ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"}`}>
-                          {margin.toFixed(1)}%
+                        <span className={`rounded-full px-2 py-1 text-xs font-bold ${marginHealthy ? "bg-emerald-100 text-emerald-700" : hasSellingPrice ? "bg-red-100 text-red-700" : "bg-slate-100 text-slate-500"}`}>
+                          {marginLabel}
                         </span>
                       </div>
+                    </td>
+                    <td>
+                      <span className={`rounded-full px-3 py-1 text-xs font-semibold ${marginHealthy ? "bg-emerald-50 text-emerald-700" : hasSellingPrice ? "bg-red-100 text-red-700" : "bg-slate-100 text-slate-500"}`}>
+                        {hasSellingPrice ? (marginHealthy ? "Healthy" : "Below target") : "No price"}
+                      </span>
                     </td>
                   </tr>
                 );
@@ -818,8 +780,8 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
         <h2 className="section-title">Cost Build-Up</h2>
         <div className="content-card">
           <div className="content-row-stack">
-            <div className="metric-grid metric-grid-5">
-              <div className="content-card-compact">
+            <div className="flex flex-col gap-3 xl:flex-row xl:items-stretch">
+              <div className="content-card-compact xl:flex-1">
                 <div className="flex justify-between items-center">
                   <span className="text-gray-600">Blend Cost</span>
                   <input
@@ -832,7 +794,7 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
                 </div>
               </div>
 
-              <div className="content-card-compact">
+              <div className="content-card-compact xl:flex-1">
                 <div className="flex justify-between items-center">
                   <span className="text-gray-600">Packaging Cost</span>
                   <input
@@ -845,7 +807,7 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
                 </div>
               </div>
 
-              <div className="content-card-compact">
+              <div className="content-card-compact xl:flex-1">
                 <div className="flex justify-between items-center">
                   <span className="text-gray-600">Logistics Cost</span>
                   <input
@@ -858,7 +820,7 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
                 </div>
               </div>
 
-              <div className="content-card-compact">
+              <div className="content-card-compact xl:flex-1">
                 <div className="flex justify-between items-center">
                   <span className="text-gray-600">Overhead %</span>
                   <input
@@ -871,14 +833,50 @@ export default function SKUManagement({ pendingImport, clearPendingImport, onOpe
                 </div>
               </div>
 
-              <div className="content-card-compact">
-                <div className="flex justify-between items-center">
-                  <span className="font-semibold text-gray-900">Total Cost/L</span>
-                  <span className="text-lg font-semibold text-gray-900">
+              <div className="content-card-compact xl:w-56 xl:shrink-0">
+                <div className="flex h-full flex-col justify-between gap-2">
+                  <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Total Cost/L</span>
+                  <span className="text-2xl font-semibold text-gray-900">
                     ${totalCostPerLiter.toFixed(2)}
                   </span>
                 </div>
               </div>
+            </div>
+
+            {costWarningItems.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {costWarningItems.map((warning) => (
+                  <span key={warning} className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-900">
+                    {warning}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              {[
+                { label: "Blend", value: costBreakup.blendCost },
+                { label: "Packaging", value: costBreakup.packagingCost },
+                { label: "Logistics", value: costBreakup.logisticsCost },
+                { label: "Overhead", value: costBreakup.overheadAllocation },
+              ].map((item) => {
+                const percentage = totalCostPerLiter > 0 ? (item.value / totalCostPerLiter) * 100 : 0;
+
+                return (
+                  <div key={item.label} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900">{item.label}</p>
+                        <p className="mt-1 text-sm text-slate-600">${item.value.toFixed(2)}</p>
+                      </div>
+                      <p className="text-sm font-semibold text-slate-700">{percentage.toFixed(1)}%</p>
+                    </div>
+                    <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-200">
+                      <div className="h-full rounded-full bg-slate-500" style={{ width: `${percentage}%` }} />
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
