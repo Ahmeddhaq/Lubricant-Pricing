@@ -57,30 +57,30 @@ const styles = {
     margin: 0,
     maxWidth: "36rem",
     color: "#f8fafc",
-    fontSize: "clamp(2.15rem, 4vw, 4.25rem)",
-    lineHeight: 0.98,
+    fontSize: "clamp(2rem, 3.2vw, 3.3rem)",
+    lineHeight: 1.02,
     fontWeight: 900,
     letterSpacing: "-0.05em",
   },
   copy: {
-    marginTop: "16px",
+    marginTop: "14px",
     maxWidth: "36rem",
     color: "#cbd5e1",
-    fontSize: "1rem",
-    lineHeight: 1.75,
+    fontSize: "0.98rem",
+    lineHeight: 1.55,
   },
   pills: {
     display: "grid",
-    gap: "12px",
-    marginTop: "28px",
+    gap: "10px",
+    marginTop: "22px",
   },
   pill: {
-    padding: "14px 16px",
-    borderRadius: "16px",
+    padding: "12px 14px",
+    borderRadius: "14px",
     border: "1px solid rgba(255,255,255,0.08)",
     background: "rgba(255,255,255,0.05)",
     color: "#e2e8f0",
-    fontSize: "0.95rem",
+    fontSize: "0.92rem",
     fontWeight: 600,
   },
   form: {
@@ -216,15 +216,15 @@ export default function AuthScreen() {
           <section style={styles.story}>
             <div style={styles.eyebrow}>Multi-user pricing workspace</div>
             <h1 style={styles.title}>
-              Sign in to track Excel uploads, config history, and pricing changes per user.
+              Centralized control for formulation, pricing, and generating quotes
             </h1>
             <p style={styles.copy}>
-              Each upload and each saved configuration can be tied back to the account that used it. That gives you a real audit trail across teams and devices.
+              Per-user activity tracking
             </p>
             <div style={styles.pills}>
-              <div style={styles.pill}>Per-user upload history</div>
-              <div style={styles.pill}>Saved formulation and SKU snapshots</div>
-              <div style={styles.pill}>Vercel + Supabase Auth ready</div>
+              <div style={styles.pill}>• Per-user activity tracking</div>
+              <div style={styles.pill}>• Version history for formulations and SKUs</div>
+              <div style={styles.pill}>• Full audit trail across teams</div>
             </div>
           </section>
 
