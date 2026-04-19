@@ -1,17 +1,35 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Navigation from "./components/Navigation";
 import Dashboard from "./components/Dashboard";
 import FormulationEngine from "./components/FormulationEngine";
 import SKUManagement from "./components/SKUManagement";
 import QuoteBuilder from "./components/QuoteBuilder";
 import ExcelIntelligence from "./components/ExcelIntelligence";
-import { isSupabaseConfigured } from "./services/supabaseService";
+import { checkSupabaseConnection } from "./services/supabaseService";
 import "./App.css";
 
 export default function PricingApp() {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [pendingImport, setPendingImport] = useState(null);
-  const supabaseConfigured = isSupabaseConfigured();
+  const [supabaseStatus, setSupabaseStatus] = useState({ state: "checking" });
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const verifySupabase = async () => {
+      const result = await checkSupabaseConnection();
+
+      if (!cancelled) {
+        setSupabaseStatus(result.ok ? { state: "ready" } : { state: "error", ...result });
+      }
+    };
+
+    verifySupabase();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handlePrepareImport = (payload, targetTab) => {
     setPendingImport({ ...payload, targetTab });
@@ -27,12 +45,14 @@ export default function PricingApp() {
       <Navigation activeTab={activeTab} setActiveTab={setActiveTab} />
       
       <main className="main-content">
-        {!supabaseConfigured && (
+        {supabaseStatus.state === "error" && (
           <div className="setup-warning-banner">
             <div>
-              <h2>Frontend is loaded, but Supabase is not configured</h2>
+              <h2>Supabase is not available to the frontend</h2>
               <p>
-                The app shell is visible now. Add the Supabase env vars and schema to enable Formulation and SKU data loading.
+                {supabaseStatus.reason === "missing-config"
+                  ? "The frontend build cannot see VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY. Restart Vite after setting them in .env.local."
+                  : `The app can read the env vars, but the Supabase probe failed: ${supabaseStatus.message}. Check the table schema, RLS policies, and project URL.`}
               </p>
             </div>
             <button type="button" onClick={() => setActiveTab("excel")} className="btn btn-primary">

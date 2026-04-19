@@ -10,6 +10,28 @@ export const supabase = supabaseUrl && supabaseKey
 // Helper to check if Supabase is configured
 export const isSupabaseConfigured = () => !!supabase;
 
+export async function checkSupabaseConnection() {
+  if (!supabase) {
+    return {
+      ok: false,
+      reason: "missing-config",
+      message: "Supabase env vars are missing from the frontend build.",
+    };
+  }
+
+  const { error } = await supabase.from("base_oils").select("id", { head: true, count: "exact" }).limit(1);
+
+  if (error) {
+    return {
+      ok: false,
+      reason: "unreachable",
+      message: error.message,
+    };
+  }
+
+  return { ok: true };
+}
+
 // ============= BASE OILS =============
 export const baseOilsService = {
   async getAll() {
