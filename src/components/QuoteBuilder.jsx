@@ -145,6 +145,38 @@ export default function QuoteBuilder() {
     return calculateEstimatedProfit();
   };
 
+  const getSkuRecipeForCosting = (sku) => {
+    const recipe = sku?.recipes;
+    if (Array.isArray(recipe)) {
+      return recipe[0] || null;
+    }
+    return recipe || null;
+  };
+
+  const calculateSkuCostBreakdown = (sku) => {
+    const recipe = getSkuRecipeForCosting(sku);
+    if (recipe?.base_oils) {
+      return costingEngine.calculateTotalCostPerUnit(recipe, sku);
+    }
+
+    const packSize = Number(sku?.pack_size_liters || 1) || 1;
+    const baseCostPerLiter = Number(sku?.base_cost_per_liter ?? sku?.baseCostPerLiter ?? 0);
+    const packagingCost = Number(sku?.packaging_cost_per_unit ?? sku?.packagingCostPerUnit ?? 0);
+    const blendingCostPerLiter = Number(recipe?.blending_cost_per_liter ?? 0);
+    const materialCost = baseCostPerLiter * packSize;
+    const blendingCost = blendingCostPerLiter * packSize;
+    const overheadCost = (materialCost + blendingCost + packagingCost) * 0.05;
+    const totalCost = materialCost + blendingCost + packagingCost + overheadCost;
+
+    return {
+      materialCost: parseFloat(materialCost.toFixed(2)),
+      blendingCost: parseFloat(blendingCost.toFixed(2)),
+      packagingCost: parseFloat(packagingCost.toFixed(2)),
+      overheadCost: parseFloat(overheadCost.toFixed(2)),
+      totalCost: parseFloat(totalCost.toFixed(2)),
+    };
+  };
+
   const handleAddLineItem = () => {
     if (!selectedSku || !quantity) {
       alert("Please select SKU and enter quantity");
@@ -152,36 +184,44 @@ export default function QuoteBuilder() {
     }
 
     const sku = skus.find((s) => s.id === selectedSku);
-    if (!sku) return;
+    if (!sku) {
+      alert("Selected SKU could not be found. Refresh the page and try again.");
+      return;
+    }
 
-    const costs = costingEngine.calculateTotalCostPerUnit(sku.recipes, sku);
-    const newItem = {
-      id: `item-${Date.now()}`,
-      skuId: selectedSku,
-      skuName: sku.name,
-      packType: packType,
-      quantity: parseFloat(quantity),
-      pricePerUnit: sku.current_selling_price || costs.totalCost,
-      costPerUnit: costs.totalCost,
-      discountPercentage: parseFloat(itemDiscount) || 0,
-    };
+    try {
+      const costs = calculateSkuCostBreakdown(sku);
+      const newItem = {
+        id: `item-${Date.now()}`,
+        skuId: selectedSku,
+        skuName: sku.name,
+        packType: packType,
+        quantity: parseFloat(quantity),
+        pricePerUnit: Number(sku.current_selling_price || costs.totalCost),
+        costPerUnit: costs.totalCost,
+        discountPercentage: parseFloat(itemDiscount) || 0,
+      };
 
-    setLineItems([...lineItems, newItem]);
-    setSelectedSku("");
-    setQuantity("");
-    setItemDiscount(0);
-    setPackType("1L");
+      setLineItems((current) => [...current, newItem]);
+      setSelectedSku("");
+      setQuantity("");
+      setItemDiscount(0);
+      setPackType("1L");
 
-    // Add audit entry
-    setAuditHistory([
-      ...auditHistory,
-      {
-        timestamp: new Date().toLocaleString(),
-        action: "Line item added",
-        user: "Current User",
-        details: `${newItem.skuName} - ${newItem.quantity} units`,
-      },
-    ]);
+      // Add audit entry
+      setAuditHistory((current) => [
+        ...current,
+        {
+          timestamp: new Date().toLocaleString(),
+          action: "Line item added",
+          user: "Current User",
+          details: `${newItem.skuName} - ${newItem.quantity} units`,
+        },
+      ]);
+    } catch (error) {
+      console.error("Error adding line item:", error);
+      alert("Could not add the line item because the selected SKU is missing cost data.");
+    }
   };
 
   const handleRemoveLineItem = (itemId) => {
@@ -262,14 +302,21 @@ export default function QuoteBuilder() {
       // Add line items
       for (const item of lineItems) {
         const sku = skus.find((s) => s.id === item.skuId);
-        const costs = costingEngine.calculateTotalCostPerUnit(sku.recipes, sku);
+        if (!sku) {
+          throw new Error(`Selected SKU ${item.skuId} could not be found.`);
+        }
+
+        const costs = calculateSkuCostBreakdown(sku);
+        const marginPercent = costs.totalCost > 0
+          ? ((item.pricePerUnit - costs.totalCost) / costs.totalCost) * 100
+          : 0;
 
         await quoteItemsService.addItem(
           createdQuote.id,
           item.skuId,
           item.quantity,
           item.pricePerUnit,
-          ((item.pricePerUnit - item.costPerUnit) / item.costPerUnit) * 100
+          marginPercent
         );
 
         await costSnapshotsService.createSnapshot(item.skuId, costs);
