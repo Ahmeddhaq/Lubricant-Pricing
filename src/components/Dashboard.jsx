@@ -59,6 +59,25 @@ function getHistorySourceUploadId(record) {
   return record?.source_upload_id || record?.sourceUploadId || null;
 }
 
+function getHistoryRecordType(record) {
+  return record?.run_type || record?.config_type || record?.type || record?.runType || record?.configType || null;
+}
+
+function getHistoryRecordData(record) {
+  const rawData = record?.run_data || record?.config_data || record?.runData || record?.configData || null;
+
+  if (typeof rawData === "string") {
+    try {
+      return JSON.parse(rawData);
+    } catch (error) {
+      console.error("Failed to parse history record data:", error);
+      return null;
+    }
+  }
+
+  return rawData;
+}
+
 export default function Dashboard({ dataRefreshToken = 0, currentSessionUploadId = null }) {
   const [quotes, setQuotes] = useState([]);
   const [skus, setSkus] = useState([]);
@@ -132,7 +151,13 @@ export default function Dashboard({ dataRefreshToken = 0, currentSessionUploadId
         const history = await historyService.fetchHistory();
         if (cancelled) return;
 
-        const hasCurrentSessionConfig = (history.configs || []).some((record) => getHistorySourceUploadId(record) === currentSessionUploadId);
+        const sessionConfigs = (history.configs || [])
+          .filter((record) => getHistorySourceUploadId(record) === currentSessionUploadId)
+          .sort((left, right) => new Date(right.updated_at || right.created_at || 0) - new Date(left.updated_at || left.created_at || 0));
+        const sessionRuns = (history.runs || [])
+          .filter((record) => getHistorySourceUploadId(record) === currentSessionUploadId)
+          .sort((left, right) => new Date(right.updated_at || right.created_at || 0) - new Date(left.updated_at || left.created_at || 0));
+        const hasCurrentSessionConfig = sessionConfigs.length > 0;
         const hasMeaningfulData =
           stats.totalSkus > 0 ||
           stats.totalFormulations > 0 ||
@@ -141,6 +166,57 @@ export default function Dashboard({ dataRefreshToken = 0, currentSessionUploadId
           stats.totalSnapshots > 0;
 
         if (!hasCurrentSessionConfig || !hasMeaningfulData) return;
+
+        const latestWorkbookRun = sessionRuns.find((record) => {
+          const recordType = String(getHistoryRecordType(record) || "").toLowerCase();
+          return recordType.includes("workbook-analysis") || recordType.includes("workbook analysis");
+        }) || sessionRuns[0] || null;
+        const workbookRunData = getHistoryRecordData(latestWorkbookRun) || {};
+
+        const latestSkuConfig = sessionConfigs.find((record) => {
+          const recordType = String(getHistoryRecordType(record) || "").toLowerCase();
+          return recordType.includes("sku") || recordType.includes("pricing");
+        }) || sessionConfigs[0] || null;
+        const latestSkuConfigData = getHistoryRecordData(latestSkuConfig) || {};
+
+        const portfolioAverageCost = stats.totalSkus > 0 ? stats.estimatedPortfolioCost / stats.totalSkus : stats.estimatedPortfolioCost;
+        const portfolioAveragePrice = stats.totalSkus > 0 ? stats.estimatedPortfolioRevenue / stats.totalSkus : stats.estimatedPortfolioRevenue;
+
+        const averageCostPerUnit = toNumber(
+          workbookRunData.averageCostPerUnit ??
+            workbookRunData.averageCostPerLiter ??
+            workbookRunData.costPerUnit ??
+            latestSkuConfigData.averageCostPerUnit ??
+            latestSkuConfigData.averageCostPerLiter ??
+            latestSkuConfigData.estimatedCostPerLiter ??
+            latestSkuConfigData.baseCostPerLiter ??
+            stats.averageSkuCostPerUnit ??
+            stats.averageFormulaCostPerLiter ??
+            portfolioAverageCost
+        );
+        const averagePrice = toNumber(
+          workbookRunData.averageSellingPrice ??
+            workbookRunData.averagePrice ??
+            latestSkuConfigData.averageSellingPrice ??
+            latestSkuConfigData.averagePrice ??
+            latestSkuConfigData.currentSellingPrice ??
+            latestSkuConfigData.sellingPrice ??
+            portfolioAveragePrice
+        );
+        const averageMarginPercent = toNumber(
+          workbookRunData.averageMarginPercent ??
+            workbookRunData.averageMargin ??
+            latestSkuConfigData.averageMarginPercent ??
+            latestSkuConfigData.averageMargin ??
+            latestSkuConfigData.marginPercent ??
+            stats.estimatedPortfolioMargin
+        );
+        const averageProfitPerUnit = toNumber(
+          workbookRunData.averageProfitPerUnit ??
+            workbookRunData.sessionProfit ??
+            latestSkuConfigData.averageProfitPerUnit ??
+            (averagePrice - averageCostPerUnit)
+        );
 
         const snapshotSignature = [
           currentSessionUploadId,
@@ -153,6 +229,10 @@ export default function Dashboard({ dataRefreshToken = 0, currentSessionUploadId
           stats.totalSnapshots,
           stats.averageSkuCostPerUnit,
           stats.averageFormulaCostPerLiter,
+          averageCostPerUnit,
+          averagePrice,
+          averageProfitPerUnit,
+          averageMarginPercent,
         ].join("|");
 
         if (lastDashboardSnapshotRef.current === snapshotSignature) return;
@@ -163,6 +243,21 @@ export default function Dashboard({ dataRefreshToken = 0, currentSessionUploadId
           runType: "dashboard-snapshot",
           runData: {
             ...stats,
+            averageCostPerUnit,
+            averageCostPerLiter: averageCostPerUnit,
+            averageSellingPrice: averagePrice,
+            averagePrice,
+            averageMarginPercent,
+            averageMargin: averageMarginPercent,
+            averageProfitPerUnit,
+            sessionCost: averageCostPerUnit,
+            sessionPrice: averagePrice,
+            sessionProfit: averageProfitPerUnit,
+            sessionMargin: averageMarginPercent,
+            workbookAnalysisAverageCostPerUnit: toNumber(workbookRunData.averageCostPerUnit ?? workbookRunData.averageCostPerLiter),
+            workbookAnalysisAveragePrice: toNumber(workbookRunData.averageSellingPrice ?? workbookRunData.averagePrice),
+            workbookAnalysisAverageMargin: toNumber(workbookRunData.averageMarginPercent ?? workbookRunData.averageMargin),
+            workbookAnalysisAverageProfitPerUnit: toNumber(workbookRunData.averageProfitPerUnit),
             dashboardSnapshotAt: new Date().toISOString(),
           },
           sourceUploadId: currentSessionUploadId,

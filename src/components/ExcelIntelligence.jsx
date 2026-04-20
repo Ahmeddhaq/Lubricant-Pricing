@@ -742,6 +742,13 @@ export default function ExcelIntelligence({ onPrepareImport, onPrepareFormulatio
         averageMargin: Number.isFinite(averageMargin) ? Number(averageMargin.toFixed(2)) : 0,
       };
       workbookSessionSummary.averageProfitPerUnit = Number((workbookSessionSummary.averagePrice - workbookSessionSummary.averageCostPerLiter).toFixed(2));
+      workbookSessionSummary.averageCostPerUnit = workbookSessionSummary.averageCostPerLiter;
+      workbookSessionSummary.averageSellingPrice = workbookSessionSummary.averagePrice;
+      workbookSessionSummary.averageMarginPercent = workbookSessionSummary.averageMargin;
+      workbookSessionSummary.sessionCost = workbookSessionSummary.averageCostPerUnit;
+      workbookSessionSummary.sessionPrice = workbookSessionSummary.averageSellingPrice;
+      workbookSessionSummary.sessionProfit = workbookSessionSummary.averageProfitPerUnit;
+      workbookSessionSummary.sessionMargin = workbookSessionSummary.averageMarginPercent;
 
       try {
         await historyService.recordRun({

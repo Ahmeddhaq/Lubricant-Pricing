@@ -181,6 +181,9 @@ function summarizeRun(record) {
 
   const data = getRecordData(record);
   const cost = toNumber(
+    data?.averageCostPerUnit ??
+      data?.averageCostPerLiter ??
+      data?.sessionCost ??
     data?.estimatedPortfolioCost ??
       data?.overallCost ??
       data?.totalCost ??
@@ -189,6 +192,9 @@ function summarizeRun(record) {
       0
   );
   const price = toNumber(
+    data?.averageSellingPrice ??
+      data?.averagePrice ??
+      data?.sessionPrice ??
     data?.estimatedPortfolioRevenue ??
       data?.totalRevenue ??
       data?.sellingPrice ??
@@ -197,6 +203,8 @@ function summarizeRun(record) {
       0
   );
   const profit = toNumber(
+    data?.averageProfitPerUnit ??
+      data?.sessionProfit ??
     data?.estimatedPortfolioProfit ??
       data?.grossProfit ??
       data?.profit ??
@@ -204,6 +212,9 @@ function summarizeRun(record) {
       0
   ) || (price > 0 ? price - cost : 0);
   const margin = toNumber(
+    data?.averageMarginPercent ??
+      data?.averageMargin ??
+      data?.sessionMargin ??
     data?.estimatedPortfolioMargin ??
       data?.profitMargin ??
       data?.margin ??
