@@ -72,6 +72,7 @@ export default function QuoteBuilder() {
 
   // New Customer Form
   const [showNewCustomer, setShowNewCustomer] = useState(false);
+  const [customerError, setCustomerError] = useState("");
   const [newCustomer, setNewCustomer] = useState({
     name: "",
     email: "",
@@ -200,7 +201,23 @@ export default function QuoteBuilder() {
   const handleAddCustomer = async (e) => {
     e.preventDefault();
     try {
-      const created = await customersService.create(newCustomer);
+      setCustomerError("");
+
+      const customerName = newCustomer.name.trim();
+      if (!customerName) {
+        setCustomerError("Customer name is required.");
+        return;
+      }
+
+      const payload = {
+        name: customerName,
+        email: newCustomer.email.trim(),
+        phone: newCustomer.phone.trim(),
+        country: newCustomer.country.trim(),
+        contact_person: newCustomer.contact_person.trim(),
+      };
+
+      const created = await customersService.create(payload);
       setCustomers([...customers, created]);
       setQuoteHeader({ ...quoteHeader, customerId: created.id, customerName: created.name, country: created.country });
       setNewCustomer({ name: "", email: "", phone: "", country: "", contact_person: "" });
@@ -208,7 +225,11 @@ export default function QuoteBuilder() {
       alert("Customer added!");
     } catch (err) {
       console.error("Error adding customer:", err);
-      alert("Failed to add customer");
+      if (err?.code === "42501" || /row-level security/i.test(err?.message || "")) {
+        setCustomerError("Supabase blocked this save because the customers table needs an authenticated insert policy.");
+      } else {
+        setCustomerError(err?.message || "Failed to add customer.");
+      }
     }
   };
 
@@ -651,6 +672,9 @@ export default function QuoteBuilder() {
                 {showNewCustomer && (
                   <div className="mt-6 pt-6 border-t border-gray-200">
                     <h3 className="font-semibold text-gray-900 mb-4">Add New Customer</h3>
+                    <p className="text-sm text-gray-500 mb-4">
+                      Create a reusable customer record for quotes. The save will only work if the Supabase customers policy is enabled.
+                    </p>
                     <div className="form-grid form-grid-2 mb-4">
                       <input
                         type="text"
@@ -658,6 +682,7 @@ export default function QuoteBuilder() {
                         value={newCustomer.name}
                         onChange={(e) => setNewCustomer({ ...newCustomer, name: e.target.value })}
                         className="px-3 py-2 border border-gray-300 rounded"
+                        required
                       />
                       <input
                         type="email"
@@ -680,6 +705,13 @@ export default function QuoteBuilder() {
                         onChange={(e) => setNewCustomer({ ...newCustomer, country: e.target.value })}
                         className="px-3 py-2 border border-gray-300 rounded"
                       />
+                      <input
+                        type="text"
+                        placeholder="Contact Person"
+                        value={newCustomer.contact_person}
+                        onChange={(e) => setNewCustomer({ ...newCustomer, contact_person: e.target.value })}
+                        className="px-3 py-2 border border-gray-300 rounded"
+                      />
                     </div>
                     <button
                       type="button"
@@ -688,6 +720,11 @@ export default function QuoteBuilder() {
                     >
                       Add Customer
                     </button>
+                    {customerError && (
+                      <p className="mt-3 text-sm font-semibold text-red-600">
+                        {customerError}
+                      </p>
+                    )}
                   </div>
                 )}
               </div>

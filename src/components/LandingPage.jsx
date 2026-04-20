@@ -27,6 +27,25 @@ const trustPoints = ["Audit trail", "Multi-user system", "Data control", "Consis
 
 const flowSteps = ["Formulation", "SKU", "Pricing", "Quotes", "Profit"];
 
+const workbookSteps = [
+  {
+    title: "1. Upload the workbook",
+    text: "Start in Excel Intelligence by selecting the workbook you want the system to read.",
+  },
+  {
+    title: "2. EI analyses the file",
+    text: "It scans the sheets, detects SKUs and formulations, and prepares the import drafts.",
+  },
+  {
+    title: "3. SKUs and formulations are created",
+    text: "The workbook data is turned into saved product records with pricing and cost structure.",
+  },
+  {
+    title: "4. The dashboard updates",
+    text: "Once the records are saved, the dashboard reflects the new session and its metrics.",
+  },
+];
+
 const styles = {
   screen: {
     minHeight: "100vh",
@@ -212,6 +231,46 @@ const styles = {
     fontSize: "0.95rem",
     lineHeight: 1.65,
   },
+  workflowBadge: {
+    display: "inline-flex",
+    alignItems: "center",
+    padding: "8px 12px",
+    borderRadius: "999px",
+    border: "1px solid rgba(59,130,246,0.22)",
+    background: "rgba(59,130,246,0.08)",
+    color: "#bfdbfe",
+    fontSize: "11px",
+    fontWeight: 800,
+    letterSpacing: "0.22em",
+    textTransform: "uppercase",
+    marginBottom: "14px",
+  },
+  workflowGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+    gap: "12px",
+    marginTop: "18px",
+  },
+  workflowCard: {
+    padding: "16px",
+    borderRadius: "18px",
+    border: "1px solid rgba(148,163,184,0.2)",
+    background: "linear-gradient(180deg, rgba(15,23,42,0.78), rgba(30,41,59,0.92))",
+    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04)",
+  },
+  workflowTitle: {
+    margin: 0,
+    color: "#f8fafc",
+    fontSize: "0.96rem",
+    fontWeight: 900,
+    letterSpacing: "-0.03em",
+  },
+  workflowText: {
+    marginTop: "8px",
+    color: "#cbd5e1",
+    fontSize: "0.9rem",
+    lineHeight: 1.6,
+  },
   capabilityGrid: {
     display: "grid",
     gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
@@ -354,6 +413,23 @@ export default function LandingPage({ onSignIn, onCreateAccount }) {
             {flowSteps.map((step) => (
               <div key={step} style={styles.flowStep}>
                 {step}
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section style={{ ...styles.section, marginTop: isMobile ? "18px" : "28px", padding: sectionPadding }}>
+          <div style={styles.workflowBadge}>Excel Intelligence</div>
+          <h3 style={styles.sectionHeader}>Workbook-first workflow</h3>
+          <p style={styles.sectionText}>
+            The product starts with EI. You upload the workbook first, EI reads the sheets, and then the app creates
+            the SKUs and formulations before the dashboard refreshes.
+          </p>
+          <div style={{ ...styles.workflowGrid, gridTemplateColumns: isMobile ? "1fr" : "repeat(4, minmax(0, 1fr))" }}>
+            {workbookSteps.map((step) => (
+              <div key={step.title} style={styles.workflowCard}>
+                <h4 style={styles.workflowTitle}>{step.title}</h4>
+                <p style={styles.workflowText}>{step.text}</p>
               </div>
             ))}
           </div>
