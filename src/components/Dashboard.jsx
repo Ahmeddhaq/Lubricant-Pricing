@@ -78,6 +78,145 @@ function getHistoryRecordData(record) {
   return rawData;
 }
 
+function calculateSessionFormulationCost(configData) {
+  const components = Array.isArray(configData?.components)
+    ? configData.components
+    : Array.isArray(configData?.draft?.components)
+      ? configData.draft.components
+      : [];
+
+  return components.reduce((sumValue, component) => {
+    const percentage = toNumber(component.percentage ?? component.share ?? 0);
+    const unitCost = toNumber(component.unitCost ?? component.cost ?? 0);
+    return sumValue + (unitCost * percentage) / 100;
+  }, 0);
+}
+
+function calculateSessionSkuCost(configData) {
+  return toNumber(
+    configData?.skuForm?.baseCostPerLiter ??
+      configData?.baseCostPerLiter ??
+      configData?.draft?.estimatedCostPerLiter ??
+      configData?.estimatedCostPerLiter ??
+      configData?.costPerUnit ??
+      0
+  );
+}
+
+function calculateSessionSkuPrice(configData) {
+  return toNumber(
+    configData?.skuForm?.currentSellingPrice ??
+      configData?.currentSellingPrice ??
+      configData?.draft?.currentSellingPrice ??
+      configData?.averagePrice ??
+      0
+  );
+}
+
+function isSessionSkuRecord(record) {
+  const type = String(getHistoryRecordType(record) || "").toLowerCase();
+  const data = getHistoryRecordData(record);
+  return type.includes("sku") || Boolean(data?.skuForm || data?.packConfigs || data?.pricingMatrix || data?.costBreakup);
+}
+
+function isSessionFormulationRecord(record) {
+  const type = String(getHistoryRecordType(record) || "").toLowerCase();
+  const data = getHistoryRecordData(record);
+  return type.includes("formulation") || Boolean(data?.components?.length || data?.draft?.components?.length);
+}
+
+function summarizeSessionRecord(record) {
+  if (!record) return null;
+
+  const data = getHistoryRecordData(record);
+  const hasFormulationShape = isSessionFormulationRecord(record);
+  const hasSkuShape = isSessionSkuRecord(record);
+  const cost = hasFormulationShape && !hasSkuShape ? calculateSessionFormulationCost(data) : calculateSessionSkuCost(data) || calculateSessionFormulationCost(data);
+  const price = calculateSessionSkuPrice(data);
+  const profit = price > 0 ? price - cost : 0;
+  const margin = price > 0 ? (profit / price) * 100 : 0;
+
+  return {
+    name: data?.skuForm?.name || data?.draft?.name || data?.name || data?.workbookName || "Workbook session",
+    title: data?.skuForm?.name || data?.draft?.name || data?.name || data?.workbookName || "Workbook session",
+    type: hasFormulationShape ? "formulation" : hasSkuShape ? "sku" : "config",
+    revenue: price,
+    cost,
+    price,
+    profit,
+    margin,
+    count: 1,
+    baseOilName: data?.draft?.baseOilName || data?.baseOilName || data?.baseOil || data?.selectedBaseOilName || "-",
+    materialCostPerLiter: cost,
+    blendingCostPerLiter: toNumber(data?.draft?.blendingCostPerLiter ?? data?.blendingCostPerLiter ?? 0),
+    linkedSkuCount: Array.isArray(data?.linkedSkuDrafts) ? data.linkedSkuDrafts.length : 1,
+    updatedAt: record.updated_at || record.created_at || null,
+    data,
+  };
+}
+
+function buildSessionDashboardSummary(history, currentSessionUploadId) {
+  if (!history || !currentSessionUploadId) return null;
+
+  const sessionConfigs = (history.configs || []).filter((record) => getHistorySourceUploadId(record) === currentSessionUploadId);
+  const sessionRuns = (history.runs || []).filter((record) => getHistorySourceUploadId(record) === currentSessionUploadId);
+  if (sessionConfigs.length === 0 && sessionRuns.length === 0) return null;
+
+  const workbookRun = sessionRuns.find((record) => {
+    const recordType = String(getHistoryRecordType(record) || "").toLowerCase();
+    return recordType.includes("workbook-analysis") || recordType.includes("workbook analysis");
+  }) || sessionRuns[0] || null;
+  const workbookRunData = getHistoryRecordData(workbookRun) || {};
+
+  const summaries = sessionConfigs.map((record) => summarizeSessionRecord(record)).filter(Boolean);
+  const skuSummaries = summaries.filter((summary) => summary.type === "sku");
+  const formulationSummaries = summaries.filter((summary) => summary.type === "formulation");
+
+  const topSkus = [...skuSummaries].sort((left, right) => right.profit - left.profit).slice(0, 5);
+  const bottomSkus = [...skuSummaries].sort((left, right) => left.profit - right.profit).slice(0, 5);
+  const lowMarginSkus = skuSummaries.filter((summary) => summary.margin < 15);
+
+  const revenueFromSkus = sum(skuSummaries.map((summary) => summary.price));
+  const costFromSkus = sum(skuSummaries.map((summary) => summary.cost));
+  const revenueFallback = toNumber(workbookRunData.sessionPrice ?? workbookRunData.averagePrice ?? workbookRunData.currentSellingPrice ?? 0);
+  const costFallback = toNumber(workbookRunData.sessionCost ?? workbookRunData.averageCostPerUnit ?? workbookRunData.averageCostPerLiter ?? 0);
+  const sessionRevenue = revenueFromSkus > 0 ? revenueFromSkus : revenueFallback * Math.max(skuSummaries.length, 1);
+  const sessionCost = costFromSkus > 0 ? costFromSkus : costFallback * Math.max(skuSummaries.length, 1);
+  const sessionProfit = sessionRevenue - sessionCost;
+  const sessionMargin = sessionRevenue > 0 ? (sessionProfit / sessionRevenue) * 100 : toNumber(workbookRunData.sessionMargin ?? workbookRunData.averageMargin ?? 0);
+
+  const averageSkuCostPerUnit = skuSummaries.length > 0
+    ? average(skuSummaries.map((summary) => summary.cost))
+    : toNumber(workbookRunData.averageCostPerUnit ?? workbookRunData.averageCostPerLiter ?? 0);
+  const averageFormulaCostPerLiter = formulationSummaries.length > 0
+    ? average(formulationSummaries.map((summary) => summary.cost))
+    : toNumber(workbookRunData.averageCostPerLiter ?? workbookRunData.averageCostPerUnit ?? 0);
+  const averageMaterialCostPerLiter = averageFormulaCostPerLiter;
+  const averageAdditiveCostPercentage = toNumber(workbookRunData.averageAdditiveCostPercentage ?? 0);
+
+  const recentFormulations = [...formulationSummaries]
+    .sort((left, right) => new Date(right.updatedAt || 0) - new Date(left.updatedAt || 0))
+    .slice(0, 5);
+
+  return {
+    sessionRevenue,
+    sessionCost,
+    sessionProfit,
+    sessionMargin,
+    totalSkus: skuSummaries.length || toNumber(workbookRunData.skuCount ?? 0),
+    totalFormulations: formulationSummaries.length || toNumber(workbookRunData.formulationCount ?? 0),
+    averageSkuCostPerUnit,
+    averageFormulaCostPerLiter,
+    averageMaterialCostPerLiter,
+    averageAdditiveCostPercentage,
+    topSkus,
+    bottomSkus,
+    lowMarginSkus,
+    recentFormulations,
+    workbookRunData,
+  };
+}
+
 export default function Dashboard({ dataRefreshToken = 0, currentSessionUploadId = null }) {
   const [quotes, setQuotes] = useState([]);
   const [skus, setSkus] = useState([]);
@@ -307,6 +446,9 @@ export default function Dashboard({ dataRefreshToken = 0, currentSessionUploadId
       const scopedRecipes = filterByCurrentSession(recipesData);
       const scopedSkus = dedupeLatestSkus(filterByCurrentSession(skusData));
 
+      const history = currentSessionUploadId ? await historyService.fetchHistory() : null;
+      const sessionDashboardSummary = buildSessionDashboardSummary(history, currentSessionUploadId);
+
       const latestSnapshots = await Promise.all(
         scopedSkus.map((sku) => costSnapshotsService.getLatestBySku(sku.id).catch((error) => {
           console.error(`Failed to load latest cost snapshot for SKU ${sku.id}:`, error);
@@ -326,7 +468,8 @@ export default function Dashboard({ dataRefreshToken = 0, currentSessionUploadId
         recipeIngredientsData,
         baseOilsData,
         additivesData,
-        latestSnapshots.filter(Boolean)
+        latestSnapshots.filter(Boolean),
+        sessionDashboardSummary
       );
     } catch (err) {
       console.error("Error loading data:", err);
@@ -335,7 +478,7 @@ export default function Dashboard({ dataRefreshToken = 0, currentSessionUploadId
     }
   };
 
-  const calculateStats = (quotesData, quoteItemsData, skusData, recipesData, recipeIngredientsData, baseOilsData, additivesData, latestSnapshots) => {
+  const calculateStats = (quotesData, quoteItemsData, skusData, recipesData, recipeIngredientsData, baseOilsData, additivesData, latestSnapshots, sessionDashboardSummary) => {
     let quotedRevenue = 0;
     let quotedCost = 0;
     const skuProfits = {};
@@ -544,10 +687,21 @@ export default function Dashboard({ dataRefreshToken = 0, currentSessionUploadId
       })
     );
 
-    const sessionRevenue = estimatedPortfolioRevenue;
-    const sessionCost = estimatedPortfolioCost;
-    const sessionProfit = sessionRevenue - sessionCost;
-    const sessionMargin = sessionRevenue > 0 ? (sessionProfit / sessionRevenue) * 100 : 0;
+    const sessionRevenue = sessionDashboardSummary?.sessionRevenue ?? estimatedPortfolioRevenue;
+    const sessionCost = sessionDashboardSummary?.sessionCost ?? estimatedPortfolioCost;
+    const sessionProfit = sessionDashboardSummary?.sessionProfit ?? (sessionRevenue - sessionCost);
+    const sessionMargin = sessionDashboardSummary?.sessionMargin ?? (sessionRevenue > 0 ? (sessionProfit / sessionRevenue) * 100 : 0);
+
+    const totalSkusForDashboard = sessionDashboardSummary?.totalSkus ?? skusData.length;
+    const totalFormulationsForDashboard = sessionDashboardSummary?.totalFormulations ?? recipeMetrics.length;
+    const averageSkuCostPerUnitForDashboard = sessionDashboardSummary?.averageSkuCostPerUnit ?? averageSkuCostPerUnit;
+    const averageFormulaCostPerLiterForDashboard = sessionDashboardSummary?.averageFormulaCostPerLiter ?? averageFormulaCostPerLiter;
+    const averageMaterialCostPerLiterForDashboard = sessionDashboardSummary?.averageMaterialCostPerLiter ?? averageMaterialCostPerLiter;
+    const averageAdditiveCostPercentageForDashboard = sessionDashboardSummary?.averageAdditiveCostPercentage ?? averageAdditiveCostPercentage;
+    const topSkusForDashboard = sessionDashboardSummary?.topSkus?.length ? sessionDashboardSummary.topSkus : topSkus;
+    const bottomSkusForDashboard = sessionDashboardSummary?.bottomSkus?.length ? sessionDashboardSummary.bottomSkus : bottomSkus;
+    const lowMarginSkusForDashboard = sessionDashboardSummary?.lowMarginSkus?.length ? sessionDashboardSummary.lowMarginSkus : lowMarginSkus;
+    const recentFormulationsForDashboard = sessionDashboardSummary?.recentFormulations?.length ? sessionDashboardSummary.recentFormulations : recentFormulations;
 
     const quoteRevenue = quotedRevenue > 0 ? quotedRevenue : 0;
     const quoteCost = quotedCost > 0 ? quotedCost : 0;
@@ -659,34 +813,34 @@ export default function Dashboard({ dataRefreshToken = 0, currentSessionUploadId
       profitMargin: parseFloat(sessionMargin.toFixed(2)),
       activeDeals: dealStages.open + dealStages.negotiation,
       containersShipped,
-      totalSkus,
-      totalFormulations,
+      totalSkus: totalSkusForDashboard,
+      totalFormulations: totalFormulationsForDashboard,
       totalSnapshots,
-      averageMaterialCostPerLiter: parseFloat(averageMaterialCostPerLiter.toFixed(2)),
-      averageFormulaCostPerLiter: parseFloat(averageFormulaCostPerLiter.toFixed(2)),
-      averageSkuCostPerUnit: parseFloat(averageSkuCostPerUnit.toFixed(2)),
+      averageMaterialCostPerLiter: parseFloat(averageMaterialCostPerLiterForDashboard.toFixed(2)),
+      averageFormulaCostPerLiter: parseFloat(averageFormulaCostPerLiterForDashboard.toFixed(2)),
+      averageSkuCostPerUnit: parseFloat(averageSkuCostPerUnitForDashboard.toFixed(2)),
       estimatedPortfolioRevenue: parseFloat(sessionRevenue.toFixed(2)),
       estimatedPortfolioCost: parseFloat(sessionCost.toFixed(2)),
       estimatedPortfolioProfit: parseFloat(sessionProfit.toFixed(2)),
       estimatedPortfolioMargin: parseFloat(sessionMargin.toFixed(2)),
       averagePackagingCost: parseFloat(averagePackagingCost.toFixed(2)),
       averageOverheadCost: parseFloat(averageOverheadCost.toFixed(2)),
-      averageAdditiveCostPercentage: parseFloat(averageAdditiveCostPercentage.toFixed(2)),
+      averageAdditiveCostPercentage: parseFloat(averageAdditiveCostPercentageForDashboard.toFixed(2)),
 
       // Profitability Overview
-      topSkus,
-      bottomSkus,
+      topSkus: topSkusForDashboard,
+      bottomSkus: bottomSkusForDashboard,
       profitByMarket: marketProfits,
       avgProfitPerContainer: parseFloat(avgProfitPerContainer.toFixed(2)),
 
       // Cost Drivers
       baseOilCosts,
-      additiveCostPercentage: parseFloat(averageAdditiveCostPercentage.toFixed(2)),
+      additiveCostPercentage: parseFloat(averageAdditiveCostPercentageForDashboard.toFixed(2)),
       packagingCost: parseFloat(averagePackagingCost.toFixed(2)),
       logisticsCost: parseFloat(averageOverheadCost.toFixed(2)),
 
       // Alerts & Warnings
-      lowMarginSkus,
+      lowMarginSkus: lowMarginSkusForDashboard,
       losingQuotes,
       costAlerts,
       expiringQuotes,
@@ -705,7 +859,7 @@ export default function Dashboard({ dataRefreshToken = 0, currentSessionUploadId
 
       // Recent Activity
       recentQuotes: [...quotesData].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 5),
-      recentFormulations,
+      recentFormulations: recentFormulationsForDashboard,
       recentCostSnapshots,
       priceChanges: [],
     });

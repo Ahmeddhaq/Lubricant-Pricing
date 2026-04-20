@@ -272,7 +272,6 @@ export default function SKUManagement({ pendingImport, clearPendingImport, curre
       margin_threshold: marginThreshold,
       is_active: DEFAULT_SKU_FLAGS.isActive,
       price_override: DEFAULT_SKU_FLAGS.priceOverride,
-      source_upload_id: draft?.sourceUploadId || importedSkuDraft?.sourceUploadId || currentSessionUploadId || null,
     };
   };
 
@@ -342,7 +341,6 @@ export default function SKUManagement({ pendingImport, clearPendingImport, curre
       status: "active",
       base_oil_id: baseOilId,
       blending_cost_per_liter: Number(linkedDraft?.estimatedCostPerLiter || draft?.baseCostPerLiter || 0) || 0,
-      source_upload_id: draft?.sourceUploadId || linkedDraft?.sourceUploadId || currentSessionUploadId || null,
     });
 
     const sourceComponents = (linkedDraft?.components && linkedDraft.components.length > 0) ? linkedDraft.components : (draft?.components || []);

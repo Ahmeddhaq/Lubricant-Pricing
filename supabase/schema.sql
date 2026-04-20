@@ -39,7 +39,6 @@ CREATE TABLE recipes (
   status VARCHAR(50) DEFAULT 'active',
   base_oil_id UUID NOT NULL REFERENCES base_oils(id),
   blending_cost_per_liter DECIMAL(10, 2) DEFAULT 0,
-  source_upload_id UUID,
   created_at TIMESTAMP DEFAULT now(),
   updated_at TIMESTAMP DEFAULT now()
 );
@@ -62,7 +61,6 @@ CREATE TABLE skus (
   pack_description VARCHAR(100),
   packaging_cost_per_unit DECIMAL(10, 2) DEFAULT 0,
   status VARCHAR(50) DEFAULT 'active',
-  source_upload_id UUID,
   created_at TIMESTAMP DEFAULT now(),
   updated_at TIMESTAMP DEFAULT now()
 );
@@ -126,11 +124,9 @@ CREATE TABLE quote_items (
 
 -- Indexes for Performance
 CREATE INDEX idx_recipes_base_oil_id ON recipes(base_oil_id);
-CREATE INDEX idx_recipes_source_upload_id ON recipes(source_upload_id);
 CREATE INDEX idx_recipe_ingredients_recipe_id ON recipe_ingredients(recipe_id);
 CREATE INDEX idx_recipe_ingredients_additive_id ON recipe_ingredients(additive_id);
 CREATE INDEX idx_skus_recipe_id ON skus(recipe_id);
-CREATE INDEX idx_skus_source_upload_id ON skus(source_upload_id);
 CREATE INDEX idx_cost_snapshots_sku_id ON cost_snapshots(sku_id);
 CREATE INDEX idx_quotes_customer_id ON quotes(customer_id);
 CREATE INDEX idx_quotes_status ON quotes(status);
