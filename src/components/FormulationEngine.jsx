@@ -242,6 +242,7 @@ export default function FormulationEngine({ pendingImport, clearPendingImport, c
         status: "active",
         base_oil_id: snapshot.selectedBaseOilId,
         blending_cost_per_liter: 0,
+        source_upload_id: snapshot.sourceUploadId || currentSessionUploadId || null,
       };
 
       const createdRecipe = existingRecipe

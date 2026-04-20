@@ -137,6 +137,12 @@ export default function Dashboard({ dataRefreshToken = 0, currentSessionUploadId
   const [loading, setLoading] = useState(true);
   const lastDashboardSnapshotRef = useRef("");
 
+  const filterByCurrentSession = (records) => {
+    if (!currentSessionUploadId) return records || [];
+    const sessionRecords = (records || []).filter((record) => getHistorySourceUploadId(record) === currentSessionUploadId);
+    return sessionRecords.length > 0 ? sessionRecords : (records || []);
+  };
+
   useEffect(() => {
     loadData();
   }, [dataRefreshToken]);
@@ -298,23 +304,25 @@ export default function Dashboard({ dataRefreshToken = 0, currentSessionUploadId
         additivesService.getAll(),
       ]);
 
-      const uniqueSkus = dedupeLatestSkus(skusData);
+      const scopedRecipes = filterByCurrentSession(recipesData);
+      const scopedSkus = dedupeLatestSkus(filterByCurrentSession(skusData));
+
       const latestSnapshots = await Promise.all(
-        uniqueSkus.map((sku) => costSnapshotsService.getLatestBySku(sku.id).catch((error) => {
+        scopedSkus.map((sku) => costSnapshotsService.getLatestBySku(sku.id).catch((error) => {
           console.error(`Failed to load latest cost snapshot for SKU ${sku.id}:`, error);
           return null;
         }))
       );
 
       setQuotes(quotesData);
-      setSkus(uniqueSkus);
+      setSkus(scopedSkus);
 
       // Calculate statistics
       calculateStats(
         quotesData,
         quoteItemsData,
-        uniqueSkus,
-        recipesData,
+        scopedSkus,
+        scopedRecipes,
         recipeIngredientsData,
         baseOilsData,
         additivesData,
@@ -536,10 +544,15 @@ export default function Dashboard({ dataRefreshToken = 0, currentSessionUploadId
       })
     );
 
-    const actualRevenue = quotedRevenue > 0 ? quotedRevenue : estimatedPortfolioRevenue;
-    const actualCost = quotedCost > 0 ? quotedCost : estimatedPortfolioCost;
-    const grossProfit = actualRevenue - actualCost;
-    const profitMargin = actualRevenue > 0 ? (grossProfit / actualRevenue) * 100 : 0;
+    const sessionRevenue = estimatedPortfolioRevenue;
+    const sessionCost = estimatedPortfolioCost;
+    const sessionProfit = sessionRevenue - sessionCost;
+    const sessionMargin = sessionRevenue > 0 ? (sessionProfit / sessionRevenue) * 100 : 0;
+
+    const quoteRevenue = quotedRevenue > 0 ? quotedRevenue : 0;
+    const quoteCost = quotedCost > 0 ? quotedCost : 0;
+    const quoteProfit = quoteRevenue - quoteCost;
+    const quoteMargin = quoteRevenue > 0 ? (quoteProfit / quoteRevenue) * 100 : 0;
 
     // Get top and bottom SKUs
     const sortedSkus = Object.values(skuProfits).sort((a, b) => b.profit - a.profit);
@@ -635,15 +648,15 @@ export default function Dashboard({ dataRefreshToken = 0, currentSessionUploadId
 
     // Average profit per container (approximate)
     const avgProfitPerContainer = containersShipped.teu20 + containersShipped.teu40 > 0
-      ? grossProfit / (containersShipped.teu20 + containersShipped.teu40)
+      ? sessionProfit / (containersShipped.teu20 + containersShipped.teu40)
       : 0;
 
     setStats({
       // KPI Summary
-      totalRevenue: parseFloat(actualRevenue.toFixed(2)),
-      totalCost: parseFloat(actualCost.toFixed(2)),
-      grossProfit: parseFloat(grossProfit.toFixed(2)),
-      profitMargin: parseFloat(profitMargin.toFixed(2)),
+      totalRevenue: parseFloat(sessionRevenue.toFixed(2)),
+      totalCost: parseFloat(sessionCost.toFixed(2)),
+      grossProfit: parseFloat(sessionProfit.toFixed(2)),
+      profitMargin: parseFloat(sessionMargin.toFixed(2)),
       activeDeals: dealStages.open + dealStages.negotiation,
       containersShipped,
       totalSkus,
@@ -652,10 +665,10 @@ export default function Dashboard({ dataRefreshToken = 0, currentSessionUploadId
       averageMaterialCostPerLiter: parseFloat(averageMaterialCostPerLiter.toFixed(2)),
       averageFormulaCostPerLiter: parseFloat(averageFormulaCostPerLiter.toFixed(2)),
       averageSkuCostPerUnit: parseFloat(averageSkuCostPerUnit.toFixed(2)),
-      estimatedPortfolioRevenue: parseFloat(actualRevenue.toFixed(2)),
-      estimatedPortfolioCost: parseFloat(actualCost.toFixed(2)),
-      estimatedPortfolioProfit: parseFloat(grossProfit.toFixed(2)),
-      estimatedPortfolioMargin: parseFloat(profitMargin.toFixed(2)),
+      estimatedPortfolioRevenue: parseFloat(sessionRevenue.toFixed(2)),
+      estimatedPortfolioCost: parseFloat(sessionCost.toFixed(2)),
+      estimatedPortfolioProfit: parseFloat(sessionProfit.toFixed(2)),
+      estimatedPortfolioMargin: parseFloat(sessionMargin.toFixed(2)),
       averagePackagingCost: parseFloat(averagePackagingCost.toFixed(2)),
       averageOverheadCost: parseFloat(averageOverheadCost.toFixed(2)),
       averageAdditiveCostPercentage: parseFloat(averageAdditiveCostPercentage.toFixed(2)),
@@ -684,6 +697,11 @@ export default function Dashboard({ dataRefreshToken = 0, currentSessionUploadId
       wonDeals: dealStages.won,
       lostDeals: dealStages.lost,
       pipelineValue: parseFloat(pipelineValue.toFixed(2)),
+
+      quoteRevenue: parseFloat(quoteRevenue.toFixed(2)),
+      quoteCost: parseFloat(quoteCost.toFixed(2)),
+      quoteProfit: parseFloat(quoteProfit.toFixed(2)),
+      quoteMargin: parseFloat(quoteMargin.toFixed(2)),
 
       // Recent Activity
       recentQuotes: [...quotesData].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 5),
