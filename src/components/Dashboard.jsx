@@ -531,17 +531,46 @@ export default function Dashboard({ dataRefreshToken = 0, currentSessionUploadId
     };
 
     const latestSnapshotBySkuId = new Map((latestSnapshots || []).map((snapshot) => [snapshot.sku_id, snapshot]));
+    const sessionMarginCandidate = toNumber(
+      sessionDashboardSummary?.workbookRunData?.averageMarginPercent ??
+        sessionDashboardSummary?.workbookRunData?.averageMargin ??
+        sessionDashboardSummary?.workbookRunData?.sessionMargin ??
+        sessionDashboardSummary?.sessionMargin ??
+        sessionDashboardSummary?.averageMargin ??
+        0
+    );
+    const pricingMarginFallback = sessionMarginCandidate > 0 ? sessionMarginCandidate : 25;
     const skuCostDataById = new Map();
     const calculateSkuCost = (sku) => {
       const snapshot = latestSnapshotBySkuId.get(sku.id);
       if (snapshot) {
+        const snapshotTotalCost = toNumber(snapshot.total_cost || snapshot.cost_per_unit);
+        if (snapshotTotalCost > 0) {
+          return {
+            materialCost: toNumber(snapshot.material_cost),
+            blendingCost: toNumber(snapshot.blending_cost),
+            packagingCost: toNumber(snapshot.packaging_cost),
+            overheadCost: toNumber(snapshot.overhead_cost),
+            totalCost: snapshotTotalCost,
+            source: "snapshot",
+          };
+        }
+
+        const fallbackRecipe = normalizeRecipe(recipeById.get(sku.recipe_id) || sku.recipes || {});
+        if (fallbackRecipe && fallbackRecipe.base_oils) {
+          return {
+            ...costingEngine.calculateTotalCostPerUnit(fallbackRecipe, sku),
+            source: "calculated",
+          };
+        }
+
         return {
-          materialCost: toNumber(snapshot.material_cost),
-          blendingCost: toNumber(snapshot.blending_cost),
-          packagingCost: toNumber(snapshot.packaging_cost),
-          overheadCost: toNumber(snapshot.overhead_cost),
-          totalCost: toNumber(snapshot.total_cost || snapshot.cost_per_unit),
-          source: "snapshot",
+          materialCost: 0,
+          blendingCost: 0,
+          packagingCost: 0,
+          overheadCost: 0,
+          totalCost: 0,
+          source: "snapshot-empty",
         };
       }
 
@@ -562,6 +591,27 @@ export default function Dashboard({ dataRefreshToken = 0, currentSessionUploadId
         skuCostDataById.set(sku.id, costData);
       }
     });
+
+    const skuFinancials = skusData
+      .map((sku) => {
+        const costData = skuCostDataById.get(sku.id) || calculateSkuCost(sku);
+        const cost = toNumber(costData?.totalCost || costData?.costPerUnit || costData?.materialCost || 0);
+        const storedPrice = toNumber(sku.current_selling_price ?? sku.selling_price ?? 0);
+        const price = storedPrice > 0 ? storedPrice : costingEngine.calculateSellingPrice(cost, pricingMarginFallback);
+        const profit = price - cost;
+        const margin = price > 0 ? (profit / price) * 100 : 0;
+
+        return {
+          id: sku.id,
+          name: sku.name,
+          revenue: price,
+          cost,
+          profit,
+          margin,
+          count: 1,
+        };
+      })
+      .filter((entry) => Number.isFinite(entry.cost) || Number.isFinite(entry.revenue));
 
     quotesData.forEach((quote) => {
       // Track deal pipeline
@@ -670,48 +720,26 @@ export default function Dashboard({ dataRefreshToken = 0, currentSessionUploadId
           })
     );
 
-    const averageSkuCostPerUnit = average(
-      skusData.map((sku) => {
-        const costData = skuCostDataById.get(sku.id) || calculateSkuCost(sku);
-        return costData?.totalCost || 0;
-      })
-    );
+    const averageSkuCostPerUnit = average(skuFinancials.map((entry) => entry.cost));
 
-    const estimatedPortfolioRevenue = sum(
-      skusData.map((sku) => toNumber(sku.current_selling_price ?? sku.selling_price ?? 0))
-    );
-    const estimatedPortfolioCost = sum(
-      skusData.map((sku) => {
-        const costData = skuCostDataById.get(sku.id) || calculateSkuCost(sku);
-        return costData?.totalCost || 0;
-      })
-    );
+    const estimatedPortfolioRevenue = sum(skuFinancials.map((entry) => entry.revenue));
+    const estimatedPortfolioCost = sum(skuFinancials.map((entry) => entry.cost));
 
-    const hasSessionDashboardSignal = Boolean(
-      sessionDashboardSummary && (
-        sessionDashboardSummary.totalSkus > 0 ||
-        sessionDashboardSummary.totalFormulations > 0 ||
-        sessionDashboardSummary.sessionRevenue > 0 ||
-        sessionDashboardSummary.sessionCost > 0 ||
-        sessionDashboardSummary.sessionProfit > 0
-      )
-    );
+    const sessionRevenue = estimatedPortfolioRevenue;
+    const sessionCost = estimatedPortfolioCost;
+    const sessionProfit = sessionRevenue - sessionCost;
+    const sessionMargin = sessionRevenue > 0 ? (sessionProfit / sessionRevenue) * 100 : 0;
 
-    const sessionRevenue = hasSessionDashboardSignal ? sessionDashboardSummary.sessionRevenue : estimatedPortfolioRevenue;
-    const sessionCost = hasSessionDashboardSignal ? sessionDashboardSummary.sessionCost : estimatedPortfolioCost;
-    const sessionProfit = hasSessionDashboardSignal ? sessionDashboardSummary.sessionProfit : (sessionRevenue - sessionCost);
-    const sessionMargin = hasSessionDashboardSignal ? sessionDashboardSummary.sessionMargin : (sessionRevenue > 0 ? (sessionProfit / sessionRevenue) * 100 : 0);
-
-    const totalSkusForDashboard = hasSessionDashboardSignal ? (sessionDashboardSummary.totalSkus || skusData.length) : skusData.length;
-    const totalFormulationsForDashboard = hasSessionDashboardSignal ? (sessionDashboardSummary.totalFormulations || recipeMetrics.length) : recipeMetrics.length;
-    const averageSkuCostPerUnitForDashboard = hasSessionDashboardSignal ? sessionDashboardSummary.averageSkuCostPerUnit : averageSkuCostPerUnit;
-    const averageFormulaCostPerLiterForDashboard = hasSessionDashboardSignal ? sessionDashboardSummary.averageFormulaCostPerLiter : averageFormulaCostPerLiter;
-    const averageMaterialCostPerLiterForDashboard = hasSessionDashboardSignal ? sessionDashboardSummary.averageMaterialCostPerLiter : averageMaterialCostPerLiter;
-    const averageAdditiveCostPercentageForDashboard = hasSessionDashboardSignal ? sessionDashboardSummary.averageAdditiveCostPercentage : averageAdditiveCostPercentage;
-    const topSkusForDashboard = hasSessionDashboardSignal ? (sessionDashboardSummary.topSkus || []) : [];
-    const bottomSkusForDashboard = hasSessionDashboardSignal ? (sessionDashboardSummary.bottomSkus || []) : [];
-    const lowMarginSkusForDashboard = hasSessionDashboardSignal ? (sessionDashboardSummary.lowMarginSkus || []) : [];
-    const recentFormulationsForDashboard = hasSessionDashboardSignal ? (sessionDashboardSummary.recentFormulations || []) : [];
+    const totalSkusForDashboard = sessionDashboardSummary?.totalSkus > 0 ? sessionDashboardSummary.totalSkus : skusData.length;
+    const totalFormulationsForDashboard = sessionDashboardSummary?.totalFormulations > 0 ? sessionDashboardSummary.totalFormulations : recipeMetrics.length;
+    const averageSkuCostPerUnitForDashboard = averageSkuCostPerUnit;
+    const averageFormulaCostPerLiterForDashboard = averageFormulaCostPerLiter;
+    const averageMaterialCostPerLiterForDashboard = averageMaterialCostPerLiter;
+    const averageAdditiveCostPercentageForDashboard = averageAdditiveCostPercentage;
+    const topSkusForDashboard = [];
+    const bottomSkusForDashboard = [];
+    const lowMarginSkusForDashboard = [];
+    const recentFormulationsForDashboard = sessionDashboardSummary?.recentFormulations || [];
 
     const quoteRevenue = quotedRevenue > 0 ? quotedRevenue : 0;
     const quoteCost = quotedCost > 0 ? quotedCost : 0;
@@ -719,12 +747,12 @@ export default function Dashboard({ dataRefreshToken = 0, currentSessionUploadId
     const quoteMargin = quoteRevenue > 0 ? (quoteProfit / quoteRevenue) * 100 : 0;
 
     // Get top and bottom SKUs
-    const sortedSkus = Object.values(skuProfits).sort((a, b) => b.profit - a.profit);
+    const sortedSkus = [...skuFinancials].sort((a, b) => b.profit - a.profit);
     const topSkus = sortedSkus.slice(0, 5);
     const bottomSkus = sortedSkus.slice(-5).reverse();
 
     // Identify low margin SKUs (< 15%)
-    const lowMarginSkus = Object.values(skuProfits).filter((s) => s.margin < 15);
+    const lowMarginSkus = skuFinancials.filter((s) => s.margin < 15);
 
     // Identify losing quotes
     const losingQuotes = quotesData
