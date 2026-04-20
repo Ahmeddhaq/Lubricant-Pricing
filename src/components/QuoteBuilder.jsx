@@ -672,46 +672,58 @@ export default function QuoteBuilder() {
                 {showNewCustomer && (
                   <div className="mt-6 pt-6 border-t border-gray-200">
                     <h3 className="font-semibold text-gray-900 mb-4">Add New Customer</h3>
-                    <p className="text-sm text-gray-500 mb-4">
-                      Create a reusable customer record for quotes. The save will only work if the Supabase customers policy is enabled.
-                    </p>
                     <div className="form-grid form-grid-2 mb-4">
-                      <input
-                        type="text"
-                        placeholder="Company Name *"
-                        value={newCustomer.name}
-                        onChange={(e) => setNewCustomer({ ...newCustomer, name: e.target.value })}
-                        className="px-3 py-2 border border-gray-300 rounded"
-                        required
-                      />
-                      <input
-                        type="email"
-                        placeholder="Email"
-                        value={newCustomer.email}
-                        onChange={(e) => setNewCustomer({ ...newCustomer, email: e.target.value })}
-                        className="px-3 py-2 border border-gray-300 rounded"
-                      />
-                      <input
-                        type="text"
-                        placeholder="Phone"
-                        value={newCustomer.phone}
-                        onChange={(e) => setNewCustomer({ ...newCustomer, phone: e.target.value })}
-                        className="px-3 py-2 border border-gray-300 rounded"
-                      />
-                      <input
-                        type="text"
-                        placeholder="Country"
-                        value={newCustomer.country}
-                        onChange={(e) => setNewCustomer({ ...newCustomer, country: e.target.value })}
-                        className="px-3 py-2 border border-gray-300 rounded"
-                      />
-                      <input
-                        type="text"
-                        placeholder="Contact Person"
-                        value={newCustomer.contact_person}
-                        onChange={(e) => setNewCustomer({ ...newCustomer, contact_person: e.target.value })}
-                        className="px-3 py-2 border border-gray-300 rounded"
-                      />
+                      <div className="form-group mb-0">
+                        <label className="text-sm font-semibold text-gray-900">Company Name *</label>
+                        <input
+                          type="text"
+                          placeholder="Enter company name"
+                          value={newCustomer.name}
+                          onChange={(e) => setNewCustomer({ ...newCustomer, name: e.target.value })}
+                          className="mt-1"
+                          required
+                        />
+                      </div>
+                      <div className="form-group mb-0">
+                        <label className="text-sm font-semibold text-gray-900">Email</label>
+                        <input
+                          type="email"
+                          placeholder="name@company.com"
+                          value={newCustomer.email}
+                          onChange={(e) => setNewCustomer({ ...newCustomer, email: e.target.value })}
+                          className="mt-1"
+                        />
+                      </div>
+                      <div className="form-group mb-0">
+                        <label className="text-sm font-semibold text-gray-900">Phone</label>
+                        <input
+                          type="text"
+                          placeholder="Phone number"
+                          value={newCustomer.phone}
+                          onChange={(e) => setNewCustomer({ ...newCustomer, phone: e.target.value })}
+                          className="mt-1"
+                        />
+                      </div>
+                      <div className="form-group mb-0">
+                        <label className="text-sm font-semibold text-gray-900">Country</label>
+                        <input
+                          type="text"
+                          placeholder="Country"
+                          value={newCustomer.country}
+                          onChange={(e) => setNewCustomer({ ...newCustomer, country: e.target.value })}
+                          className="mt-1"
+                        />
+                      </div>
+                      <div className="form-group mb-0">
+                        <label className="text-sm font-semibold text-gray-900">Contact Person</label>
+                        <input
+                          type="text"
+                          placeholder="Primary contact"
+                          value={newCustomer.contact_person}
+                          onChange={(e) => setNewCustomer({ ...newCustomer, contact_person: e.target.value })}
+                          className="mt-1"
+                        />
+                      </div>
                     </div>
                     <button
                       type="button"
