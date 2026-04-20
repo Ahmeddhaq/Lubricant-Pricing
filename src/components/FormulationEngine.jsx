@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { baseOilsService, additivesService, recipesService, recipeIngredientsService, costingEngine } from "../services/supabaseService";
 import { historyService } from "../services/historyService";
 
@@ -44,8 +44,28 @@ export default function FormulationEngine({ pendingImport, clearPendingImport, c
   // Raw Material states
   const [materialPriceUpdates, setMaterialPriceUpdates] = useState({});
 
-  const importedFormulationDraft = pendingImport?.kind === "formulation" ? pendingImport.draft : null;
+  const importInProgressRef = useRef(false);
+  const autoImportTriggeredRef = useRef("");
+
+  const importedFormulationDrafts = pendingImport?.kind === "formulation-batch"
+    ? (pendingImport.drafts || []).map((draft) => draft?.formulationDraft || draft).filter(Boolean)
+    : pendingImport?.kind === "formulation"
+      ? [pendingImport.draft].filter(Boolean)
+      : [];
+  const importedFormulationDraft = importedFormulationDrafts[0] || null;
   const linkedSkuDrafts = pendingImport?.linkedSkuDrafts || (pendingImport?.linkedSkuDraft ? [pendingImport.linkedSkuDraft] : []);
+  const pendingImportSignature = importedFormulationDrafts.length
+    ? [
+        pendingImport?.kind || "pending",
+        importedFormulationDrafts
+          .map((draft) => draft?.name || draft?.skuName || draft?.recipeName || "")
+          .join("||"),
+        linkedSkuDrafts
+          .map((draft) => draft?.name || draft?.skuName || draft?.recipeName || "")
+          .join("||"),
+      ].join("::")
+    : "";
+  const isBatchImport = importedFormulationDrafts.length > 1;
 
   useEffect(() => {
     loadData();
@@ -56,6 +76,12 @@ export default function FormulationEngine({ pendingImport, clearPendingImport, c
       setSelectedBaseOilId(baseOils[0].id);
     }
   }, [baseOils, selectedBaseOilId]);
+
+  useEffect(() => {
+    if (!pendingImportSignature) {
+      autoImportTriggeredRef.current = "";
+    }
+  }, [pendingImportSignature]);
 
   const loadData = async () => {
     setLoading(true);
@@ -222,7 +248,7 @@ export default function FormulationEngine({ pendingImport, clearPendingImport, c
     };
   };
 
-  const saveFormulationSnapshot = async (snapshot, { linkedSkuDrafts = [] } = {}) => {
+  const saveFormulationSnapshot = async (snapshot, { linkedSkuDrafts = [], notifyParent = true, refreshAfterSave = true } = {}) => {
     if (!snapshot.skuForm.name) {
       alert("Please enter a formulation name.");
       return false;
@@ -279,12 +305,14 @@ export default function FormulationEngine({ pendingImport, clearPendingImport, c
         },
       ]);
 
-      await loadData();
+      if (refreshAfterSave) {
+        await loadData();
+      }
       setSelectedRecipe(createdRecipe);
       setEditingRecipe(createdRecipe);
       setActiveTab("list");
 
-      if (onFormulationSaved) {
+      if (onFormulationSaved && notifyParent) {
         onFormulationSaved({
           recipe: createdRecipe,
           linkedSkuDrafts,
@@ -306,7 +334,7 @@ export default function FormulationEngine({ pendingImport, clearPendingImport, c
         console.error("Failed to save formulation history:", historyError);
       }
 
-      return true;
+      return createdRecipe;
     } catch (saveError) {
       console.error("Failed to save formulation:", saveError);
       alert(saveError?.message || "Failed to save formulation.");
@@ -336,6 +364,94 @@ export default function FormulationEngine({ pendingImport, clearPendingImport, c
       clearPendingImport();
     }
   };
+
+  const handleImportDrafts = async () => {
+    if (importInProgressRef.current) return;
+    if (!importedFormulationDrafts.length) return;
+    if (!baseOils.length) {
+      alert("Add at least one base oil before importing formulations.");
+      return;
+    }
+
+    importInProgressRef.current = true;
+    setSavingRecipe(true);
+
+    try {
+      const createdRecipes = [];
+
+      for (const [index, draft] of importedFormulationDrafts.entries()) {
+        const linkedDraft = linkedSkuDrafts[index] || linkedSkuDrafts[0] || null;
+        const snapshot = buildFormulationSnapshot(draft);
+
+        if (!snapshot.sourceUploadId && linkedDraft?.sourceUploadId) {
+          snapshot.sourceUploadId = linkedDraft.sourceUploadId;
+        }
+
+        const createdRecipe = await saveFormulationSnapshot(snapshot, {
+          linkedSkuDrafts: linkedDraft ? [linkedDraft] : [],
+          notifyParent: false,
+          refreshAfterSave: false,
+        });
+
+        if (createdRecipe) {
+          createdRecipes.push(createdRecipe);
+        }
+      }
+
+      if (createdRecipes.length > 0) {
+        await loadData();
+        setSelectedRecipe(createdRecipes[0]);
+        setEditingRecipe(createdRecipes[0]);
+        setActiveTab("list");
+
+        if (onFormulationSaved) {
+          onFormulationSaved({
+            recipe: createdRecipes[0],
+            linkedSkuDrafts,
+            sourceUploadId: importedFormulationDrafts[0]?.sourceUploadId || currentSessionUploadId || null,
+            snapshot: buildFormulationSnapshot(importedFormulationDrafts[0]),
+            isBatchImport: true,
+            importedCount: createdRecipes.length,
+          });
+        }
+
+        if (clearPendingImport) {
+          clearPendingImport();
+        }
+      }
+    } catch (error) {
+      console.error("Failed to import formulation batch:", error);
+      alert(error?.message || "Failed to import formulation batch.");
+    } finally {
+      setSavingRecipe(false);
+      importInProgressRef.current = false;
+    }
+  };
+
+  const handlePrimaryImportedAction = () => {
+    if (isBatchImport) {
+      handleImportDrafts();
+      return;
+    }
+
+    handleCreateImportedFormulation();
+  };
+
+  useEffect(() => {
+    if (!pendingImportSignature) return;
+    if (!baseOils.length || savingRecipe || importInProgressRef.current) return;
+
+    if (autoImportTriggeredRef.current === pendingImportSignature) {
+      return;
+    }
+
+    autoImportTriggeredRef.current = pendingImportSignature;
+    const timer = window.setTimeout(() => {
+      handlePrimaryImportedAction();
+    }, 500);
+
+    return () => window.clearTimeout(timer);
+  }, [pendingImportSignature, baseOils.length, savingRecipe, importedFormulationDrafts.length]);
 
   const applyImportedDraft = async () => {
     if (!importedFormulationDraft) return;
@@ -386,14 +502,15 @@ export default function FormulationEngine({ pendingImport, clearPendingImport, c
           <div className="content-card border-emerald-300 bg-emerald-50/70">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
-                <h2 className="section-title">Imported Formulation Draft</h2>
+                <h2 className="section-title">{isBatchImport ? "Imported Formulation Drafts" : "Imported Formulation Draft"}</h2>
                 <p className="section-subtitle">
-                  Excel detected a formulation-style cost breakdown for {importedFormulationDraft.skuName || importedFormulationDraft.name}. The draft is not applied yet.
+                  Excel detected {importedFormulationDrafts.length} formulation-style draft{importedFormulationDrafts.length === 1 ? "" : "s"} for this workbook. The import will create them in the Formulation page.
                 </p>
                 <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold text-emerald-900">
+                  <span className="rounded-full bg-emerald-100 px-3 py-1">Drafts: {importedFormulationDrafts.length}</span>
+                  <span className="rounded-full bg-emerald-100 px-3 py-1">Linked SKUs: {linkedSkuDrafts.length}</span>
                   <span className="rounded-full bg-emerald-100 px-3 py-1">Cost / L: ${Number(importedFormulationDraft.estimatedCostPerLiter || 0).toFixed(2)}</span>
                   <span className="rounded-full bg-emerald-100 px-3 py-1">Excel margin: {Number(importedFormulationDraft.marginPercent || 0).toFixed(1)}%</span>
-                  <span className="rounded-full bg-emerald-100 px-3 py-1">Rows: {(importedFormulationDraft.components || []).length}</span>
                 </div>
                 {linkedSkuDrafts.length > 0 && (
                   <p className="mt-2 text-sm font-semibold text-emerald-900">
@@ -403,8 +520,8 @@ export default function FormulationEngine({ pendingImport, clearPendingImport, c
               </div>
 
               <div className="flex flex-wrap gap-2">
-                <button type="button" onClick={applyImportedDraft} className="btn btn-primary">
-                  Load into Workspace
+                <button type="button" onClick={handlePrimaryImportedAction} className="btn btn-primary">
+                  {isBatchImport ? "Create Formulations" : "Load into Workspace"}
                 </button>
                 <button
                   type="button"

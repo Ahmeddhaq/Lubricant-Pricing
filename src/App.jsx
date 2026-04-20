@@ -167,13 +167,24 @@ function AppShell() {
     };
   };
 
-  const handleFormulationSaved = ({ recipe, linkedSkuDrafts = [], sourceUploadId = null, snapshot = null }) => {
+  const handleFormulationSaved = ({ recipe, linkedSkuDrafts = [], sourceUploadId = null, snapshot = null, isBatchImport = false, importedCount = 1 }) => {
     const sessionUploadId = sourceUploadId || snapshot?.sourceUploadId || currentSessionUploadId;
     if (sessionUploadId) {
       setCurrentSessionUploadId(sessionUploadId);
     }
 
     setWorkspaceDataVersion((value) => value + 1);
+
+    if (isBatchImport) {
+      setWorkspaceNotice({
+        title: "Formulations imported",
+        message: `${importedCount} formulation${importedCount === 1 ? "" : "s"} imported from the workbook.`,
+        action: "dashboard",
+        actionLabel: "Open Dashboard",
+      });
+      return;
+    }
+
     setWorkspaceNotice({
       title: "Formulation created",
       message: "Ready for SKU creation. Open the SKU page to continue.",

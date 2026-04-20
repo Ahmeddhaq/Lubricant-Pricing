@@ -687,21 +687,31 @@ export default function Dashboard({ dataRefreshToken = 0, currentSessionUploadId
       })
     );
 
-    const sessionRevenue = sessionDashboardSummary?.sessionRevenue ?? estimatedPortfolioRevenue;
-    const sessionCost = sessionDashboardSummary?.sessionCost ?? estimatedPortfolioCost;
-    const sessionProfit = sessionDashboardSummary?.sessionProfit ?? (sessionRevenue - sessionCost);
-    const sessionMargin = sessionDashboardSummary?.sessionMargin ?? (sessionRevenue > 0 ? (sessionProfit / sessionRevenue) * 100 : 0);
+    const hasSessionDashboardSignal = Boolean(
+      sessionDashboardSummary && (
+        sessionDashboardSummary.totalSkus > 0 ||
+        sessionDashboardSummary.totalFormulations > 0 ||
+        sessionDashboardSummary.sessionRevenue > 0 ||
+        sessionDashboardSummary.sessionCost > 0 ||
+        sessionDashboardSummary.sessionProfit > 0
+      )
+    );
 
-    const totalSkusForDashboard = sessionDashboardSummary?.totalSkus ?? skusData.length;
-    const totalFormulationsForDashboard = sessionDashboardSummary?.totalFormulations ?? recipeMetrics.length;
-    const averageSkuCostPerUnitForDashboard = sessionDashboardSummary?.averageSkuCostPerUnit ?? averageSkuCostPerUnit;
-    const averageFormulaCostPerLiterForDashboard = sessionDashboardSummary?.averageFormulaCostPerLiter ?? averageFormulaCostPerLiter;
-    const averageMaterialCostPerLiterForDashboard = sessionDashboardSummary?.averageMaterialCostPerLiter ?? averageMaterialCostPerLiter;
-    const averageAdditiveCostPercentageForDashboard = sessionDashboardSummary?.averageAdditiveCostPercentage ?? averageAdditiveCostPercentage;
-    const topSkusForDashboard = sessionDashboardSummary?.topSkus?.length ? sessionDashboardSummary.topSkus : topSkus;
-    const bottomSkusForDashboard = sessionDashboardSummary?.bottomSkus?.length ? sessionDashboardSummary.bottomSkus : bottomSkus;
-    const lowMarginSkusForDashboard = sessionDashboardSummary?.lowMarginSkus?.length ? sessionDashboardSummary.lowMarginSkus : lowMarginSkus;
-    const recentFormulationsForDashboard = sessionDashboardSummary?.recentFormulations?.length ? sessionDashboardSummary.recentFormulations : recentFormulations;
+    const sessionRevenue = hasSessionDashboardSignal ? sessionDashboardSummary.sessionRevenue : estimatedPortfolioRevenue;
+    const sessionCost = hasSessionDashboardSignal ? sessionDashboardSummary.sessionCost : estimatedPortfolioCost;
+    const sessionProfit = hasSessionDashboardSignal ? sessionDashboardSummary.sessionProfit : (sessionRevenue - sessionCost);
+    const sessionMargin = hasSessionDashboardSignal ? sessionDashboardSummary.sessionMargin : (sessionRevenue > 0 ? (sessionProfit / sessionRevenue) * 100 : 0);
+
+    const totalSkusForDashboard = hasSessionDashboardSignal ? (sessionDashboardSummary.totalSkus || skusData.length) : skusData.length;
+    const totalFormulationsForDashboard = hasSessionDashboardSignal ? (sessionDashboardSummary.totalFormulations || recipeMetrics.length) : recipeMetrics.length;
+    const averageSkuCostPerUnitForDashboard = hasSessionDashboardSignal ? sessionDashboardSummary.averageSkuCostPerUnit : averageSkuCostPerUnit;
+    const averageFormulaCostPerLiterForDashboard = hasSessionDashboardSignal ? sessionDashboardSummary.averageFormulaCostPerLiter : averageFormulaCostPerLiter;
+    const averageMaterialCostPerLiterForDashboard = hasSessionDashboardSignal ? sessionDashboardSummary.averageMaterialCostPerLiter : averageMaterialCostPerLiter;
+    const averageAdditiveCostPercentageForDashboard = hasSessionDashboardSignal ? sessionDashboardSummary.averageAdditiveCostPercentage : averageAdditiveCostPercentage;
+    const topSkusForDashboard = hasSessionDashboardSignal ? (sessionDashboardSummary.topSkus || []) : [];
+    const bottomSkusForDashboard = hasSessionDashboardSignal ? (sessionDashboardSummary.bottomSkus || []) : [];
+    const lowMarginSkusForDashboard = hasSessionDashboardSignal ? (sessionDashboardSummary.lowMarginSkus || []) : [];
+    const recentFormulationsForDashboard = hasSessionDashboardSignal ? (sessionDashboardSummary.recentFormulations || []) : [];
 
     const quoteRevenue = quotedRevenue > 0 ? quotedRevenue : 0;
     const quoteCost = quotedCost > 0 ? quotedCost : 0;
@@ -828,8 +838,8 @@ export default function Dashboard({ dataRefreshToken = 0, currentSessionUploadId
       averageAdditiveCostPercentage: parseFloat(averageAdditiveCostPercentageForDashboard.toFixed(2)),
 
       // Profitability Overview
-      topSkus: topSkusForDashboard,
-      bottomSkus: bottomSkusForDashboard,
+      topSkus: topSkusForDashboard.length > 0 ? topSkusForDashboard : topSkus,
+      bottomSkus: bottomSkusForDashboard.length > 0 ? bottomSkusForDashboard : bottomSkus,
       profitByMarket: marketProfits,
       avgProfitPerContainer: parseFloat(avgProfitPerContainer.toFixed(2)),
 
@@ -840,7 +850,7 @@ export default function Dashboard({ dataRefreshToken = 0, currentSessionUploadId
       logisticsCost: parseFloat(averageOverheadCost.toFixed(2)),
 
       // Alerts & Warnings
-      lowMarginSkus: lowMarginSkusForDashboard,
+      lowMarginSkus: lowMarginSkusForDashboard.length > 0 ? lowMarginSkusForDashboard : lowMarginSkus,
       losingQuotes,
       costAlerts,
       expiringQuotes,
@@ -859,7 +869,7 @@ export default function Dashboard({ dataRefreshToken = 0, currentSessionUploadId
 
       // Recent Activity
       recentQuotes: [...quotesData].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 5),
-      recentFormulations: recentFormulationsForDashboard,
+      recentFormulations: recentFormulationsForDashboard.length > 0 ? recentFormulationsForDashboard : recentFormulations,
       recentCostSnapshots,
       priceChanges: [],
     });

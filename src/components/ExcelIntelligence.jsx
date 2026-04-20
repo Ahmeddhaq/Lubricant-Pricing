@@ -878,6 +878,27 @@ export default function ExcelIntelligence({ onPrepareImport, onPrepareFormulatio
   const handlePrepareFormulation = () => {
     if (!selectedDrafts) return;
 
+    if (allDraftBundles.length > 1) {
+      const batchPayload = {
+        kind: "formulation-batch",
+        draft: selectedDrafts.formulationDraft,
+        drafts: allDraftBundles.map((bundle) => bundle.formulationDraft),
+        linkedSkuDraft: selectedDrafts.skuDraft,
+        linkedSkuDrafts: allDraftBundles.map((bundle) => bundle.skuDraft),
+      };
+
+      if (onPrepareFormulationImport) {
+        onPrepareFormulationImport(batchPayload);
+        return;
+      }
+
+      if (onPrepareImport) {
+        onPrepareImport(batchPayload, "formulation");
+      }
+
+      return;
+    }
+
     const payload = {
       kind: "formulation",
       draft: selectedDrafts.formulationDraft,
@@ -964,16 +985,17 @@ export default function ExcelIntelligence({ onPrepareImport, onPrepareFormulatio
   }, [autoImportKey, allDraftBundles.length, analysis]);
 
   const autoFormulationKey = useMemo(() => {
-    if (!analysis || !selectedDrafts || !selectedDrafts.formulationDraft?.components?.length || !onPrepareFormulationImport) {
+    if (!analysis || !allDraftBundles.length || !allDraftBundles[0]?.formulationDraft?.components?.length || !onPrepareFormulationImport) {
       return "";
     }
 
     return [
       analysis.sourceUploadId || analysis.workbookName || "workbook",
-      selectedDrafts.formulationDraft.skuName || selectedDrafts.formulationDraft.name || "formulation",
-      selectedDrafts.formulationDraft.components.length,
+      allDraftBundles.length,
+      allDraftBundles[0].formulationDraft.skuName || allDraftBundles[0].formulationDraft.name || "formulation",
+      allDraftBundles.reduce((sum, bundle) => sum + (bundle.formulationDraft?.components?.length || 0), 0),
     ].join("|");
-  }, [analysis, selectedDrafts, onPrepareFormulationImport]);
+  }, [analysis, allDraftBundles, onPrepareFormulationImport]);
 
   useEffect(() => {
     if (!autoFormulationKey) {
@@ -993,7 +1015,7 @@ export default function ExcelIntelligence({ onPrepareImport, onPrepareFormulatio
     }, 500);
 
     return () => window.clearTimeout(timer);
-  }, [autoFormulationKey, analysis, selectedDrafts, allDraftBundles.length]);
+  }, [autoFormulationKey, analysis, allDraftBundles.length]);
 
   return (
     <div className="page-stack">
