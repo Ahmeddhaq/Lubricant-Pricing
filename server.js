@@ -130,7 +130,6 @@ app.post("/api/history", async (req, res) => {
     run_type: runPayload.run_type ?? runPayload.runType,
     run_data: runPayload.run_data ?? runPayload.runData,
     source_upload_id: runPayload.source_upload_id ?? runPayload.sourceUploadId,
-    notes: runPayload.notes,
   });
 
   const insertByType = async (tableName) => {

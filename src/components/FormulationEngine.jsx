@@ -20,6 +20,7 @@ export default function FormulationEngine({ pendingImport, clearPendingImport, c
   const [editingRecipe, setEditingRecipe] = useState(null);
   const [selectedBaseOilId, setSelectedBaseOilId] = useState("");
   const [savingRecipe, setSavingRecipe] = useState(false);
+  const [baseOilName, setBaseOilName] = useState("");
 
   // SKU Selector / Creator states
   const [skuForm, setSkuForm] = useState({
@@ -29,6 +30,9 @@ export default function FormulationEngine({ pendingImport, clearPendingImport, c
     version: "1.0",
   });
 
+  const [definitionAdditives, setDefinitionAdditives] = useState(["", "", "", ""]);
+  const [packagingCost, setPackagingCost] = useState("");
+
   // Component Table states
   const [components, setComponents] = useState([]);
   const [selectedComponent, setSelectedComponent] = useState("");
@@ -37,6 +41,10 @@ export default function FormulationEngine({ pendingImport, clearPendingImport, c
 
   // Cost Summary states
   const [batchSize, setBatchSize] = useState("");
+  const [labourCostPerLiter, setLabourCostPerLiter] = useState("");
+  const [plantOverheadCostPerLiter, setPlantOverheadCostPerLiter] = useState("");
+  const [freightCostPerLiter, setFreightCostPerLiter] = useState("");
+  const [targetMarginPercent, setTargetMarginPercent] = useState("");
   
   // Version Control states
   const [changeHistory, setChangeHistory] = useState([]);
@@ -46,6 +54,7 @@ export default function FormulationEngine({ pendingImport, clearPendingImport, c
 
   const importInProgressRef = useRef(false);
   const autoImportTriggeredRef = useRef("");
+  const autoCreatedBaseOilIdsRef = useRef(new Map());
 
   const importedFormulationDrafts = pendingImport?.kind === "formulation-batch"
     ? (pendingImport.drafts || []).map((draft) => draft?.formulationDraft || draft).filter(Boolean)
@@ -72,12 +81,6 @@ export default function FormulationEngine({ pendingImport, clearPendingImport, c
   }, []);
 
   useEffect(() => {
-    if (!selectedBaseOilId && baseOils.length > 0) {
-      setSelectedBaseOilId(baseOils[0].id);
-    }
-  }, [baseOils, selectedBaseOilId]);
-
-  useEffect(() => {
     if (!pendingImportSignature) {
       autoImportTriggeredRef.current = "";
     }
@@ -86,17 +89,17 @@ export default function FormulationEngine({ pendingImport, clearPendingImport, c
   const loadData = async () => {
     setLoading(true);
     try {
-      const [recipesData, baseOilsData, additivesData] = await Promise.all([
-        recipesService.getAll(),
-        baseOilsService.getAll(),
-        additivesService.getAll(),
-      ]);
-      setRecipes(recipesData);
-      setBaseOils(baseOilsData);
-      setAdditives(additivesData);
+      const recipesResult = await recipesService.getAll();
+      const baseOilsResult = await baseOilsService.getAll();
+      const additivesResult = await additivesService.getAll();
+
+      setRecipes(recipesResult);
+      setBaseOils(baseOilsResult);
+      setAdditives(additivesResult);
     } catch (err) {
       console.error("Error loading data:", err);
-      alert("Failed to load formulation data. Check that Supabase is configured and that base_oils, additives, and recipes tables exist.");
+      const message = err?.message || err?.details || err?.hint || "Unknown Supabase error";
+      alert(`Failed to load formulation data: ${message}`);
     } finally {
       setLoading(false);
     }
@@ -112,9 +115,26 @@ export default function FormulationEngine({ pendingImport, clearPendingImport, c
     return components.reduce((sum, comp) => sum + calculateCostContribution(comp), 0);
   };
 
+  const calculateBlendCostFromComponents = (componentList = []) => {
+    return componentList.reduce((sum, comp) => sum + calculateCostContribution(comp), 0);
+  };
+
+  const calculateOperatingCostPerLiter = () => {
+    return [labourCostPerLiter, plantOverheadCostPerLiter, freightCostPerLiter]
+      .reduce((sum, value) => sum + (Number.parseFloat(value) || 0), 0);
+  };
+
+  const calculateAllInCostPerLiter = () => calculateTotalBlendCost() + calculateOperatingCostPerLiter();
+
+  const calculateTargetSellingPricePerLiter = () => {
+    const allInCost = calculateAllInCostPerLiter();
+    const margin = Number.parseFloat(targetMarginPercent) || 0;
+    return allInCost * (1 + margin / 100);
+  };
+
   const calculateCostPerBatch = () => {
     if (!batchSize || batchSize === "") return 0;
-    return calculateTotalBlendCost() * parseFloat(batchSize);
+    return calculateAllInCostPerLiter() * parseFloat(batchSize);
   };
 
   const getCostBreakdownByType = () => {
@@ -206,18 +226,83 @@ export default function FormulationEngine({ pendingImport, clearPendingImport, c
     ]);
   };
 
-  const resolveBaseOilId = (draft) => {
-    const candidates = [draft?.baseOilName, draft?.baseOil, draft?.baseOilCandidate, draft?.baseOilType].filter(Boolean).map(normalizeName);
-    const matchedBaseOil = baseOils.find((entry) => {
+  const findBaseOilByName = (name) => {
+    const normalizedName = normalizeName(name);
+    if (!normalizedName) return null;
+
+    return baseOils.find((entry) => {
       const baseOilName = normalizeName(entry.name);
-      return candidates.some((candidate) => baseOilName === candidate || baseOilName.includes(candidate) || candidate.includes(baseOilName));
+      return baseOilName === normalizedName || baseOilName.includes(normalizedName) || normalizedName.includes(baseOilName);
+    }) || null;
+  };
+
+  const findAdditiveByName = (name) => {
+    const normalizedName = normalizeName(name);
+    if (!normalizedName) return null;
+
+    return additives.find((entry) => {
+      const additiveName = normalizeName(entry.name);
+      return additiveName === normalizedName || additiveName.includes(normalizedName) || normalizedName.includes(additiveName);
+    }) || null;
+  };
+
+  const resolveBaseOilId = (draft) => {
+    const candidates = [
+      draft?.baseOilName,
+      draft?.baseOil,
+      draft?.baseOilCandidate,
+      draft?.baseOilType,
+      draft?.components?.find((component) => /base oil/i.test(String(component?.type || "")))?.name,
+      draft?.components?.find((component) => /base oil/i.test(String(component?.type || "")))?.component,
+      baseOilName,
+    ].filter(Boolean).map(normalizeName);
+
+    const matchedBaseOil = baseOils.find((entry) => {
+      const baseOilEntryName = normalizeName(entry.name);
+      return candidates.some((candidate) => baseOilEntryName === candidate || baseOilEntryName.includes(candidate) || candidate.includes(baseOilEntryName));
     });
-    return matchedBaseOil?.id || selectedBaseOilId || baseOils[0]?.id || "";
+
+    return matchedBaseOil?.id || draft?.selectedBaseOilId || selectedBaseOilId || "";
   };
 
   const findRecipeByName = (recipeName) => {
     const normalizedRecipeName = normalizeName(recipeName);
     return recipes.find((recipe) => normalizeName(recipe.name) === normalizedRecipeName) || null;
+  };
+
+  const getBaseOilNameById = (baseOilId) => baseOils.find((entry) => entry.id === baseOilId)?.name || "";
+
+  const deriveProductName = (draft = null, additiveNames = definitionAdditives) => {
+    const selectedBaseOil = draft?.baseOilName || baseOilName || getBaseOilNameById(resolveBaseOilId(draft));
+    const selectedAdditives = (draft?.selectedAdditiveNames || additiveNames)
+      .map((additiveName) => String(additiveName || "").trim())
+      .filter(Boolean);
+
+    return [selectedBaseOil, ...selectedAdditives].filter(Boolean).join(" + ");
+  };
+
+  const deriveBaseOilNameFromComponents = (sourceComponents = []) => {
+    const baseOilComponent = sourceComponents.find((component) => {
+      const componentText = String(component?.name || component?.component || "");
+      return /base oil/i.test(String(component?.type || "")) || /base oil/i.test(componentText);
+    });
+    return baseOilComponent?.name || baseOilComponent?.component || "";
+  };
+
+  const deriveBaseOilCostFromComponents = (sourceComponents = []) => {
+    const baseOilComponent = sourceComponents.find((component) => {
+      const componentText = String(component?.name || component?.component || "");
+      return /base oil/i.test(String(component?.type || "")) || /base oil/i.test(componentText);
+    });
+
+    return Number(baseOilComponent?.unitCost ?? 0) || 0;
+  };
+
+  const deriveAdditiveNamesFromComponents = (sourceComponents = []) => {
+    return [0, 1, 2, 3].map((slotIndex) => {
+      const component = sourceComponents[slotIndex];
+      return component?.name || component?.component || "";
+    });
   };
 
   const normalizeComponentForSave = (component, index) => ({
@@ -232,18 +317,49 @@ export default function FormulationEngine({ pendingImport, clearPendingImport, c
   const buildFormulationSnapshot = (sourceDraft = null) => {
     const draft = sourceDraft || importedFormulationDraft || {};
     const sourceComponents = components.length > 0 ? components : (draft.components || []);
+    const selectedAdditiveNames = (draft.selectedAdditiveNames || definitionAdditives)
+      .map((additiveName) => String(additiveName || "").trim())
+      .filter(Boolean);
+    const derivedAdditiveNames = selectedAdditiveNames.length > 0 ? selectedAdditiveNames : deriveAdditiveNamesFromComponents(sourceComponents);
+    const packagingCostValue = Number(draft.packagingCost ?? packagingCost ?? 0) || 0;
+    const baseOilCostPerLiter = Number(draft.baseOilCostPerLiter ?? deriveBaseOilCostFromComponents(sourceComponents) ?? draft.estimatedCostPerLiter ?? 0) || 0;
+    const labourCostValue = Number(draft.labourCostPerLiter ?? labourCostPerLiter ?? 0) || 0;
+    const plantOverheadCostValue = Number(draft.plantOverheadCostPerLiter ?? plantOverheadCostPerLiter ?? 0) || 0;
+    const freightCostValue = Number(draft.freightCostPerLiter ?? freightCostPerLiter ?? 0) || 0;
+    const targetMarginValue = Number(draft.targetMarginPercent ?? targetMarginPercent ?? 0) || 0;
+    const resolvedBaseOilId = resolveBaseOilId(draft);
+    const resolvedBaseOilName = draft.baseOilName || baseOilName || deriveBaseOilNameFromComponents(sourceComponents) || getBaseOilNameById(resolvedBaseOilId) || "";
+    const blendCostPerLiter = calculateBlendCostFromComponents(sourceComponents);
+    const operatingCostPerLiter = labourCostValue + plantOverheadCostValue + freightCostValue;
+    const allInCostPerLiter = blendCostPerLiter + operatingCostPerLiter;
+    const targetSellingPricePerLiter = allInCostPerLiter * (1 + targetMarginValue / 100);
 
     return {
       skuForm: {
-        name: skuForm.name || draft.skuName || draft.name || "",
-        category: skuForm.category || draft.category || "",
+        name: skuForm.name || draft.skuName || draft.name || deriveProductName(draft, derivedAdditiveNames) || "",
+        category: skuForm.category || draft.category || "Custom Blend",
         specification: skuForm.specification || draft.pricingLogicType || "",
         version: skuForm.version || "1.0",
+        packagingCost: packagingCostValue,
+        baseOilName: resolvedBaseOilName,
+        additiveNames: derivedAdditiveNames,
       },
       components: sourceComponents.map((component, index) => normalizeComponentForSave(component, index)),
       batchSize: batchSize || draft.batchSize || "100",
       sourceUploadId: draft.sourceUploadId || null,
-      selectedBaseOilId: resolveBaseOilId(draft),
+      selectedBaseOilId: resolvedBaseOilId,
+      baseOilName: resolvedBaseOilName,
+      baseOilCostPerLiter,
+      selectedAdditiveNames: derivedAdditiveNames,
+      packagingCost: packagingCostValue,
+      labourCostPerLiter: labourCostValue,
+      plantOverheadCostPerLiter: plantOverheadCostValue,
+      freightCostPerLiter: freightCostValue,
+      targetMarginPercent: targetMarginValue,
+      blendCostPerLiter,
+      operatingCostPerLiter,
+      allInCostPerLiter,
+      targetSellingPricePerLiter,
       draft,
     };
   };
@@ -254,8 +370,45 @@ export default function FormulationEngine({ pendingImport, clearPendingImport, c
       return false;
     }
 
-    if (!snapshot.selectedBaseOilId) {
-      alert("Add at least one base oil before saving a formulation.");
+    const rawBaseOilName = String(snapshot.baseOilName || snapshot.draft?.baseOilName || deriveBaseOilNameFromComponents(snapshot.components) || "").trim();
+    let resolvedBaseOilId = snapshot.selectedBaseOilId || resolveBaseOilId(snapshot.draft);
+
+    if (!resolvedBaseOilId && rawBaseOilName) {
+      const normalizedBaseOilName = normalizeName(rawBaseOilName);
+      if (autoCreatedBaseOilIdsRef.current.has(normalizedBaseOilName)) {
+        resolvedBaseOilId = autoCreatedBaseOilIdsRef.current.get(normalizedBaseOilName);
+      } else {
+        const existingBaseOil = findBaseOilByName(rawBaseOilName);
+        if (existingBaseOil) {
+          resolvedBaseOilId = existingBaseOil.id;
+          autoCreatedBaseOilIdsRef.current.set(normalizedBaseOilName, existingBaseOil.id);
+        } else {
+          const baseOilCostPerLiter = Number(snapshot.baseOilCostPerLiter ?? snapshot.draft?.baseOilCostPerLiter ?? snapshot.draft?.estimatedCostPerLiter ?? deriveBaseOilCostFromComponents(snapshot.components) ?? 0) || 0;
+          try {
+            const createdBaseOil = await baseOilsService.create({
+              name: rawBaseOilName,
+              cost_per_liter: baseOilCostPerLiter,
+              unit: "Liter",
+              description: snapshot.draft?.workbookName || "Imported from Excel",
+            });
+            resolvedBaseOilId = createdBaseOil?.id || "";
+            if (resolvedBaseOilId) {
+              autoCreatedBaseOilIdsRef.current.set(normalizedBaseOilName, resolvedBaseOilId);
+            }
+          } catch (createError) {
+            console.error("Failed to auto-create base oil:", createError);
+            const retryBaseOil = findBaseOilByName(rawBaseOilName);
+            if (retryBaseOil) {
+              resolvedBaseOilId = retryBaseOil.id;
+              autoCreatedBaseOilIdsRef.current.set(normalizedBaseOilName, retryBaseOil.id);
+            }
+          }
+        }
+      }
+    }
+
+    if (!resolvedBaseOilId) {
+      alert(rawBaseOilName ? `Could not create base oil "${rawBaseOilName}" from the workbook.` : "Could not auto-detect a base oil name from the workbook.");
       return false;
     }
 
@@ -266,7 +419,7 @@ export default function FormulationEngine({ pendingImport, clearPendingImport, c
         name: snapshot.skuForm.name,
         description: snapshot.skuForm.specification || snapshot.draft?.pricingLogicType || "",
         status: "active",
-        base_oil_id: snapshot.selectedBaseOilId,
+        base_oil_id: resolvedBaseOilId,
         blending_cost_per_liter: 0,
       };
 
@@ -274,7 +427,9 @@ export default function FormulationEngine({ pendingImport, clearPendingImport, c
         ? await recipesService.update(existingRecipe.id, recipePayload)
         : await recipesService.create(recipePayload);
 
-      const baseOilName = normalizeName(baseOils.find((entry) => entry.id === snapshot.selectedBaseOilId)?.name);
+      const baseOilName = normalizeName(
+        baseOils.find((entry) => entry.id === resolvedBaseOilId)?.name || rawBaseOilName,
+      );
       if (!existingRecipe?.recipe_ingredients?.length) {
         for (const component of snapshot.components) {
           if (/base oil/i.test(component.type) || (baseOilName && normalizeName(component.name) === baseOilName)) {
@@ -353,6 +508,13 @@ export default function FormulationEngine({ pendingImport, clearPendingImport, c
     if (!importedFormulationDraft) return;
     const snapshot = buildFormulationSnapshot(importedFormulationDraft);
     setSkuForm(snapshot.skuForm);
+    setBaseOilName(snapshot.baseOilName || deriveBaseOilNameFromComponents(snapshot.components) || getBaseOilNameById(snapshot.selectedBaseOilId) || "");
+    setDefinitionAdditives(deriveAdditiveNamesFromComponents(snapshot.components));
+    setPackagingCost(String(snapshot.packagingCost || ""));
+    setLabourCostPerLiter(String(snapshot.labourCostPerLiter || ""));
+    setPlantOverheadCostPerLiter(String(snapshot.plantOverheadCostPerLiter || ""));
+    setFreightCostPerLiter(String(snapshot.freightCostPerLiter || ""));
+    setTargetMarginPercent(String(snapshot.targetMarginPercent || ""));
     setComponents(snapshot.components.map((component) => ({
       ...component,
       lastUpdated: new Date().toLocaleDateString(),
@@ -361,7 +523,7 @@ export default function FormulationEngine({ pendingImport, clearPendingImport, c
     setSelectedBaseOilId(snapshot.selectedBaseOilId);
     const saved = await saveFormulationSnapshot(snapshot, { linkedSkuDrafts });
     if (saved && clearPendingImport) {
-      clearPendingImport();
+      clearPendingImport("formulation");
     }
   };
 
@@ -416,7 +578,7 @@ export default function FormulationEngine({ pendingImport, clearPendingImport, c
         }
 
         if (clearPendingImport) {
-          clearPendingImport();
+          clearPendingImport("formulation");
         }
       }
     } catch (error) {
@@ -439,7 +601,7 @@ export default function FormulationEngine({ pendingImport, clearPendingImport, c
 
   useEffect(() => {
     if (!pendingImportSignature) return;
-    if (!baseOils.length || savingRecipe || importInProgressRef.current) return;
+    if (loading || savingRecipe || importInProgressRef.current) return;
 
     if (autoImportTriggeredRef.current === pendingImportSignature) {
       return;
@@ -451,7 +613,7 @@ export default function FormulationEngine({ pendingImport, clearPendingImport, c
     }, 500);
 
     return () => window.clearTimeout(timer);
-  }, [pendingImportSignature, baseOils.length, savingRecipe, importedFormulationDrafts.length]);
+  }, [pendingImportSignature, loading, savingRecipe, importedFormulationDrafts.length]);
 
   const applyImportedDraft = async () => {
     if (!importedFormulationDraft) return;
@@ -487,7 +649,7 @@ export default function FormulationEngine({ pendingImport, clearPendingImport, c
     }
 
     if (clearPendingImport) {
-      clearPendingImport();
+      clearPendingImport("formulation");
     }
   };
 
@@ -520,9 +682,9 @@ export default function FormulationEngine({ pendingImport, clearPendingImport, c
               </div>
 
               <div className="flex flex-wrap gap-2">
-                <button type="button" onClick={handlePrimaryImportedAction} className="btn btn-primary">
-                  {isBatchImport ? "Create Formulations" : "Load into Workspace"}
-                </button>
+                <div className="rounded-xl border border-emerald-200 bg-white px-4 py-3 text-sm font-semibold text-emerald-900 shadow-sm">
+                  {savingRecipe ? "Creating formulations automatically..." : "Workbook formulations are being created automatically."}
+                </div>
                 <button
                   type="button"
                   onClick={() => clearPendingImport && clearPendingImport()}
@@ -541,70 +703,74 @@ export default function FormulationEngine({ pendingImport, clearPendingImport, c
         <h2 className="section-title">Product Definition</h2>
         <div className="table-container">
           <div className="content-card">
-            <div className="form-grid form-grid-5">
-              <div className="form-group">
-                <label className="text-sm font-semibold text-gray-900">Base Oil *</label>
-                <select
-                  value={selectedBaseOilId}
-                  onChange={(e) => setSelectedBaseOilId(e.target.value)}
-                  className="mt-1"
-                >
-                  <option value="">Select Base Oil</option>
-                  {baseOils.map((baseOil) => (
-                    <option key={baseOil.id} value={baseOil.id}>
-                      {baseOil.name}
-                    </option>
-                  ))}
-                </select>
+            <div className="space-y-4">
+              <div className="form-grid form-grid-2">
+                <div className="form-group">
+                  <label className="text-sm font-semibold text-gray-900">Base Oil Name *</label>
+                  <input
+                    type="text"
+                    value={baseOilName}
+                    onChange={(e) => setBaseOilName(e.target.value)}
+                    placeholder="Enter base oil name"
+                    className="mt-1"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="text-sm font-semibold text-gray-900">Packaging Cost / Unit</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={packagingCost}
+                    onChange={(e) => setPackagingCost(e.target.value)}
+                    placeholder="e.g., 0.50"
+                    className="mt-1"
+                  />
+                </div>
               </div>
 
-              <div className="form-group">
-                <label className="text-sm font-semibold text-gray-900">SKU Name *</label>
-                <input
-                  type="text"
-                  value={skuForm.name}
-                  onChange={(e) => setSkuForm({ ...skuForm, name: e.target.value })}
-                  placeholder="e.g., 5W30 SN Premium"
-                  className="mt-1"
-                />
+              <div className="form-grid form-grid-4">
+                {[0, 1, 2, 3].map((slotIndex) => (
+                  <div className="form-group" key={`definition-additive-${slotIndex}`}>
+                    <label className="text-sm font-semibold text-gray-900">Additive {slotIndex + 1}</label>
+                    <input
+                      type="text"
+                      value={definitionAdditives[slotIndex]}
+                      onChange={(e) => {
+                        const nextAdditives = [...definitionAdditives];
+                        nextAdditives[slotIndex] = e.target.value;
+                        setDefinitionAdditives(nextAdditives);
+                      }}
+                      placeholder="Enter additive name"
+                      className="mt-1"
+                    />
+                  </div>
+                ))}
               </div>
 
-              <div className="form-group">
-                <label className="text-sm font-semibold text-gray-900">Category *</label>
-                <select
-                  value={skuForm.category}
-                  onChange={(e) => setSkuForm({ ...skuForm, category: e.target.value })}
-                  className="mt-1"
-                >
-                  <option value="">Select Category</option>
-                  <option value="Engine Oil">Engine Oil</option>
-                  <option value="Hydraulic Oil">Hydraulic Oil</option>
-                  <option value="Gear Oil">Gear Oil</option>
-                  <option value="Transmission Oil">Transmission Oil</option>
-                </select>
-              </div>
+              <div className="form-grid form-grid-2">
+                <div className="form-group">
+                  <label className="text-sm font-semibold text-gray-900">Specification</label>
+                  <input
+                    type="text"
+                    value={skuForm.specification}
+                    onChange={(e) => setSkuForm({ ...skuForm, specification: e.target.value })}
+                    placeholder="e.g., API SN, ACEA A3/B4"
+                    className="mt-1"
+                  />
+                </div>
 
-              <div className="form-group">
-                <label className="text-sm font-semibold text-gray-900">Specification</label>
-                <input
-                  type="text"
-                  value={skuForm.specification}
-                  onChange={(e) => setSkuForm({ ...skuForm, specification: e.target.value })}
-                  placeholder="e.g., API SN, ACEA A3/B4"
-                  className="mt-1"
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="text-sm font-semibold text-gray-900">Version</label>
-                <input
-                  type="text"
-                  value={skuForm.version}
-                  onChange={(e) => setSkuForm({ ...skuForm, version: e.target.value })}
-                  placeholder="e.g., 1.0"
-                  className="mt-1"
-                  disabled
-                />
+                <div className="form-group">
+                  <label className="text-sm font-semibold text-gray-900">Version</label>
+                  <input
+                    type="text"
+                    value={skuForm.version}
+                    onChange={(e) => setSkuForm({ ...skuForm, version: e.target.value })}
+                    placeholder="e.g., 1.0"
+                    className="mt-1"
+                    disabled
+                  />
+                </div>
               </div>
             </div>
 
@@ -773,29 +939,105 @@ export default function FormulationEngine({ pendingImport, clearPendingImport, c
           {/* Cost Breakdown by Type */}
           <div className="content-card">
             <div className="content-row-stack">
-              <h3 className="text-lg font-semibold text-gray-900">Cost Breakdown by Type</h3>
-              <div className="space-y-3">
-                {Object.entries(costBreakdown).map(([type, cost], idx) => (
-                  cost > 0 && (
-                    <div key={idx} className="compact-item">
-                      <div className="flex justify-between items-center mb-2">
-                        <span className="font-semibold text-gray-900">{type}</span>
-                        <span className="text-lg font-semibold text-gray-900">${cost.toFixed(2)}</span>
+              <h3 className="text-lg font-semibold text-gray-900">Operating Costs & Margin</h3>
+              <div className="form-grid form-grid-2">
+                <div className="form-group mb-0">
+                  <label className="text-sm font-semibold text-gray-900">Labour Cost / L</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={labourCostPerLiter}
+                    onChange={(e) => setLabourCostPerLiter(e.target.value)}
+                    placeholder="e.g., 0.12"
+                    className="mt-1"
+                  />
+                </div>
+
+                <div className="form-group mb-0">
+                  <label className="text-sm font-semibold text-gray-900">Plant Overhead / L</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={plantOverheadCostPerLiter}
+                    onChange={(e) => setPlantOverheadCostPerLiter(e.target.value)}
+                    placeholder="e.g., 0.10"
+                    className="mt-1"
+                  />
+                </div>
+
+                <div className="form-group mb-0">
+                  <label className="text-sm font-semibold text-gray-900">Freight / Logistics / L</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={freightCostPerLiter}
+                    onChange={(e) => setFreightCostPerLiter(e.target.value)}
+                    placeholder="e.g., 0.08"
+                    className="mt-1"
+                  />
+                </div>
+
+                <div className="form-group mb-0">
+                  <label className="text-sm font-semibold text-gray-900">Target Margin %</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={targetMarginPercent}
+                    onChange={(e) => setTargetMarginPercent(e.target.value)}
+                    placeholder="e.g., 20"
+                    className="mt-1"
+                  />
+                </div>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div className="compact-item">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600">Operating Cost/Liter</span>
+                    <span className="text-2xl font-semibold text-gray-900">${calculateOperatingCostPerLiter().toFixed(2)}</span>
+                  </div>
+                </div>
+
+                <div className="compact-item">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600">All-in Cost/Liter</span>
+                    <span className="text-2xl font-semibold text-gray-900">${calculateAllInCostPerLiter().toFixed(2)}</span>
+                  </div>
+                </div>
+
+                <div className="compact-item">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600">Target Selling Price/Liter</span>
+                    <span className="text-2xl font-semibold text-gray-900">${calculateTargetSellingPricePerLiter().toFixed(2)}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-3 border-t border-gray-200 pt-4">
+                <h4 className="text-sm font-semibold text-gray-900 mb-3">Cost Breakdown by Type</h4>
+                <div className="space-y-3">
+                  {Object.entries(costBreakdown).map(([type, cost], idx) => (
+                    cost > 0 && (
+                      <div key={idx} className="compact-item">
+                        <div className="flex justify-between items-center mb-2">
+                          <span className="font-semibold text-gray-900">{type}</span>
+                          <span className="text-lg font-semibold text-gray-900">${cost.toFixed(2)}</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                          <div
+                            className="bg-gray-400 h-full"
+                            style={{
+                              width: `${(cost / calculateTotalBlendCost()) * 100 || 0}%`,
+                            }}
+                          ></div>
+                        </div>
+                        <p className="text-xs text-gray-600 mt-1">
+                          {calculateTotalBlendCost() > 0 ? ((cost / calculateTotalBlendCost()) * 100).toFixed(1) : 0}% of total
+                        </p>
                       </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
-                        <div
-                          className="bg-gray-400 h-full"
-                          style={{
-                            width: `${(cost / calculateTotalBlendCost()) * 100 || 0}%`,
-                          }}
-                        ></div>
-                      </div>
-                      <p className="text-xs text-gray-600 mt-1">
-                        {calculateTotalBlendCost() > 0 ? ((cost / calculateTotalBlendCost()) * 100).toFixed(1) : 0}% of total
-                      </p>
-                    </div>
-                  )
-                ))}
+                    )
+                  ))}
+                </div>
               </div>
             </div>
           </div>

@@ -105,6 +105,9 @@ function calculateSessionSkuCost(configData) {
 
 function calculateSessionSkuPrice(configData) {
   return toNumber(
+    configData?.skuForm?.currentSellingPricePerLiter ??
+      configData?.currentSellingPricePerLiter ??
+      configData?.draft?.currentSellingPricePerLiter ??
     configData?.skuForm?.currentSellingPrice ??
       configData?.currentSellingPrice ??
       configData?.draft?.currentSellingPrice ??
@@ -218,8 +221,6 @@ function buildSessionDashboardSummary(history, currentSessionUploadId) {
 }
 
 export default function Dashboard({ dataRefreshToken = 0, currentSessionUploadId = null }) {
-  const [quotes, setQuotes] = useState([]);
-  const [skus, setSkus] = useState([]);
   const [stats, setStats] = useState({
     // KPI Summary
     totalRevenue: 0,
@@ -455,9 +456,6 @@ export default function Dashboard({ dataRefreshToken = 0, currentSessionUploadId
           return null;
         }))
       );
-
-      setQuotes(quotesData);
-      setSkus(scopedSkus);
 
       // Calculate statistics
       calculateStats(
@@ -700,8 +698,6 @@ export default function Dashboard({ dataRefreshToken = 0, currentSessionUploadId
       };
     });
 
-    const totalFormulations = recipeMetrics.length;
-    const totalSkus = skusData.length;
     const totalSnapshots = latestSnapshots.length;
     const averageMaterialCostPerLiter = average(recipeMetrics.map((metric) => metric.materialCostPerLiter));
     const averageFormulaCostPerLiter = average(recipeMetrics.map((metric) => metric.totalFormulaCostPerLiter));
@@ -725,21 +721,55 @@ export default function Dashboard({ dataRefreshToken = 0, currentSessionUploadId
     const estimatedPortfolioRevenue = sum(skuFinancials.map((entry) => entry.revenue));
     const estimatedPortfolioCost = sum(skuFinancials.map((entry) => entry.cost));
 
-    const sessionRevenue = estimatedPortfolioRevenue;
-    const sessionCost = estimatedPortfolioCost;
-    const sessionProfit = sessionRevenue - sessionCost;
-    const sessionMargin = sessionRevenue > 0 ? (sessionProfit / sessionRevenue) * 100 : 0;
+    const workbookDashboardRevenue = toNumber(sessionDashboardSummary?.workbookRunData?.dashboardTotalRevenue ?? sessionDashboardSummary?.workbookRunData?.totalRevenue ?? 0);
+    const workbookDashboardCost = toNumber(sessionDashboardSummary?.workbookRunData?.dashboardTotalCost ?? sessionDashboardSummary?.workbookRunData?.totalCost ?? 0);
+    const workbookDashboardProfit = toNumber(sessionDashboardSummary?.workbookRunData?.dashboardTotalProfit ?? sessionDashboardSummary?.workbookRunData?.totalProfit ?? 0);
+    const workbookDashboardMargin = toNumber(sessionDashboardSummary?.workbookRunData?.dashboardAverageMargin ?? sessionDashboardSummary?.workbookRunData?.averageMargin ?? 0);
+    const hasWorkbookDashboardTotals = workbookDashboardRevenue > 0 || workbookDashboardCost > 0 || workbookDashboardProfit > 0;
+    const hasSessionSkuSummary = (sessionDashboardSummary?.totalSkus ?? 0) > 0;
+    const hasSessionFormulationSummary = (sessionDashboardSummary?.totalFormulations ?? 0) > 0;
 
-    const totalSkusForDashboard = sessionDashboardSummary?.totalSkus > 0 ? sessionDashboardSummary.totalSkus : skusData.length;
-    const totalFormulationsForDashboard = sessionDashboardSummary?.totalFormulations > 0 ? sessionDashboardSummary.totalFormulations : recipeMetrics.length;
-    const averageSkuCostPerUnitForDashboard = averageSkuCostPerUnit;
-    const averageFormulaCostPerLiterForDashboard = averageFormulaCostPerLiter;
-    const averageMaterialCostPerLiterForDashboard = averageMaterialCostPerLiter;
-    const averageAdditiveCostPercentageForDashboard = averageAdditiveCostPercentage;
-    const topSkusForDashboard = [];
-    const bottomSkusForDashboard = [];
-    const lowMarginSkusForDashboard = [];
-    const recentFormulationsForDashboard = sessionDashboardSummary?.recentFormulations || [];
+    const sessionRevenue = hasSessionSkuSummary
+      ? toNumber(sessionDashboardSummary?.sessionRevenue ?? 0)
+      : hasWorkbookDashboardTotals && workbookDashboardRevenue > 0
+        ? workbookDashboardRevenue
+        : estimatedPortfolioRevenue;
+    const sessionCost = hasSessionSkuSummary
+      ? toNumber(sessionDashboardSummary?.sessionCost ?? 0)
+      : hasWorkbookDashboardTotals && workbookDashboardCost > 0
+        ? workbookDashboardCost
+        : estimatedPortfolioCost;
+    const sessionProfit = hasSessionSkuSummary
+      ? toNumber(sessionDashboardSummary?.sessionProfit ?? (sessionRevenue - sessionCost))
+      : hasWorkbookDashboardTotals && workbookDashboardProfit !== 0
+        ? workbookDashboardProfit
+        : sessionRevenue - sessionCost;
+    const sessionMargin = hasSessionSkuSummary
+      ? toNumber(sessionDashboardSummary?.sessionMargin ?? 0)
+      : hasWorkbookDashboardTotals && workbookDashboardMargin > 0
+        ? workbookDashboardMargin
+        : sessionRevenue > 0
+          ? (sessionProfit / sessionRevenue) * 100
+          : 0;
+
+    const totalSkusForDashboard = hasSessionSkuSummary ? sessionDashboardSummary.totalSkus : skusData.length;
+    const totalFormulationsForDashboard = hasSessionFormulationSummary ? sessionDashboardSummary.totalFormulations : recipeMetrics.length;
+    const averageSkuCostPerUnitForDashboard = hasSessionSkuSummary
+      ? toNumber(sessionDashboardSummary?.averageSkuCostPerUnit ?? averageSkuCostPerUnit)
+      : averageSkuCostPerUnit;
+    const averageFormulaCostPerLiterForDashboard = hasSessionFormulationSummary
+      ? toNumber(sessionDashboardSummary?.averageFormulaCostPerLiter ?? averageFormulaCostPerLiter)
+      : averageFormulaCostPerLiter;
+    const averageMaterialCostPerLiterForDashboard = hasSessionFormulationSummary
+      ? toNumber(sessionDashboardSummary?.averageMaterialCostPerLiter ?? averageMaterialCostPerLiter)
+      : averageMaterialCostPerLiter;
+    const averageAdditiveCostPercentageForDashboard = hasSessionFormulationSummary
+      ? toNumber(sessionDashboardSummary?.averageAdditiveCostPercentage ?? averageAdditiveCostPercentage)
+      : averageAdditiveCostPercentage;
+    const topSkusForDashboard = hasSessionSkuSummary ? sessionDashboardSummary.topSkus : [];
+    const bottomSkusForDashboard = hasSessionSkuSummary ? sessionDashboardSummary.bottomSkus : [];
+    const lowMarginSkusForDashboard = hasSessionSkuSummary ? sessionDashboardSummary.lowMarginSkus : [];
+    const recentFormulationsForDashboard = hasSessionFormulationSummary ? sessionDashboardSummary.recentFormulations : [];
 
     const quoteRevenue = quotedRevenue > 0 ? quotedRevenue : 0;
     const quoteCost = quotedCost > 0 ? quotedCost : 0;

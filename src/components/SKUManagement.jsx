@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { skusService, recipesService, recipeIngredientsService, baseOilsService, additivesService, costingEngine } from "../services/supabaseService";
+import { skusService, recipesService, recipeIngredientsService, baseOilsService, additivesService } from "../services/supabaseService";
 import { historyService } from "../services/historyService";
 
 function normalizeName(value) {
@@ -167,14 +167,13 @@ export default function SKUManagement({ pendingImport, clearPendingImport, curre
     }
   }, [pendingImportSignature]);
 
-  // Auto-import when all recipes are ready for batch imports
+  // Auto-import when an import is ready.
   useEffect(() => {
     if (
       !pendingImportSignature ||
       !hasAccessibleBaseOils ||
       creatingLinkedRecipe ||
-      importingBatch ||
-      importedSkuDrafts.length === 1 // Only auto-import batch (2+)
+      importingBatch
     ) {
       return;
     }
@@ -257,18 +256,30 @@ export default function SKUManagement({ pendingImport, clearPendingImport, curre
   };
 
   const buildSkuCreatePayload = ({ draft = {}, recipeId = "" } = {}) => {
-    const { packName, config } = getDefaultPackConfig();
-    const packSizeLiters = Number(config.size || 1) || 1;
+    const { config } = getDefaultPackConfig();
+    const packSizeLiters = Number(draft.packSizeLiters ?? config.size ?? 1) || 1;
+    const pricingPerLiter = Number(draft.currentSellingPricePerLiter ?? draft.sellingPricePerLiter ?? draft.currentSellingPrice ?? skuForm.currentSellingPrice ?? 0) || 0;
+    const packagingCostPerLiter = Number(draft.packagingCostPerLiter ?? 0) || 0;
+    const explicitPackagingCost = Number(draft.packagingCostPerUnit ?? 0) || 0;
+    const packagingCostPerUnit = explicitPackagingCost > 0
+      ? explicitPackagingCost
+      : packagingCostPerLiter > 0
+        ? packagingCostPerLiter * packSizeLiters
+        : Number(config.packagingCost || 0);
+    const currentSellingPrice = draft.currentSellingPricePerLiter !== undefined || draft.sellingPricePerLiter !== undefined
+      ? pricingPerLiter * packSizeLiters
+      : Number(draft.currentSellingPrice ?? skuForm.currentSellingPrice) || 0;
+    const packDescription = draft.packDescription || draft.packSizeLabel || `${packSizeLiters}L pack`;
 
     return {
       name: draft.name || skuForm.name || "Imported SKU",
       category: draft.category || skuForm.category || "",
       recipe_id: recipeId || skuForm.recipe_id || draft.recipeId || "",
       pack_size_liters: packSizeLiters,
-      pack_description: draft.packDescription || `${packName} pack`,
-      packaging_cost_per_unit: Number(config.packagingCost || 0),
+      pack_description: packDescription,
+      packaging_cost_per_unit: Number(packagingCostPerUnit.toFixed(2)),
       base_cost_per_liter: parseFloat(draft.baseCostPerLiter ?? skuForm.baseCostPerLiter) || 0,
-      current_selling_price: parseFloat(draft.currentSellingPrice ?? skuForm.currentSellingPrice) || 0,
+      current_selling_price: Number(currentSellingPrice.toFixed(2)),
       margin_threshold: marginThreshold,
       is_active: DEFAULT_SKU_FLAGS.isActive,
       price_override: DEFAULT_SKU_FLAGS.priceOverride,
@@ -380,7 +391,7 @@ export default function SKUManagement({ pendingImport, clearPendingImport, curre
     return matchedRecipe?.id || "";
   };
 
-  const useFormSummary = Boolean(importedSkuDraft) ? false : activeTab === "create" || !selectedSku;
+  const useFormSummary = !importedSkuDraft && (activeTab === "create" || !selectedSku);
   const totalCostPerLiter = costBreakup.blendCost + costBreakup.packagingCost + costBreakup.logisticsCost + costBreakup.overheadAllocation;
   const packEntries = Object.entries(packConfigs);
   const marketEntries = Object.entries(pricingMatrix.byMarket);
@@ -504,8 +515,36 @@ export default function SKUManagement({ pendingImport, clearPendingImport, curre
         }
 
         existingSkuKeys.add(payloadKey);
-        await skusService.create(payload);
+        const createdSku = await skusService.create(payload);
+        const packSizeLiters = Number(payload.pack_size_liters || 1) || 1;
         insertedCount += 1;
+
+        try {
+          await historyService.recordConfigVersion({
+            configName: `${createdSku?.name || payload.name || "SKU"} configuration`,
+            configType: "sku",
+            configVersion: 1,
+            configData: {
+              skuForm: {
+                name: createdSku?.name || payload.name || "",
+                category: createdSku?.category || payload.category || "",
+                recipe_id: createdSku?.recipe_id || payload.recipe_id || "",
+                baseCostPerLiter: payload.base_cost_per_liter,
+                currentSellingPrice: payload.current_selling_price,
+                currentSellingPricePerLiter: packSizeLiters > 0 ? payload.current_selling_price / packSizeLiters : payload.current_selling_price,
+              },
+              sourceUploadId: draft.sourceUploadId || currentSessionUploadId || null,
+              workbookName: draft.workbookName || "Imported workbook",
+              packSizeLiters: payload.pack_size_liters,
+              packDescription: payload.pack_description,
+              packagingCostPerUnit: payload.packaging_cost_per_unit,
+            },
+            sourceUploadId: draft.sourceUploadId || currentSessionUploadId || null,
+            notes: draft.workbookName || "Imported SKU draft",
+          });
+        } catch (historyError) {
+          console.error(`Failed to save imported SKU history for ${createdSku?.name || payload.name}:`, historyError);
+        }
       }
 
       if (insertedCount === 0) {
@@ -514,13 +553,13 @@ export default function SKUManagement({ pendingImport, clearPendingImport, curre
         setShowToast(true);
         setTimeout(() => setShowToast(false), 5000);
         if (onImportComplete) onImportComplete({ importedCount: 0, skippedCount: resolvedDrafts.length });
-        if (clearPendingImport) clearPendingImport();
+        if (clearPendingImport) clearPendingImport("skus");
         return;
       }
 
       await loadData();
 
-      if (clearPendingImport) clearPendingImport();
+      if (clearPendingImport) clearPendingImport("skus");
 
       const message = `✓ Dashboard Ready for Analysis! ${resolvedDrafts.length} SKU${resolvedDrafts.length === 1 ? "" : "s"} imported.`;
       setToastMessage(message);
@@ -581,15 +620,6 @@ export default function SKUManagement({ pendingImport, clearPendingImport, curre
     }
   };
 
-  const handleConfirmLinkedMatch = () => {
-    if (!skuForm.recipe_id) {
-      alert("Choose a formulation first.");
-      return;
-    }
-
-    setLinkedMatchConfirmed(true);
-  };
-
   const handleSelectSku = (sku) => {
     setSelectedSku(sku);
     setActiveTab("list");
@@ -630,7 +660,7 @@ export default function SKUManagement({ pendingImport, clearPendingImport, curre
     }
 
     if (clearPendingImport) {
-      clearPendingImport();
+      clearPendingImport("skus");
     }
   };
 

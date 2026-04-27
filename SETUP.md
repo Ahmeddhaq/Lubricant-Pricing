@@ -11,20 +11,16 @@
 
 ## Setup Instructions
 
-### 1. Start the Backend Server (Terminal 1)
-```bash
-npm run server
-```
-This will start the Express server on port 3001 and read data from `lubricant_enterprise_system.xlsx`
-
-### 2. Start the React Development Server (Terminal 2)
+### 1. Start the Full Local Stack
 ```bash
 npm run dev
 ```
-This will start Vite on port 5173
+This starts both the Express server on port 3001 and Vite on port 5173.
 
-### 3. Open in Browser
+### 2. Open in Browser
 Navigate to: `http://localhost:5173`
+
+If you only want the frontend, use `npm run dev:client`. If you only want the backend, use `npm run server`.
 
 ## How It Works
 
@@ -55,7 +51,7 @@ npm install express cors
 - Verify `lubricant_enterprise_system.xlsx` exists in the project root
 
 ### React won't connect to server
-- Ensure server is running on port 3001
+- Ensure `npm run dev` is running both Vite and the Express server
 - Check browser console for CORS errors
 
 ## Future Enhancements

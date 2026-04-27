@@ -62,17 +62,32 @@ function AppShell() {
       activateWorkbookSession(sessionUploadId);
     }
 
-    setReadyFormulationImport(payload);
+    setPendingImport({ ...payload, targetTab: "formulation" });
+    setReadyFormulationImport(null);
     setWorkspaceNotice({
-      title: "Formulation draft ready",
-      message: "Open the Formulation page to review the imported workbook sheet.",
-      action: "formulation",
-      actionLabel: "Open Formulation page",
+      title: "Formulation import started",
+      message: "Excel Intelligence is sending the workbook straight into the formulation engine.",
+      action: null,
+      actionLabel: null,
     });
   };
 
-  const clearPendingImport = () => {
-    setPendingImport(null);
+  const clearPendingImport = (expectedKind = null) => {
+    setPendingImport((current) => {
+      if (!current) return null;
+      if (!expectedKind) return null;
+
+      const currentKind = current.kind || current.targetTab || null;
+      if (expectedKind === "formulation") {
+        return String(currentKind).startsWith("formulation") ? null : current;
+      }
+
+      if (expectedKind === "skus") {
+        return String(currentKind).startsWith("sku") ? null : current;
+      }
+
+      return null;
+    });
   };
 
   const clearReopenedWorkbookRequest = () => {
@@ -176,28 +191,31 @@ function AppShell() {
     setWorkspaceDataVersion((value) => value + 1);
 
     if (isBatchImport) {
+      setPendingImport(buildSkuImportFromLinkedDrafts(recipe, linkedSkuDrafts, sourceUploadId, snapshot));
+      setReadySkuImport(null);
       setWorkspaceNotice({
         title: "Formulations imported",
-        message: `${importedCount} formulation${importedCount === 1 ? "" : "s"} imported from the workbook.`,
-        action: "dashboard",
-        actionLabel: "Open Dashboard",
+        message: `${importedCount} formulation${importedCount === 1 ? "" : "s"} saved. SKU import is starting automatically.`,
+        action: null,
+        actionLabel: null,
       });
       return;
     }
 
+    setPendingImport(buildSkuImportFromLinkedDrafts(recipe, linkedSkuDrafts, sourceUploadId, snapshot));
+    setReadySkuImport(null);
     setWorkspaceNotice({
       title: "Formulation created",
-      message: "Ready for SKU creation. Open the SKU page to continue.",
-      action: "sku",
-      actionLabel: "Open SKU page",
+      message: "The SKU import will start automatically.",
+      action: null,
+      actionLabel: null,
     });
-
-    setReadySkuImport(buildSkuImportFromLinkedDrafts(recipe, linkedSkuDrafts, sourceUploadId, snapshot));
   };
 
   const handleSkuImportComplete = ({ importedCount = 0 } = {}) => {
     if (importedCount > 0) {
       setWorkspaceDataVersion((value) => value + 1);
+      setActiveTab("dashboard");
     }
 
     setWorkspaceNotice({
@@ -374,6 +392,7 @@ function AppShell() {
               onWorkbookSessionReady={({ uploadId }) => activateWorkbookSession(uploadId)}
               externalWorkbookRequest={reopenedWorkbookRequest}
               onExternalWorkbookHandled={clearReopenedWorkbookRequest}
+              dataRefreshToken={workspaceDataVersion}
             />
           </div>
           <div className={activeTab === "formulation" ? "page-transition" : ""} hidden={activeTab !== "formulation"}>

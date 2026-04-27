@@ -51,6 +51,13 @@ function toNumber(value) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function normalizePercent(value) {
+  const numericValue = toNumber(value);
+  if (numericValue === null) return null;
+  if (numericValue > -1 && numericValue < 1) return numericValue * 100;
+  return numericValue;
+}
+
 function mean(values) {
   const safeValues = values.filter((value) => Number.isFinite(value));
   if (!safeValues.length) return null;
@@ -67,6 +74,32 @@ function extractSheetFormulas(sheet) {
     .filter(([cell]) => !cell.startsWith("!"))
     .map(([, value]) => value?.f)
     .filter(Boolean);
+}
+
+function parseWorkbookDashboardMetrics(sheetReports) {
+  const dashboardSheet = sheetReports.find((sheet) => normalize(sheet.sheetName).includes("dashboard")) || null;
+  if (!dashboardSheet) return null;
+
+  const metrics = {};
+
+  dashboardSheet.rows.slice(1).forEach((row) => {
+    const label = normalize(row[0]);
+    const value = toNumber(row[1]);
+
+    if (!label || value === null) return;
+
+    if (label.includes("total revenue")) {
+      metrics.totalRevenue = value;
+    } else if (label.includes("total cost")) {
+      metrics.totalCost = value;
+    } else if (label.includes("total profit")) {
+      metrics.totalProfit = value;
+    } else if (label.includes("average margin")) {
+      metrics.averageMargin = value <= 1 ? value * 100 : value;
+    }
+  });
+
+  return Object.keys(metrics).length > 0 ? metrics : null;
 }
 
 function scoreSheet(headers, sheetName) {
@@ -138,14 +171,21 @@ function buildGenericSkuInsights(sheetReport, systemBenchmarkMargin) {
   const skuIndex = findHeaderIndex(headers, ["sku name", "product name", "item name", "sku", "product", "item", "name"]);
   const formulationIndex = findHeaderIndex(headers, ["linked formulation", "formulation", "recipe name", "recipe", "blend", "formula"]);
   const categoryIndex = findHeaderIndex(headers, ["category", "product category", "type", "group"]);
-  const costIndex = findHeaderIndex(headers, ["cost per liter", "base cost", "cost/l", "cost per unit", "unit cost", "blend cost", "cost"]);
-  const priceIndex = findHeaderIndex(headers, ["selling price", "sale price", "unit price", "list price", "price"]);
+  const packSizeIndex = findHeaderIndex(headers, ["pack size", "pack size liters", "pack size (l)", "size"]);
+  const packDescriptionIndex = findHeaderIndex(headers, ["pack description", "pack", "pack type"]);
+  const unitsPerCartonIndex = findHeaderIndex(headers, ["units per carton", "carton units", "units/carton"]);
+  const blendCostIndex = findHeaderIndex(headers, ["blend cost/l", "blend cost per liter", "blend cost", "blend"]);
+  const packagingCostIndex = findHeaderIndex(headers, ["packaging cost/l", "packaging cost per liter", "packaging cost", "packaging"]);
+  const logisticsCostIndex = findHeaderIndex(headers, ["logistics cost/l", "logistics cost per liter", "logistics cost", "logistics"]);
+  const overheadCostIndex = findHeaderIndex(headers, ["overhead cost/l", "overhead cost per liter", "overhead cost", "overhead"]);
+  const totalCostIndex = findHeaderIndex(headers, ["total cost/l", "total cost per liter", "total cost", "cost per liter", "base cost", "cost/l", "cost per unit", "unit cost", "cost"]);
+  const priceIndex = findHeaderIndex(headers, ["selling price/l", "selling price per liter", "selling price", "current selling price", "current price", "sale price", "sales price", "unit price", "list price", "retail price", "recommended price", "price/l", "price per liter", "price"]);
   const marginIndex = findHeaderIndex(headers, ["margin %", "gross margin", "margin"]);
 
   const marketColumnIndexes = headers
     .map((header, index) => ({ header, index, normalized: normalize(header) }))
     .filter(({ index, normalized }) => {
-      if ([skuIndex, formulationIndex, categoryIndex, costIndex, priceIndex, marginIndex].includes(index)) return false;
+      if ([skuIndex, formulationIndex, categoryIndex, totalCostIndex, priceIndex, marginIndex].includes(index)) return false;
       return /(gcc|africa|asia|europe|america|middle east|uae|ksa|gulf|domestic|export|market|region|channel|customer|distributor|bulk|retail)/i.test(normalized);
     })
     .map(({ index }) => index);
@@ -156,13 +196,21 @@ function buildGenericSkuInsights(sheetReport, systemBenchmarkMargin) {
     const rawSku = skuIndex >= 0 ? row[skuIndex] : "";
     const rawFormulation = formulationIndex >= 0 ? row[formulationIndex] : "";
     const rawCategory = categoryIndex >= 0 ? row[categoryIndex] : "";
-    const costPerLiter = costIndex >= 0 ? toNumber(row[costIndex]) : null;
-    const directPrice = priceIndex >= 0 ? toNumber(row[priceIndex]) : null;
-    const directMargin = marginIndex >= 0 ? toNumber(row[marginIndex]) : null;
+    const rawPackSize = packSizeIndex >= 0 ? String(row[packSizeIndex] ?? "").trim() : "";
+    const rawPackDescription = packDescriptionIndex >= 0 ? String(row[packDescriptionIndex] ?? "").trim() : "";
+    const packSizeLiters = rawPackSize ? toNumber(rawPackSize) ?? toNumber(row[packSizeIndex]) : null;
+    const unitsPerCarton = unitsPerCartonIndex >= 0 ? toNumber(row[unitsPerCartonIndex]) : null;
+    const blendCostPerLiter = blendCostIndex >= 0 ? toNumber(row[blendCostIndex]) : null;
+    const packagingCostPerLiter = packagingCostIndex >= 0 ? toNumber(row[packagingCostIndex]) : null;
+    const logisticsCostPerLiter = logisticsCostIndex >= 0 ? toNumber(row[logisticsCostIndex]) : null;
+    const overheadCostPerLiter = overheadCostIndex >= 0 ? toNumber(row[overheadCostIndex]) : null;
+    const totalCostPerLiter = totalCostIndex >= 0 ? toNumber(row[totalCostIndex]) : null;
+    const sellingPricePerLiter = priceIndex >= 0 ? toNumber(row[priceIndex]) : null;
+    const directMargin = marginIndex >= 0 ? normalizePercent(row[marginIndex]) : null;
 
     const marketPrices = [];
-    if (directPrice !== null) {
-      marketPrices.push({ market: headers[priceIndex] || "Selling Price", price: directPrice });
+    if (sellingPricePerLiter !== null) {
+      marketPrices.push({ market: headers[priceIndex] || "Selling Price", price: sellingPricePerLiter });
     }
 
     marketColumnIndexes.forEach((index) => {
@@ -174,8 +222,9 @@ function buildGenericSkuInsights(sheetReport, systemBenchmarkMargin) {
 
     const rowHasSignal = Boolean(
       String(rawSku || rawFormulation || rawCategory || "").trim()
-      || costPerLiter !== null
-      || directPrice !== null
+      || rawPackSize
+      || totalCostPerLiter !== null
+      || sellingPricePerLiter !== null
       || directMargin !== null
       || marketPrices.length > 0,
     );
@@ -184,24 +233,38 @@ function buildGenericSkuInsights(sheetReport, systemBenchmarkMargin) {
       return null;
     }
 
-    const displayName = String(rawSku || rawFormulation || rawCategory || `SKU ${rowIndex + 2}`).trim();
+    const baseSkuName = String(rawSku || rawFormulation || rawCategory || `SKU ${rowIndex + 2}`).trim();
+    const packLabel = rawPackDescription || rawPackSize || "";
+    const displayName = packLabel ? `${baseSkuName} ${packLabel}`.trim() : baseSkuName;
+    const variantKey = [baseSkuName, packLabel].filter(Boolean).join(" |");
+    const rowCostPerLiter = totalCostPerLiter ?? blendCostPerLiter ?? 0;
 
-    const derivedAveragePrice = marketPrices.length
+    const explicitAveragePrice = marketPrices.length
       ? mean(marketPrices.map((entry) => entry.price))
-      : directPrice;
-    const priceForMargin = derivedAveragePrice ?? (costPerLiter !== null && directMargin !== null && directMargin < 100
-      ? costPerLiter / (1 - directMargin / 100)
-      : 0);
+      : sellingPricePerLiter;
+    const priceFromMargin = rowCostPerLiter !== null && directMargin !== null && directMargin < 100
+      ? rowCostPerLiter / (1 - directMargin / 100)
+      : null;
+    const priceFromBenchmark = rowCostPerLiter !== null
+      ? costingEngine.calculateSellingPrice(rowCostPerLiter, fallbackBenchmark)
+      : null;
+    const derivedAveragePrice = (explicitAveragePrice !== null && explicitAveragePrice > 0)
+      ? explicitAveragePrice
+      : (priceFromMargin !== null && priceFromMargin > 0)
+        ? priceFromMargin
+        : (priceFromBenchmark !== null && priceFromBenchmark > 0)
+          ? priceFromBenchmark
+          : 0;
     const derivedAverageMargin = directMargin !== null
       ? directMargin
-      : costPerLiter !== null && priceForMargin > 0
-        ? ((priceForMargin - costPerLiter) / priceForMargin) * 100
-        : 0;
+      : rowCostPerLiter !== null && derivedAveragePrice > 0
+        ? ((derivedAveragePrice - rowCostPerLiter) / derivedAveragePrice) * 100
+        : fallbackBenchmark;
     const recipeNameCandidates = Array.from(new Set([
       rawFormulation,
-      displayName,
-      `${displayName} Formulation`,
-      `${displayName} Blend`,
+      baseSkuName,
+      `${baseSkuName} Formulation`,
+      `${baseSkuName} Blend`,
       sheetReport.sheetName,
     ].filter(Boolean)));
     const pricingLogicType = marketPrices.length > 1
@@ -213,56 +276,46 @@ function buildGenericSkuInsights(sheetReport, systemBenchmarkMargin) {
       ? "Workbook stores price across market or customer columns."
       : directMargin !== null
         ? "Workbook provides an explicit margin column."
-        : "Workbook provides cost and price inputs only.";
+        : sellingPricePerLiter !== null
+          ? "Workbook provides cost and price inputs only."
+          : "Workbook provides cost inputs only; price is estimated from the current benchmark margin.";
 
     return {
-      sku: normalize(displayName) || `row-${sheetReport.sheetName}-${rowIndex + 2}`,
+      sku: normalize(variantKey || displayName) || `row-${sheetReport.sheetName}-${rowIndex + 2}`,
       displayName,
-      category: rawCategory || inferCategory(displayName),
-      costPerLiter: Number((costPerLiter ?? 0).toFixed(2)),
-      averagePrice: Number(((derivedAveragePrice ?? 0)).toFixed(2)),
+      baseSkuName,
+      baseSkuKey: normalize(baseSkuName),
+      variantKey: normalize(variantKey || displayName),
+      sourceSheetName: sheetReport.sheetName,
+      sourceRole: sheetReport.role,
+      category: rawCategory || inferCategory(baseSkuName),
+      packSizeLiters: packSizeLiters ?? null,
+      packSizeLabel: rawPackSize,
+      packDescription: rawPackDescription,
+      unitsPerCarton,
+      blendCostPerLiter: Number((blendCostPerLiter ?? 0).toFixed(2)),
+      packagingCostPerLiter: Number((packagingCostPerLiter ?? 0).toFixed(2)),
+      logisticsCostPerLiter: Number((logisticsCostPerLiter ?? 0).toFixed(2)),
+      overheadCostPerLiter: Number((overheadCostPerLiter ?? 0).toFixed(2)),
+      totalCostPerLiter: Number((rowCostPerLiter ?? 0).toFixed(2)),
+      costPerLiter: Number((rowCostPerLiter ?? 0).toFixed(2)),
+      averagePrice: Number(derivedAveragePrice.toFixed(2)),
+      sellingPricePerLiter: Number(derivedAveragePrice.toFixed(2)),
       averageMargin: Number((derivedAverageMargin ?? 0).toFixed(2)),
-      profitPerUnit: Number((((derivedAveragePrice ?? 0) - (costPerLiter ?? 0))).toFixed(2)),
+      profitPerUnit: Number((derivedAveragePrice - (rowCostPerLiter ?? 0)).toFixed(2)),
       pricingLogicType,
       pricingLogicDetail,
       marketPrices,
       components: [],
-      missingCostComponents: costPerLiter === null ? [`${displayName}: missing cost`] : [],
+      missingCostComponents: rowCostPerLiter === null ? [`${displayName}: missing cost`] : [],
       systemBenchmarkMargin: fallbackBenchmark,
-      systemBenchmarkPrice: Number(costingEngine.calculateSellingPrice(costPerLiter ?? 0, fallbackBenchmark).toFixed(2)),
-      marginDelta: Number(((derivedAverageMargin ?? 0) - fallbackBenchmark).toFixed(2)),
+      systemBenchmarkPrice: Number(costingEngine.calculateSellingPrice(rowCostPerLiter ?? 0, fallbackBenchmark).toFixed(2)),
+      marginDelta: Number((derivedAverageMargin - fallbackBenchmark).toFixed(2)),
+      hasExplicitSellingPrice: sellingPricePerLiter !== null,
       recipeName: rawFormulation ? String(rawFormulation).trim() : "",
       recipeNameCandidates,
     };
   }).filter(Boolean);
-}
-
-function mergeSkuInsight(primary, secondary) {
-  const pickText = (...values) => values.find((value) => String(value ?? "").trim()) || "";
-  const pickNumber = (...values) => values.find((value) => Number.isFinite(value));
-  const pickArray = (primaryValues, secondaryValues) => (primaryValues?.length ? primaryValues : secondaryValues || []);
-
-  return {
-    ...secondary,
-    ...primary,
-    sku: primary.sku || secondary.sku,
-    displayName: pickText(primary.displayName, secondary.displayName),
-    category: pickText(primary.category, secondary.category),
-    costPerLiter: pickNumber(primary.costPerLiter, secondary.costPerLiter) ?? 0,
-    averagePrice: pickNumber(primary.averagePrice, secondary.averagePrice) ?? 0,
-    averageMargin: pickNumber(primary.averageMargin, secondary.averageMargin) ?? 0,
-    profitPerUnit: pickNumber(primary.profitPerUnit, secondary.profitPerUnit) ?? 0,
-    pricingLogicType: pickText(primary.pricingLogicType, secondary.pricingLogicType),
-    pricingLogicDetail: pickText(primary.pricingLogicDetail, secondary.pricingLogicDetail),
-    marketPrices: pickArray(primary.marketPrices, secondary.marketPrices),
-    components: pickArray(primary.components, secondary.components),
-    missingCostComponents: Array.from(new Set([...(primary.missingCostComponents || []), ...(secondary.missingCostComponents || [])])),
-    systemBenchmarkMargin: pickNumber(primary.systemBenchmarkMargin, secondary.systemBenchmarkMargin) ?? 25,
-    systemBenchmarkPrice: pickNumber(primary.systemBenchmarkPrice, secondary.systemBenchmarkPrice) ?? 0,
-    marginDelta: pickNumber(primary.marginDelta, secondary.marginDelta) ?? 0,
-    recipeName: pickText(primary.recipeName, secondary.recipeName),
-    recipeNameCandidates: Array.from(new Set([...(primary.recipeNameCandidates || []), ...(secondary.recipeNameCandidates || [])])),
-  };
 }
 
 function inferFormulationComponentType(componentName, explicitType = "") {
@@ -295,7 +348,7 @@ function buildFormulationSheetInsights(sheetReport, systemBenchmarkMargin) {
     const displayName = String(rawSku || `SKU ${rowIndex + 2}`).trim();
     const rawComponent = componentIndex >= 0 ? row[componentIndex] : "";
     const rawType = typeIndex >= 0 ? row[typeIndex] : "";
-    const percentage = percentIndex >= 0 ? toNumber(row[percentIndex]) : null;
+    const percentage = percentIndex >= 0 ? normalizePercent(row[percentIndex]) : null;
     const unitCost = unitCostIndex >= 0 ? toNumber(row[unitCostIndex]) : null;
     const contributionValue = contributionIndex >= 0 ? toNumber(row[contributionIndex]) : null;
     const contribution = contributionValue ?? (percentage !== null && unitCost !== null ? (percentage * unitCost) / 100 : null);
@@ -374,6 +427,8 @@ function buildAnalysis(workbook, systemBenchmarkMargin) {
     };
   });
 
+  const dashboardMetrics = parseWorkbookDashboardMetrics(sheetReports);
+
   const costSheet = sheetReports.find((sheet) => sheet.role === "costing" || /cost/i.test(sheet.sheetName)) || null;
   const pricingSheet = sheetReports.find((sheet) => sheet.role === "pricing" || /price/i.test(sheet.sheetName)) || null;
   const formulationSheets = sheetReports.filter((sheet) => sheet.role === "formulation" || /formulation|recipe|blend/i.test(sheet.sheetName));
@@ -432,7 +487,7 @@ function buildAnalysis(workbook, systemBenchmarkMargin) {
   if (pricingSheet) {
     const marketIndex = findHeaderIndex(pricingSheet.headers, ["market", "region", "channel"]);
     const skuIndex = findHeaderIndex(pricingSheet.headers, ["sku"]);
-    const priceIndex = findHeaderIndex(pricingSheet.headers, ["price", "selling price", "unit price"]);
+    const priceIndex = findHeaderIndex(pricingSheet.headers, ["price", "selling price", "current price", "sales price", "unit price", "retail price", "recommended price"]);
 
     pricingSheet.rows.slice(1).forEach((row, index) => {
       const sku = normalize(row[skuIndex]);
@@ -495,54 +550,56 @@ function buildAnalysis(workbook, systemBenchmarkMargin) {
     };
   });
 
-  const genericSkuInsights = sheetReports.flatMap((sheet) => buildGenericSkuInsights(sheet, fallbackBenchmark));
+  const genericSkuInsights = sheetReports
+    .filter((sheet) => sheet.role !== "formulation")
+    .flatMap((sheet) => buildGenericSkuInsights(sheet, fallbackBenchmark));
   const formulationSheetInsights = formulationSheets.flatMap((sheet) => buildFormulationSheetInsights(sheet, fallbackBenchmark));
-  const skuInsightMap = new Map();
+  const rowLevelSkuInsights = genericSkuInsights.filter((insight) => insight.sourceRole !== "formulation");
+  const rowLevelInsightMap = new Map();
+  const formulationByBaseKey = new Map(
+    formulationSheetInsights.map((insight) => [normalize(insight.sku || insight.baseSkuName || insight.displayName), insight])
+  );
 
-  structuredSkuInsights.forEach((insight) => {
-    const key = normalize(insight.sku || insight.displayName);
-    if (key) {
-      skuInsightMap.set(key, insight);
+  const enrichWithFormulation = (insight) => {
+    const baseKey = normalize(insight.baseSkuKey || insight.baseSkuName || insight.displayName || insight.sku);
+    const formulation = formulationByBaseKey.get(baseKey);
+
+    if (!formulation) {
+      return insight;
     }
-  });
 
-  genericSkuInsights.forEach((insight) => {
-    const key = normalize(insight.sku || insight.displayName);
+    return {
+      ...insight,
+      formulationCostPerLiter: formulation.formulationCostPerLiter,
+      formulationComponents: formulation.formulationComponents,
+      formulationPricingLogicType: formulation.formulationPricingLogicType,
+      formulationPricingLogicDetail: formulation.formulationPricingLogicDetail,
+      formulationSheetName: formulation.formulationSheetName,
+      formulationRecipeNameCandidates: formulation.recipeNameCandidates,
+      recipeNameCandidates: Array.from(new Set([...(insight.recipeNameCandidates || []), ...(formulation.recipeNameCandidates || [])])),
+      missingCostComponents: Array.from(new Set([...(insight.missingCostComponents || []), ...(formulation.missingCostComponents || [])])),
+      baseOilName: insight.baseOilName || formulation.baseOilName || insight.baseSkuName || insight.displayName,
+    };
+  };
+
+  const hasDetailedRowLevelData = rowLevelSkuInsights.some((insight) => insight.packSizeLiters !== null || insight.hasExplicitSellingPrice || insight.totalCostPerLiter > 0);
+  const skuSourceInsights = hasDetailedRowLevelData
+    ? rowLevelSkuInsights
+    : (structuredSkuInsights.length > 0 ? structuredSkuInsights : rowLevelSkuInsights);
+
+  skuSourceInsights.forEach((insight) => {
+    const key = normalize(insight.variantKey || insight.sku || insight.displayName);
     if (!key) return;
 
-    if (skuInsightMap.has(key)) {
-      skuInsightMap.set(key, mergeSkuInsight(skuInsightMap.get(key), insight));
+    if (rowLevelInsightMap.has(key)) {
+      rowLevelInsightMap.set(key, { ...rowLevelInsightMap.get(key), ...insight });
       return;
     }
 
-    skuInsightMap.set(key, insight);
+    rowLevelInsightMap.set(key, insight);
   });
 
-  formulationSheetInsights.forEach((insight) => {
-    const key = normalize(insight.sku || insight.displayName);
-    if (!key) return;
-
-    if (skuInsightMap.has(key)) {
-      const current = skuInsightMap.get(key);
-      skuInsightMap.set(key, {
-        ...current,
-        costPerLiter: insight.formulationCostPerLiter ?? current.costPerLiter,
-        formulationCostPerLiter: insight.formulationCostPerLiter,
-        formulationComponents: insight.formulationComponents,
-        formulationPricingLogicType: insight.formulationPricingLogicType,
-        formulationPricingLogicDetail: insight.formulationPricingLogicDetail,
-        formulationSheetName: insight.formulationSheetName,
-        formulationRecipeNameCandidates: insight.recipeNameCandidates,
-        missingCostComponents: Array.from(new Set([...(current.missingCostComponents || []), ...(insight.missingCostComponents || [])])),
-        recipeNameCandidates: Array.from(new Set([...(current.recipeNameCandidates || []), ...(insight.recipeNameCandidates || [])])),
-      });
-      return;
-    }
-
-    skuInsightMap.set(key, insight);
-  });
-
-  const skuInsights = Array.from(skuInsightMap.values());
+  const skuInsights = Array.from(rowLevelInsightMap.values()).map(enrichWithFormulation);
 
   return {
     workbookName: workbook.Props?.Title || workbook.SheetNames[0] || "Uploaded workbook",
@@ -552,6 +609,7 @@ function buildAnalysis(workbook, systemBenchmarkMargin) {
     formulationSheet,
     formulationInsights: formulationSheetInsights,
     skuInsights,
+    dashboardMetrics,
     missingCostComponents: Array.from(new Set(missingCostComponents)),
   };
 }
@@ -559,12 +617,14 @@ function buildAnalysis(workbook, systemBenchmarkMargin) {
 function buildDraftBundle(report, selectedInsight) {
   if (!selectedInsight) return null;
 
+  const productName = selectedInsight.baseSkuName || selectedInsight.formulationName || selectedInsight.displayName;
   const recipeNameCandidates = [
     selectedInsight.recipeName,
     selectedInsight.formulationName,
-    selectedInsight.displayName,
-    `${selectedInsight.displayName} Formulation`,
-    `${selectedInsight.displayName} Blend`,
+    productName,
+    selectedInsight.baseSkuName,
+    `${productName} Formulation`,
+    `${productName} Blend`,
     ...(selectedInsight.recipeNameCandidates || []),
     ...(selectedInsight.formulationRecipeNameCandidates || []),
     report.formulationSheet?.sheetName,
@@ -572,6 +632,12 @@ function buildDraftBundle(report, selectedInsight) {
   ].filter(Boolean);
 
   const sourceComponents = selectedInsight.formulationComponents || selectedInsight.components || [];
+  const baseOilComponent = sourceComponents.find((component) => {
+    const componentText = String(component?.component || component?.name || "");
+    return /base oil/i.test(String(component?.type || "")) || /base oil/i.test(componentText);
+  });
+  const baseOilName = String(baseOilComponent?.component || baseOilComponent?.name || "").trim();
+  const baseOilCostPerLiter = Number(baseOilComponent?.unitCost ?? selectedInsight.formulationCostPerLiter ?? selectedInsight.costPerLiter ?? 0) || 0;
   const componentDrafts = sourceComponents.map((component, index) => ({
     id: `${selectedInsight.sku}-${index}`,
     name: component.component,
@@ -584,13 +650,18 @@ function buildDraftBundle(report, selectedInsight) {
   const formulationDraft = {
     sourceUploadId: report.sourceUploadId || null,
     workbookName: report.workbookName,
-    skuName: selectedInsight.displayName,
+    skuName: productName,
     category: selectedInsight.category,
     pricingLogicType: selectedInsight.formulationPricingLogicType || selectedInsight.pricingLogicType,
     estimatedCostPerLiter: selectedInsight.formulationCostPerLiter ?? selectedInsight.costPerLiter,
     marginPercent: selectedInsight.averageMargin,
     batchSize: 100,
     components: componentDrafts,
+    baseOilName,
+    baseOilCostPerLiter,
+    packSizeLiters: selectedInsight.packSizeLiters ?? null,
+    packSizeLabel: selectedInsight.packSizeLabel ?? "",
+    packDescription: selectedInsight.packDescription ?? "",
     recipeNameCandidates,
   };
 
@@ -599,11 +670,24 @@ function buildDraftBundle(report, selectedInsight) {
     workbookName: report.workbookName,
     name: selectedInsight.displayName,
     category: selectedInsight.category,
-    recipeName: recipeNameCandidates[0],
+    recipeName: productName,
     recipeNameCandidates,
     recipeId: "",
-    baseCostPerLiter: selectedInsight.costPerLiter,
+    baseCostPerLiter: selectedInsight.totalCostPerLiter ?? selectedInsight.costPerLiter,
     currentSellingPrice: selectedInsight.averagePrice,
+    currentSellingPricePerLiter: selectedInsight.sellingPricePerLiter ?? selectedInsight.averagePrice,
+    sellingPricePerLiter: selectedInsight.sellingPricePerLiter ?? selectedInsight.averagePrice,
+    packagingCostPerLiter: selectedInsight.packagingCostPerLiter ?? 0,
+    packagingCostPerUnit: selectedInsight.packagingCostPerLiter !== null && selectedInsight.packSizeLiters
+      ? selectedInsight.packagingCostPerLiter * selectedInsight.packSizeLiters
+      : 0,
+    blendCostPerLiter: selectedInsight.blendCostPerLiter ?? 0,
+    logisticsCostPerLiter: selectedInsight.logisticsCostPerLiter ?? 0,
+    overheadCostPerLiter: selectedInsight.overheadCostPerLiter ?? 0,
+    totalCostPerLiter: selectedInsight.totalCostPerLiter ?? selectedInsight.costPerLiter,
+    packSizeLiters: selectedInsight.packSizeLiters ?? null,
+    packSizeLabel: selectedInsight.packSizeLabel ?? "",
+    packDescription: selectedInsight.packDescription ?? "",
     marginPercent: selectedInsight.averageMargin,
     recommendedMarginPercent: selectedInsight.systemBenchmarkMargin,
     pricingLogicType: selectedInsight.pricingLogicType,
@@ -614,7 +698,7 @@ function buildDraftBundle(report, selectedInsight) {
   return { formulationDraft, skuDraft };
 }
 
-export default function ExcelIntelligence({ onPrepareImport, onPrepareFormulationImport, onWorkbookSessionReady, externalWorkbookRequest, onExternalWorkbookHandled }) {
+export default function ExcelIntelligence({ onPrepareImport, onPrepareFormulationImport, onWorkbookSessionReady, externalWorkbookRequest, onExternalWorkbookHandled, dataRefreshToken = 0 }) {
   const { user } = useAuth();
   const [analysis, setAnalysis] = useState(null);
   const [loadingWorkbook, setLoadingWorkbook] = useState(false);
@@ -635,17 +719,25 @@ export default function ExcelIntelligence({ onPrepareImport, onPrepareFormulatio
     const loadSystemSummary = async () => {
       try {
         const [skus, recipes] = await Promise.all([skusService.getAll(), recipesService.getAll()]);
+        let totalRevenue = 0;
+        let totalCost = 0;
+
         const margins = skus
           .map((sku) => {
             const recipe = recipes.find((entry) => entry.id === sku.recipe_id) || sku.recipes;
             const sellingPrice = toNumber(sku.current_selling_price ?? sku.selling_price ?? 0);
             if (!recipe || !sellingPrice) return null;
+
             const cost = costingEngine.calculateTotalCostPerUnit(recipe, sku).totalCost;
+            totalRevenue += sellingPrice;
+            totalCost += cost;
+
             return sellingPrice > 0 ? ((sellingPrice - cost) / sellingPrice) * 100 : null;
           })
           .filter((value) => Number.isFinite(value));
 
-        const averageMargin = mean(margins);
+        const weightedMargin = totalRevenue > 0 ? ((totalRevenue - totalCost) / totalRevenue) * 100 : null;
+        const averageMargin = Number.isFinite(weightedMargin) ? weightedMargin : mean(margins);
         if (!cancelled) {
           setSystemSummary({
             loaded: true,
@@ -653,7 +745,7 @@ export default function ExcelIntelligence({ onPrepareImport, onPrepareFormulatio
             benchmarkMargin: 25,
           });
         }
-      } catch (loadError) {
+      } catch {
         if (!cancelled) {
           setSystemSummary({
             loaded: false,
@@ -669,7 +761,7 @@ export default function ExcelIntelligence({ onPrepareImport, onPrepareFormulatio
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [dataRefreshToken]);
 
   const selectedInsight = useMemo(() => {
     if (!analysis?.skuInsights?.length) return null;
@@ -716,6 +808,7 @@ export default function ExcelIntelligence({ onPrepareImport, onPrepareFormulatio
 
       const report = buildAnalysis(workbook, systemSummary.benchmarkMargin);
       const rowCount = report.sheetReports.reduce((total, sheet) => total + Math.max((sheet.rows || []).length - 1, 0), 0);
+      const dashboardMetrics = report.dashboardMetrics || {};
       const uploadRecord = await historyService.recordUpload({
         originalFilename: file.name,
         storageBucket: "excel-uploads",
@@ -749,6 +842,10 @@ export default function ExcelIntelligence({ onPrepareImport, onPrepareFormulatio
       workbookSessionSummary.sessionPrice = workbookSessionSummary.averageSellingPrice;
       workbookSessionSummary.sessionProfit = workbookSessionSummary.averageProfitPerUnit;
       workbookSessionSummary.sessionMargin = workbookSessionSummary.averageMarginPercent;
+      workbookSessionSummary.dashboardTotalRevenue = Number.isFinite(dashboardMetrics.totalRevenue) ? Number(dashboardMetrics.totalRevenue.toFixed(2)) : 0;
+      workbookSessionSummary.dashboardTotalCost = Number.isFinite(dashboardMetrics.totalCost) ? Number(dashboardMetrics.totalCost.toFixed(2)) : 0;
+      workbookSessionSummary.dashboardTotalProfit = Number.isFinite(dashboardMetrics.totalProfit) ? Number(dashboardMetrics.totalProfit.toFixed(2)) : 0;
+      workbookSessionSummary.dashboardAverageMargin = Number.isFinite(dashboardMetrics.averageMargin) ? Number(dashboardMetrics.averageMargin.toFixed(2)) : 0;
 
       try {
         await historyService.recordRun({
@@ -949,7 +1046,7 @@ export default function ExcelIntelligence({ onPrepareImport, onPrepareFormulatio
   };
 
   const autoImportKey = useMemo(() => {
-    if (!analysis || !selectedDrafts || allDraftBundles.length < 2 || !onPrepareImport) {
+    if (!analysis || !selectedDrafts || !allDraftBundles.length || !onPrepareImport) {
       return "";
     }
 
@@ -960,7 +1057,7 @@ export default function ExcelIntelligence({ onPrepareImport, onPrepareFormulatio
     ].join("|");
   }, [analysis, selectedDrafts, allDraftBundles.length, onPrepareImport]);
 
-  // Auto-import batch SKUs when analysis is ready
+  // Auto-import SKUs when analysis is ready
   useEffect(() => {
     if (!autoImportKey) {
       if (!analysis) {
@@ -1188,7 +1285,7 @@ export default function ExcelIntelligence({ onPrepareImport, onPrepareFormulatio
                 <div className={`metric-card ${statusLabel === "Underpricing" ? "border-red-300" : ""}`}>
                   <p className="metric-label">Pricing status</p>
                   <p className={`metric-value ${statusLabel === "Underpricing" ? "text-red-600" : ""}`}>{statusLabel}</p>
-                  <p className="metric-caption">Gap vs benchmark: {compareMargin}%</p>
+                  <p className="metric-caption">Margin gap vs benchmark: {compareMargin} pts</p>
                 </div>
               </div>
             )}
@@ -1228,7 +1325,7 @@ export default function ExcelIntelligence({ onPrepareImport, onPrepareFormulatio
                   </p>
                 </div>
                 <div className="metric-card">
-                  <p className="metric-label">Gap vs system benchmark price</p>
+                  <p className="metric-label">Price gap vs benchmark</p>
                   <p className={`metric-value ${pricingGap < 0 ? "text-red-600" : ""}`}>${pricingGap.toFixed(2)}</p>
                   <p className="metric-caption">
                     Expected at {comparisonBaseline.toFixed(1)}% margin: ${expectedBaselinePrice.toFixed(2)}

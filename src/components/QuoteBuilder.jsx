@@ -145,38 +145,6 @@ export default function QuoteBuilder() {
     return calculateEstimatedProfit();
   };
 
-  const getSkuRecipeForCosting = (sku) => {
-    const recipe = sku?.recipes;
-    if (Array.isArray(recipe)) {
-      return recipe[0] || null;
-    }
-    return recipe || null;
-  };
-
-  const calculateSkuCostBreakdown = (sku) => {
-    const recipe = getSkuRecipeForCosting(sku);
-    if (recipe?.base_oils) {
-      return costingEngine.calculateTotalCostPerUnit(recipe, sku);
-    }
-
-    const packSize = Number(sku?.pack_size_liters || 1) || 1;
-    const baseCostPerLiter = Number(sku?.base_cost_per_liter ?? sku?.baseCostPerLiter ?? 0);
-    const packagingCost = Number(sku?.packaging_cost_per_unit ?? sku?.packagingCostPerUnit ?? 0);
-    const blendingCostPerLiter = Number(recipe?.blending_cost_per_liter ?? 0);
-    const materialCost = baseCostPerLiter * packSize;
-    const blendingCost = blendingCostPerLiter * packSize;
-    const overheadCost = (materialCost + blendingCost + packagingCost) * 0.05;
-    const totalCost = materialCost + blendingCost + packagingCost + overheadCost;
-
-    return {
-      materialCost: parseFloat(materialCost.toFixed(2)),
-      blendingCost: parseFloat(blendingCost.toFixed(2)),
-      packagingCost: parseFloat(packagingCost.toFixed(2)),
-      overheadCost: parseFloat(overheadCost.toFixed(2)),
-      totalCost: parseFloat(totalCost.toFixed(2)),
-    };
-  };
-
   const handleAddLineItem = () => {
     if (!selectedSku || !quantity) {
       alert("Please select SKU and enter quantity");
@@ -184,44 +152,36 @@ export default function QuoteBuilder() {
     }
 
     const sku = skus.find((s) => s.id === selectedSku);
-    if (!sku) {
-      alert("Selected SKU could not be found. Refresh the page and try again.");
-      return;
-    }
+    if (!sku) return;
 
-    try {
-      const costs = calculateSkuCostBreakdown(sku);
-      const newItem = {
-        id: `item-${Date.now()}`,
-        skuId: selectedSku,
-        skuName: sku.name,
-        packType: packType,
-        quantity: parseFloat(quantity),
-        pricePerUnit: Number(sku.current_selling_price || costs.totalCost),
-        costPerUnit: costs.totalCost,
-        discountPercentage: parseFloat(itemDiscount) || 0,
-      };
+    const costs = costingEngine.calculateTotalCostPerUnit(sku.recipes, sku);
+    const newItem = {
+      id: `item-${Date.now()}`,
+      skuId: selectedSku,
+      skuName: sku.name,
+      packType: packType,
+      quantity: parseFloat(quantity),
+      pricePerUnit: sku.current_selling_price || costs.totalCost,
+      costPerUnit: costs.totalCost,
+      discountPercentage: parseFloat(itemDiscount) || 0,
+    };
 
-      setLineItems((current) => [...current, newItem]);
-      setSelectedSku("");
-      setQuantity("");
-      setItemDiscount(0);
-      setPackType("1L");
+    setLineItems([...lineItems, newItem]);
+    setSelectedSku("");
+    setQuantity("");
+    setItemDiscount(0);
+    setPackType("1L");
 
-      // Add audit entry
-      setAuditHistory((current) => [
-        ...current,
-        {
-          timestamp: new Date().toLocaleString(),
-          action: "Line item added",
-          user: "Current User",
-          details: `${newItem.skuName} - ${newItem.quantity} units`,
-        },
-      ]);
-    } catch (error) {
-      console.error("Error adding line item:", error);
-      alert("Could not add the line item because the selected SKU is missing cost data.");
-    }
+    // Add audit entry
+    setAuditHistory([
+      ...auditHistory,
+      {
+        timestamp: new Date().toLocaleString(),
+        action: "Line item added",
+        user: "Current User",
+        details: `${newItem.skuName} - ${newItem.quantity} units`,
+      },
+    ]);
   };
 
   const handleRemoveLineItem = (itemId) => {
@@ -302,21 +262,14 @@ export default function QuoteBuilder() {
       // Add line items
       for (const item of lineItems) {
         const sku = skus.find((s) => s.id === item.skuId);
-        if (!sku) {
-          throw new Error(`Selected SKU ${item.skuId} could not be found.`);
-        }
-
-        const costs = calculateSkuCostBreakdown(sku);
-        const marginPercent = costs.totalCost > 0
-          ? ((item.pricePerUnit - costs.totalCost) / costs.totalCost) * 100
-          : 0;
+        const costs = costingEngine.calculateTotalCostPerUnit(sku.recipes, sku);
 
         await quoteItemsService.addItem(
           createdQuote.id,
           item.skuId,
           item.quantity,
           item.pricePerUnit,
-          marginPercent
+          ((item.pricePerUnit - item.costPerUnit) / item.costPerUnit) * 100
         );
 
         await costSnapshotsService.createSnapshot(item.skuId, costs);
@@ -719,58 +672,46 @@ export default function QuoteBuilder() {
                 {showNewCustomer && (
                   <div className="mt-6 pt-6 border-t border-gray-200">
                     <h3 className="font-semibold text-gray-900 mb-4">Add New Customer</h3>
+                    <p className="text-sm text-gray-500 mb-4">
+                      Create a reusable customer record for quotes. The save will only work if the Supabase customers policy is enabled.
+                    </p>
                     <div className="form-grid form-grid-2 mb-4">
-                      <div className="form-group mb-0">
-                        <label className="text-sm font-semibold text-gray-900">Company Name *</label>
-                        <input
-                          type="text"
-                          placeholder="Enter company name"
-                          value={newCustomer.name}
-                          onChange={(e) => setNewCustomer({ ...newCustomer, name: e.target.value })}
-                          className="mt-1"
-                          required
-                        />
-                      </div>
-                      <div className="form-group mb-0">
-                        <label className="text-sm font-semibold text-gray-900">Email</label>
-                        <input
-                          type="email"
-                          placeholder="name@company.com"
-                          value={newCustomer.email}
-                          onChange={(e) => setNewCustomer({ ...newCustomer, email: e.target.value })}
-                          className="mt-1"
-                        />
-                      </div>
-                      <div className="form-group mb-0">
-                        <label className="text-sm font-semibold text-gray-900">Phone</label>
-                        <input
-                          type="text"
-                          placeholder="Phone number"
-                          value={newCustomer.phone}
-                          onChange={(e) => setNewCustomer({ ...newCustomer, phone: e.target.value })}
-                          className="mt-1"
-                        />
-                      </div>
-                      <div className="form-group mb-0">
-                        <label className="text-sm font-semibold text-gray-900">Country</label>
-                        <input
-                          type="text"
-                          placeholder="Country"
-                          value={newCustomer.country}
-                          onChange={(e) => setNewCustomer({ ...newCustomer, country: e.target.value })}
-                          className="mt-1"
-                        />
-                      </div>
-                      <div className="form-group mb-0">
-                        <label className="text-sm font-semibold text-gray-900">Contact Person</label>
-                        <input
-                          type="text"
-                          placeholder="Primary contact"
-                          value={newCustomer.contact_person}
-                          onChange={(e) => setNewCustomer({ ...newCustomer, contact_person: e.target.value })}
-                          className="mt-1"
-                        />
-                      </div>
+                      <input
+                        type="text"
+                        placeholder="Company Name *"
+                        value={newCustomer.name}
+                        onChange={(e) => setNewCustomer({ ...newCustomer, name: e.target.value })}
+                        className="px-3 py-2 border border-gray-300 rounded"
+                        required
+                      />
+                      <input
+                        type="email"
+                        placeholder="Email"
+                        value={newCustomer.email}
+                        onChange={(e) => setNewCustomer({ ...newCustomer, email: e.target.value })}
+                        className="px-3 py-2 border border-gray-300 rounded"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Phone"
+                        value={newCustomer.phone}
+                        onChange={(e) => setNewCustomer({ ...newCustomer, phone: e.target.value })}
+                        className="px-3 py-2 border border-gray-300 rounded"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Country"
+                        value={newCustomer.country}
+                        onChange={(e) => setNewCustomer({ ...newCustomer, country: e.target.value })}
+                        className="px-3 py-2 border border-gray-300 rounded"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Contact Person"
+                        value={newCustomer.contact_person}
+                        onChange={(e) => setNewCustomer({ ...newCustomer, contact_person: e.target.value })}
+                        className="px-3 py-2 border border-gray-300 rounded"
+                      />
                     </div>
                     <button
                       type="button"
